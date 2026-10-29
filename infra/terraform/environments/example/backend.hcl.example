@@ -1,0 +1,5 @@
+# Copy to the private inputs directory as backend.hcl and pass it with -backend-config. The bucket is created by
+# bootstrap/bootstrap.sh; one prefix per environment. Credentials come from ADC, never from this file.
+bucket                      = "replace-me-tfstate"
+prefix                      = "staging/staging"
+impersonate_service_account = "staging-deployer@replace-me.iam.gserviceaccount.com"

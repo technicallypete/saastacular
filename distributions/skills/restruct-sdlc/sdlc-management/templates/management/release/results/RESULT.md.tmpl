@@ -1,0 +1,95 @@
+# G### Result — `<title>`
+
+Status: in progress / submitted for {{SUPERVISOR_AGENT}} review (submission is not acceptance).
+
+Submit this Result and the cleanup receipt to {{SUPERVISOR_AGENT}} for review and
+direct integration-branch publication under the configured authority. Do not open
+a new Result-only/acceptance/cleanup MR or request CI/automated review solely for
+closeout records; record any explicit owner or branch-protection exception.
+
+## Summary and files changed
+
+Source repository and tested candidate commit: `<repository>`, `<commit>`; relevant dirty/untracked state: `<none or explicit extra binding>`.
+
+| Path | Change |
+|---|---|
+
+## Schema, migrations and contracts
+
+None, or the change.
+
+## Tests added
+
+## Validation
+
+| Batch | Target / candidate SHA | Command | Outcome | Evidence |
+|---|---|---|---|---|
+
+Failed, skipped and interrupted checks are listed here with their evidence; none is omitted.
+For local runs, record the retained scanned-report path and verify the check ledger, detailed failure logs
+and supplemental JUnit remain readable after cleanup before any rerun or handback. Distinguish wrapper/phase
+failures from underlying test IDs; record withholding or missing diagnostics explicitly.
+Record relevant tool/image versions and non-secret runtime configuration/extra-input references. Keep compact
+outcomes, CI links and necessary proof; no duplicate per-file hashes of committed source or full checkout archives.
+
+## Repair completeness (when repairing a failed integration)
+
+| Check / scenario | Failing pipeline / job / SHA | Correction or evidenced disposition | Passing candidate / selector / proof, or remaining hold |
+|---|---|---|---|
+
+Include earlier unresolved failures even when later runs did not execute them.
+Distinguish fixed/pass, unresolved, unchanged evidence reused, derived aggregate
+and authorized retry. Missing/skipped/canceled evidence is not passing. Keep this
+in the existing Result; link original failures and update the current disposition.
+
+## Outstanding findings
+
+- [ ] `<finding>` — batch, cause, fix, rerun result.
+
+## Acceptance criteria
+
+| AC | Status | Evidence |
+|---|---|---|
+
+## Deviations
+
+None, or each deviation with its authority.
+
+## Execution Budget
+
+Budget class: `<class>`   Maximum attempts: `<n>`   Attempts used: `<n>`
+
+### Attempt log
+
+1. `<attempt>` — contributions (main and workers), outcome, boundary reason.
+
+### Extensions
+
+None, or: previous budget, new budget, attempts used, reason, remaining work, approving supervisor.
+
+## Blockers, attempted approaches and follow-up
+
+Follow-up suggestions authorize no new scope.
+
+## Closeout and local evidence retention
+
+Existing ownership-inventory location; exact task-created resource IDs; cleanup outcome and held items/reasons.
+Use the existing cleanup mechanism and a bounded pass; preserve partial receipts for interrupted cleanup.
+
+After terminal acceptance/integration: compact retained evidence/provenance/failure history and necessary proof;
+purged owned paths/categories, file count and bytes before/after/reclaimed; retained locations/hashes and explicit
+holds. Mark unavailable raw artifacts as purged. Active/dependent evidence and session records stay protected.
+
+
+Compact closeout: removed worktrees/branches/containers/images/volumes/evidence;
+reclaimed bytes (logical vs measured); builder-cache size/reclaimable or unavailable;
+held item/reason/release condition. Observe shared cache without implicit pruning.
+If material, briefly note duplicate validation, recurring flakes or avoidable owner
+interventions using existing run timestamps; no extra measurement campaign.
+When execution materially exceeds the Plan estimate, note the cause and remaining work here or in the existing
+checkpoint. Distinguish coding/rework, elapsed validation and coordination/waiting from available evidence;
+mark unknown timings honestly and record material scope additions with their approved impact. No separate report.
+
+Container-produced report proof: non-root execution retained; host ownership/
+ordinary deletion verified; copy/removal failures and foreign-resource refusal
+covered by the existing lifecycle. No recurring privileged cleanup dependency.

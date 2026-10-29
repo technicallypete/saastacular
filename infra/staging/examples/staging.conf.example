@@ -1,0 +1,51 @@
+# Example staging.conf for infra/staging/staging.sh (docs/foundation/STAGING.md). Copy it to a private directory
+# outside Git (for example <checkout>/.local/secrets/<task>/<env>/staging.conf, mode 0600) next to the Terraform
+# backend.hcl and terraform.tfvars, and replace every example value. KEY=VALUE lines, parsed (never sourced); values
+# hold no quote, $, backquote or backslash. Non-secret identifiers only: secret values live in Secret Manager
+# (<STAGING_ENV>-<NAME>) and are never written here, in Git, in Terraform or in instance metadata.
+
+# Environment name: Compose project, resource prefix (<env>-vm, <env>-ip, <env>-data, ...) and secret prefix.
+STAGING_ENV=staging
+GCP_PROJECT=example-project
+GCP_REGION=us-central1
+GCP_ZONE=us-central1-a
+# The service account Terraform and gcloud impersonate (created by infra/terraform/bootstrap/bootstrap.sh).
+DEPLOYER_SA=staging-deployer@example-project.iam.gserviceaccount.com
+# The Artifact Registry Docker repository the candidate images are pushed to and the VM pulls from.
+AR_REPOSITORY=us-central1-docker.pkg.dev/example-project/staging
+# Platform domain B: the edge serves B, *.B (auth.B, generated labels) and custom.B (the custom-domain CNAME target).
+BASE_DOMAIN=staging.example.net
+# The Cloudflare zone holding BASE_DOMAIN (read only by retire's absence check; Terraform takes it from its tfvars).
+CLOUDFLARE_ZONE_ID=00000000000000000000000000000000
+ACME_EMAIL=ops@example.net
+# Production directory with the retained edge-data volume; the rehearsal pairs
+# https://acme-staging-v02.api.letsencrypt.org/directory with edge-data-rehearsal.
+EDGE_ACME_CA=https://acme-v02.api.letsencrypt.org/directory
+EDGE_DATA_VOLUME=edge-data
+PRODUCT_NAME=Example Product
+DATABASE_NAME=example_app
+OBJECT_STORE_BUCKET=example-objects
+# Terraform runs in this image (pin the digest the environment's lock file was verified with).
+TERRAFORM_IMAGE=hashicorp/terraform:1.16.7@sha256:0000000000000000000000000000000000000000000000000000000000000000
+# Private operator directories (absolute): manifests, logs, receipts and inventory; Terraform data and saved plans.
+EVIDENCE_DIR=/replace-me/.local/evidence/staging
+# PRIVATE_DIR defaults to this file's directory (it holds backend.hcl and terraform.tfvars).
+# PRIVATE_DIR=/replace-me/.local/secrets/staging
+# GOOGLE_ADC_FILE defaults to ~/.config/gcloud/application_default_credentials.json.
+# Session length in seconds (native max_run_duration, action STOP; 600 to 28800) that provision (first allocation)
+# and start select without --duration; it defaults to 7200 (2 h). A session never inherits a previous --duration.
+# SESSION_MAX_SECONDS=7200
+# Recorded as the owner of every inventory and receipt row.
+OWNER=staging environment owner
+# Optional root host settings of core (docs/foundation/DOMAINS.md "Default-tenant root alias and root presentation"),
+# passed through unchanged; empty or absent = unset (core's defaults). DEFAULT_TENANT_SLUG: the slug of an existing
+# Organization served at B. PLATFORM_ROOT_PAGE: signup_redirect or landing. Shared staging may leave the slug unset
+# and select landing explicitly.
+# DEFAULT_TENANT_SLUG=
+# PLATFORM_ROOT_PAGE=landing
+# Optional MCP settings of core (docs/foundation/MCP.md "Configuration (core)"); empty or absent keeps MCP disabled. The
+# issuer is this environment's exact AuthKit Connect issuer, https://<host> with no path or trailing slash (a public
+# value from WorkOS). MCP_ALLOWED_ORIGINS (comma-separated exact https origins, no spaces) needs the issuer; native MCP
+# clients send no Origin, so leave it unset unless a browser client must call the endpoint.
+# MCP_CONNECT_ISSUER=https://example-env.authkit.app
+# MCP_ALLOWED_ORIGINS=

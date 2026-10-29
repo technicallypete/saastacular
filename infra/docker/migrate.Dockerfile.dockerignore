@@ -1,0 +1,7 @@
+.git
+# Local environment files may hold secrets.
+.env
+.env.*
+
+# Operator-private task files never belong in build contexts.
+.local

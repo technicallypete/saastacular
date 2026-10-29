@@ -1,0 +1,91 @@
+# G070 staging edge (generic; every deployment value comes from the container environment, nothing is a literal).
+# EDGE_BASE_DOMAIN = B; ACME_EMAIL; EDGE_ACME_CA (unset: the Let's Encrypt production directory; the staging directory
+# for rehearsals); EDGE_HSTS_MAX_AGE (unset: 300); CF_API_TOKEN (zone-scoped Zone:Read + DNS:Edit) is read only at
+# runtime through an env placeholder, so the adapted configuration never contains it.
+# B and *.B share one DNS-01 certificate; any other name is a custom host, issued on demand only when core's internal
+# tls-ask answers 200. Routing mirrors infra/identity/proxy.conf: Host passes unchanged, only the MCP connection paths
+# reach core, everything else (/internal/* included, which web answers with its fixed 404) goes to web.
+{
+	admin off
+	email {$ACME_EMAIL}
+	acme_ca {$EDGE_ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+	on_demand_tls {
+		ask http://core:8180/internal/v1/domains/tls-ask
+	}
+	servers {
+		protocols h1 h2
+	}
+	# Runtime logs (errors, issuance) can carry the request: the same redaction as the access log below.
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "[?].*$" "?REDACTED"
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>Referer delete
+				resp_headers>Set-Cookie delete
+				resp_headers>Location delete
+			}
+		}
+	}
+}
+
+# Access log: host, method, path and status only; the whole query is replaced on every path, credentials and
+# URL-bearing headers are dropped. log_credentials stays unset.
+(edge_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "[?].*$" "?REDACTED"
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>Referer delete
+				resp_headers>Set-Cookie delete
+				resp_headers>Location delete
+			}
+		}
+	}
+}
+
+# No forwarding header reaches web or core (none is read or trusted); streaming responses are not buffered.
+(edge_proxy) {
+	reverse_proxy {args[0]} {
+		header_up -X-Forwarded-For
+		header_up -X-Forwarded-Proto
+		header_up -X-Forwarded-Host
+		flush_interval -1
+	}
+}
+
+(edge_routes) {
+	import edge_log
+	@core path /mcp/c/* /.well-known/oauth-protected-resource/mcp/c/*
+	handle @core {
+		import edge_proxy core:8180
+	}
+	handle {
+		import edge_proxy web:3000
+	}
+}
+
+{$EDGE_BASE_DOMAIN}, *.{$EDGE_BASE_DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1 1.0.0.1
+		propagation_delay 20s
+	}
+	header Strict-Transport-Security "max-age={$EDGE_HSTS_MAX_AGE:300}"
+	import edge_routes
+}
+
+# Custom hosts: the only on-demand policy, restricted by the global ask.
+https:// {
+	tls {
+		on_demand
+	}
+	import edge_routes
+}

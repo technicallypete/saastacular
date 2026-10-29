@@ -1,0 +1,1112 @@
+{
+  "version": 1,
+  "schemas": {
+    "execution-envelope": {
+      "file": "execution-envelope.schema.json",
+      "sha256": "bf3cec365e291da2cf9b201b9d0194632818721671a5844589954b978accba4f"
+    },
+    "stream-event": {
+      "file": "stream-event.schema.json",
+      "sha256": "e1025031134253ac8d19a514f6d7a4d9563281b5006ebe9be40a84e4d63fd102"
+    }
+  },
+  "profile": {
+    "keywords": [
+      "$schema",
+      "$id",
+      "$defs",
+      "$ref",
+      "title",
+      "description",
+      "type",
+      "properties",
+      "required",
+      "additionalProperties",
+      "items",
+      "minItems",
+      "maxItems",
+      "minLength",
+      "maxLength",
+      "pattern",
+      "enum",
+      "const",
+      "oneOf",
+      "minimum",
+      "format"
+    ],
+    "formats": [
+      "date-time",
+      "uuid"
+    ]
+  },
+  "cases": [
+    {
+      "id": "EV01",
+      "file": "cases/envelope/ev01-minimal.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV02",
+      "file": "cases/envelope/ev02-full.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV03",
+      "file": "cases/envelope/ev03-request-id-length-8.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV04",
+      "file": "cases/envelope/ev04-request-id-length-64.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV05",
+      "file": "cases/envelope/ev05-offset-nanoseconds.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV06",
+      "file": "cases/envelope/ev06-leap-day.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV07",
+      "file": "cases/envelope/ev07-leap-second.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV08",
+      "file": "cases/envelope/ev08-uppercase-uuids.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV09",
+      "file": "cases/envelope/ev09-max-tools-and-refs.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV10",
+      "file": "cases/envelope/ev10-max-messages.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV11",
+      "file": "cases/envelope/ev11-string-maximums.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV12",
+      "file": "cases/envelope/ev12-zero-trace-id.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV13",
+      "file": "cases/envelope/ev13-nil-uuid.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EV14",
+      "file": "cases/envelope/ev14-capability-embedding.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "EI01",
+      "file": "cases/envelope/ei01-truncated-object.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "invalid-json"
+    },
+    {
+      "id": "EI02",
+      "file": "cases/envelope/ei02-trailing-comma.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "invalid-json"
+    },
+    {
+      "id": "EI03",
+      "file": "cases/envelope/ei03-nan-literal.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "invalid-json"
+    },
+    {
+      "id": "EI04",
+      "file": "cases/envelope/ei04-top-level-array.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI05",
+      "file": "cases/envelope/ei05-missing-request-id.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI06",
+      "file": "cases/envelope/ei06-missing-trace-id.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI07",
+      "file": "cases/envelope/ei07-missing-capability.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI08",
+      "file": "cases/envelope/ei08-missing-authorization-ref.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI09",
+      "file": "cases/envelope/ei09-missing-organization-id.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI10",
+      "file": "cases/envelope/ei10-missing-user-id.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI11",
+      "file": "cases/envelope/ei11-missing-allowed-tools.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI12",
+      "file": "cases/envelope/ei12-missing-deadline.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI13",
+      "file": "cases/envelope/ei13-missing-context-refs.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI14",
+      "file": "cases/envelope/ei14-missing-input.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI15",
+      "file": "cases/envelope/ei15-allowed-tools-object.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI16",
+      "file": "cases/envelope/ei16-request-id-number.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI17",
+      "file": "cases/envelope/ei17-unknown-field.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI18",
+      "file": "cases/envelope/ei18-api-key-field.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI19",
+      "file": "cases/envelope/ei19-password-field.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI20",
+      "file": "cases/envelope/ei20-access-token-field.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI21",
+      "file": "cases/envelope/ei21-authorization-field.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI22",
+      "file": "cases/envelope/ei22-capability-vision.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI23",
+      "file": "cases/envelope/ei23-tool-level-admin.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI24",
+      "file": "cases/envelope/ei24-tool-extra-property.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI25",
+      "file": "cases/envelope/ei25-role-tool.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI26",
+      "file": "cases/envelope/ei26-empty-messages.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI27",
+      "file": "cases/envelope/ei27-too-many-messages.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI28",
+      "file": "cases/envelope/ei28-too-many-tools.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI29",
+      "file": "cases/envelope/ei29-content-too-long.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI30",
+      "file": "cases/envelope/ei30-request-id-length-7.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI31",
+      "file": "cases/envelope/ei31-request-id-length-65.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI32",
+      "file": "cases/envelope/ei32-request-id-space.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI33",
+      "file": "cases/envelope/ei33-request-id-trailing-newline.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI34",
+      "file": "cases/envelope/ei34-trace-id-uppercase.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI35",
+      "file": "cases/envelope/ei35-trace-id-length-31.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI36",
+      "file": "cases/envelope/ei36-organization-id-not-uuid.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI37",
+      "file": "cases/envelope/ei37-user-id-length-35.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI38",
+      "file": "cases/envelope/ei38-group-id-non-hex.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI39",
+      "file": "cases/envelope/ei39-deadline-february-30.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI40",
+      "file": "cases/envelope/ei40-deadline-month-13.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI41",
+      "file": "cases/envelope/ei41-deadline-hour-24.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI42",
+      "file": "cases/envelope/ei42-deadline-minute-60.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI43",
+      "file": "cases/envelope/ei43-deadline-second-61.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI44",
+      "file": "cases/envelope/ei44-deadline-second-60-not-2359.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI45",
+      "file": "cases/envelope/ei45-deadline-february-29-non-leap.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI46",
+      "file": "cases/envelope/ei46-deadline-no-offset.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI47",
+      "file": "cases/envelope/ei47-deadline-space-separator.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI48",
+      "file": "cases/envelope/ei48-deadline-fraction-10-digits.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI49",
+      "file": "cases/envelope/ei49-deadline-lowercase-t-z.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "EI50",
+      "file": "cases/envelope/ei50-deadline-offset-24.json",
+      "schema": "execution-envelope",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XV01",
+      "file": "cases/event/xv01-text-delta-empty.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV02",
+      "file": "cases/event/xv02-tool-call-nested-arguments.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV03",
+      "file": "cases/event/xv03-tool-result-object.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV04",
+      "file": "cases/event/xv04-tool-result-error-null.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV05",
+      "file": "cases/event/xv05-tool-result-string.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV06",
+      "file": "cases/event/xv06-citation-no-locator.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV07",
+      "file": "cases/event/xv07-citation-locator-256.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV08",
+      "file": "cases/event/xv08-structured-output.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV09",
+      "file": "cases/event/xv09-structured-output-schema-ref.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV10",
+      "file": "cases/event/xv10-usage-all-values.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV11",
+      "file": "cases/event/xv11-usage-nulls.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV12",
+      "file": "cases/event/xv12-usage-zeros.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV13",
+      "file": "cases/event/xv13-usage-integral-float-tokens.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV14",
+      "file": "cases/event/xv14-error-message-1024.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XV15",
+      "file": "cases/event/xv15-done.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "XI01",
+      "file": "cases/event/xi01-malformed-json.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "invalid-json"
+    },
+    {
+      "id": "XI02",
+      "file": "cases/event/xi02-unknown-type.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI03",
+      "file": "cases/event/xi03-missing-type.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI04",
+      "file": "cases/event/xi04-extra-field.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI05",
+      "file": "cases/event/xi05-numeric-text.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI06",
+      "file": "cases/event/xi06-done-without-request-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI07",
+      "file": "cases/event/xi07-request-id-space.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI08",
+      "file": "cases/event/xi08-request-id-trailing-newline.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI09",
+      "file": "cases/event/xi09-bad-call-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI10",
+      "file": "cases/event/xi10-array-arguments.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI11",
+      "file": "cases/event/xi11-tool-result-without-is-error.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI12",
+      "file": "cases/event/xi12-citation-empty-ref.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI13",
+      "file": "cases/event/xi13-structured-output-string-data.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI14",
+      "file": "cases/event/xi14-usage-negative-input-tokens.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI15",
+      "file": "cases/event/xi15-usage-negative-output-tokens.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI16",
+      "file": "cases/event/xi16-usage-negative-latency.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI17",
+      "file": "cases/event/xi17-usage-negative-cost.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI18",
+      "file": "cases/event/xi18-usage-negative-units.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI19",
+      "file": "cases/event/xi19-usage-fractional-units.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI20",
+      "file": "cases/event/xi20-usage-without-trace-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI21",
+      "file": "cases/event/xi21-usage-unknown-capability.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI22",
+      "file": "cases/event/xi22-usage-with-organization-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI23",
+      "file": "cases/event/xi23-usage-with-user-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI24",
+      "file": "cases/event/xi24-usage-with-group-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI25",
+      "file": "cases/event/xi25-usage-with-business-entity-id.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI26",
+      "file": "cases/event/xi26-usage-with-prompt.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI27",
+      "file": "cases/event/xi27-usage-with-completion.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI28",
+      "file": "cases/event/xi28-usage-with-messages.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI29",
+      "file": "cases/event/xi29-usage-with-content.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI30",
+      "file": "cases/event/xi30-usage-with-input.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI31",
+      "file": "cases/event/xi31-error-code-uppercase.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI32",
+      "file": "cases/event/xi32-error-message-1025.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI33",
+      "file": "cases/event/xi33-done-extra-field.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "XI34",
+      "file": "cases/event/xi34-usage-provider-uppercase.json",
+      "schema": "stream-event",
+      "kind": "document",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "NV01",
+      "file": "cases/ndjson/nv01-text-usage-done.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "NV02",
+      "file": "cases/ndjson/nv02-error-done.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": true,
+      "class": "valid"
+    },
+    {
+      "id": "NI01",
+      "file": "cases/ndjson/ni01-truncated-final-line.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": false,
+      "class": "ndjson-framing"
+    },
+    {
+      "id": "NI02",
+      "file": "cases/ndjson/ni02-non-json-line.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": false,
+      "class": "invalid-json"
+    },
+    {
+      "id": "NI03",
+      "file": "cases/ndjson/ni03-schema-invalid-line.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": false,
+      "class": "schema-invalid"
+    },
+    {
+      "id": "NI04",
+      "file": "cases/ndjson/ni04-blank-line.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": false,
+      "class": "ndjson-framing"
+    },
+    {
+      "id": "NI05",
+      "file": "cases/ndjson/ni05-empty.ndjson",
+      "schema": "stream-event",
+      "kind": "ndjson",
+      "valid": false,
+      "class": "ndjson-framing"
+    }
+  ],
+  "schema_negative": [
+    {
+      "id": "SN01",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn01-missing.json",
+      "mutation": {
+        "op": "absent"
+      },
+      "class": "schema-missing"
+    },
+    {
+      "id": "SN02",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn02-truncated.json",
+      "mutation": {
+        "op": "truncate-bytes",
+        "length": 64
+      },
+      "class": "schema-malformed-json"
+    },
+    {
+      "id": "SN03",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn03-meta-invalid-type.json",
+      "mutation": {
+        "op": "replace",
+        "path": "/properties/authorization_ref/type",
+        "value": 5
+      },
+      "class": "schema-meta-invalid"
+    },
+    {
+      "id": "SN04",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn04-dependent-schemas.json",
+      "mutation": {
+        "op": "add",
+        "path": "/dependentSchemas",
+        "value": {
+          "group_id": {
+            "required": [
+              "business_entity_id"
+            ]
+          }
+        }
+      },
+      "class": "schema-unsupported-keyword"
+    },
+    {
+      "id": "SN05",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn05-format-ipv4.json",
+      "mutation": {
+        "op": "add",
+        "path": "/properties/authorization_ref/format",
+        "value": "ipv4"
+      },
+      "class": "schema-unsupported-format"
+    },
+    {
+      "id": "SN06",
+      "base": "stream-event",
+      "file": "schema-negative/sn06-remote-ref.json",
+      "mutation": {
+        "op": "replace",
+        "path": "/oneOf/0/$ref",
+        "value": "https://example.invalid/x.json"
+      },
+      "class": "schema-remote-ref"
+    },
+    {
+      "id": "SN07",
+      "base": "execution-envelope",
+      "file": "schema-negative/sn07-draft-07.json",
+      "mutation": {
+        "op": "replace",
+        "path": "/$schema",
+        "value": "http://json-schema.org/draft-07/schema#"
+      },
+      "class": "schema-wrong-draft"
+    }
+  ],
+  "digest_controls": [
+    {
+      "id": "SD01",
+      "base": "execution-envelope",
+      "derivation": "canonical-plus-lf",
+      "class": "schema-digest-mismatch"
+    },
+    {
+      "id": "SD02",
+      "base": "execution-envelope",
+      "derivation": "bytes-of:SN03",
+      "class": "schema-digest-mismatch"
+    }
+  ],
+  "audit_positive": [
+    {
+      "id": "SA01",
+      "schema": "execution-envelope",
+      "class": "ok"
+    },
+    {
+      "id": "SA02",
+      "schema": "stream-event",
+      "class": "ok"
+    }
+  ]
+}

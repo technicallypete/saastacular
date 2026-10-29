@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Fake ssh-keygen for the G072 offline fixtures: writes a placeholder key pair at -f PATH (no real key material).
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+f=""
+while (($#)); do case $1 in -f) f=$2; shift ;; esac; shift; done
+[[ -n $f ]] || exit 2
+fake_log ssh-keygen L "-f $f"
+[[ ! -f $FAKE_ROOT/keygen-fail ]] || { echo "ssh-keygen: fake failure" >&2; exit 1; }
+printf 'G072-FAKE-PRIVATE-KEY-PLACEHOLDER\n' >"$f"
+printf 'ssh-ed25519 AAAAG072FAKE ci\n' >"$f.pub"

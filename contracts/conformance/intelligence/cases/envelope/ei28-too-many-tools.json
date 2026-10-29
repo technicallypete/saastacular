@@ -1,0 +1,1048 @@
+{
+  "request_id": "req-conformance-0001",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "capability": "chat",
+  "authorization_ref": "authz-ref-1",
+  "organization_id": "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b",
+  "user_id": "2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8091",
+  "allowed_tools": [
+    {
+      "name": "tool.000",
+      "level": "read"
+    },
+    {
+      "name": "tool.001",
+      "level": "read"
+    },
+    {
+      "name": "tool.002",
+      "level": "read"
+    },
+    {
+      "name": "tool.003",
+      "level": "read"
+    },
+    {
+      "name": "tool.004",
+      "level": "read"
+    },
+    {
+      "name": "tool.005",
+      "level": "read"
+    },
+    {
+      "name": "tool.006",
+      "level": "read"
+    },
+    {
+      "name": "tool.007",
+      "level": "read"
+    },
+    {
+      "name": "tool.008",
+      "level": "read"
+    },
+    {
+      "name": "tool.009",
+      "level": "read"
+    },
+    {
+      "name": "tool.010",
+      "level": "read"
+    },
+    {
+      "name": "tool.011",
+      "level": "read"
+    },
+    {
+      "name": "tool.012",
+      "level": "read"
+    },
+    {
+      "name": "tool.013",
+      "level": "read"
+    },
+    {
+      "name": "tool.014",
+      "level": "read"
+    },
+    {
+      "name": "tool.015",
+      "level": "read"
+    },
+    {
+      "name": "tool.016",
+      "level": "read"
+    },
+    {
+      "name": "tool.017",
+      "level": "read"
+    },
+    {
+      "name": "tool.018",
+      "level": "read"
+    },
+    {
+      "name": "tool.019",
+      "level": "read"
+    },
+    {
+      "name": "tool.020",
+      "level": "read"
+    },
+    {
+      "name": "tool.021",
+      "level": "read"
+    },
+    {
+      "name": "tool.022",
+      "level": "read"
+    },
+    {
+      "name": "tool.023",
+      "level": "read"
+    },
+    {
+      "name": "tool.024",
+      "level": "read"
+    },
+    {
+      "name": "tool.025",
+      "level": "read"
+    },
+    {
+      "name": "tool.026",
+      "level": "read"
+    },
+    {
+      "name": "tool.027",
+      "level": "read"
+    },
+    {
+      "name": "tool.028",
+      "level": "read"
+    },
+    {
+      "name": "tool.029",
+      "level": "read"
+    },
+    {
+      "name": "tool.030",
+      "level": "read"
+    },
+    {
+      "name": "tool.031",
+      "level": "read"
+    },
+    {
+      "name": "tool.032",
+      "level": "read"
+    },
+    {
+      "name": "tool.033",
+      "level": "read"
+    },
+    {
+      "name": "tool.034",
+      "level": "read"
+    },
+    {
+      "name": "tool.035",
+      "level": "read"
+    },
+    {
+      "name": "tool.036",
+      "level": "read"
+    },
+    {
+      "name": "tool.037",
+      "level": "read"
+    },
+    {
+      "name": "tool.038",
+      "level": "read"
+    },
+    {
+      "name": "tool.039",
+      "level": "read"
+    },
+    {
+      "name": "tool.040",
+      "level": "read"
+    },
+    {
+      "name": "tool.041",
+      "level": "read"
+    },
+    {
+      "name": "tool.042",
+      "level": "read"
+    },
+    {
+      "name": "tool.043",
+      "level": "read"
+    },
+    {
+      "name": "tool.044",
+      "level": "read"
+    },
+    {
+      "name": "tool.045",
+      "level": "read"
+    },
+    {
+      "name": "tool.046",
+      "level": "read"
+    },
+    {
+      "name": "tool.047",
+      "level": "read"
+    },
+    {
+      "name": "tool.048",
+      "level": "read"
+    },
+    {
+      "name": "tool.049",
+      "level": "read"
+    },
+    {
+      "name": "tool.050",
+      "level": "read"
+    },
+    {
+      "name": "tool.051",
+      "level": "read"
+    },
+    {
+      "name": "tool.052",
+      "level": "read"
+    },
+    {
+      "name": "tool.053",
+      "level": "read"
+    },
+    {
+      "name": "tool.054",
+      "level": "read"
+    },
+    {
+      "name": "tool.055",
+      "level": "read"
+    },
+    {
+      "name": "tool.056",
+      "level": "read"
+    },
+    {
+      "name": "tool.057",
+      "level": "read"
+    },
+    {
+      "name": "tool.058",
+      "level": "read"
+    },
+    {
+      "name": "tool.059",
+      "level": "read"
+    },
+    {
+      "name": "tool.060",
+      "level": "read"
+    },
+    {
+      "name": "tool.061",
+      "level": "read"
+    },
+    {
+      "name": "tool.062",
+      "level": "read"
+    },
+    {
+      "name": "tool.063",
+      "level": "read"
+    },
+    {
+      "name": "tool.064",
+      "level": "read"
+    },
+    {
+      "name": "tool.065",
+      "level": "read"
+    },
+    {
+      "name": "tool.066",
+      "level": "read"
+    },
+    {
+      "name": "tool.067",
+      "level": "read"
+    },
+    {
+      "name": "tool.068",
+      "level": "read"
+    },
+    {
+      "name": "tool.069",
+      "level": "read"
+    },
+    {
+      "name": "tool.070",
+      "level": "read"
+    },
+    {
+      "name": "tool.071",
+      "level": "read"
+    },
+    {
+      "name": "tool.072",
+      "level": "read"
+    },
+    {
+      "name": "tool.073",
+      "level": "read"
+    },
+    {
+      "name": "tool.074",
+      "level": "read"
+    },
+    {
+      "name": "tool.075",
+      "level": "read"
+    },
+    {
+      "name": "tool.076",
+      "level": "read"
+    },
+    {
+      "name": "tool.077",
+      "level": "read"
+    },
+    {
+      "name": "tool.078",
+      "level": "read"
+    },
+    {
+      "name": "tool.079",
+      "level": "read"
+    },
+    {
+      "name": "tool.080",
+      "level": "read"
+    },
+    {
+      "name": "tool.081",
+      "level": "read"
+    },
+    {
+      "name": "tool.082",
+      "level": "read"
+    },
+    {
+      "name": "tool.083",
+      "level": "read"
+    },
+    {
+      "name": "tool.084",
+      "level": "read"
+    },
+    {
+      "name": "tool.085",
+      "level": "read"
+    },
+    {
+      "name": "tool.086",
+      "level": "read"
+    },
+    {
+      "name": "tool.087",
+      "level": "read"
+    },
+    {
+      "name": "tool.088",
+      "level": "read"
+    },
+    {
+      "name": "tool.089",
+      "level": "read"
+    },
+    {
+      "name": "tool.090",
+      "level": "read"
+    },
+    {
+      "name": "tool.091",
+      "level": "read"
+    },
+    {
+      "name": "tool.092",
+      "level": "read"
+    },
+    {
+      "name": "tool.093",
+      "level": "read"
+    },
+    {
+      "name": "tool.094",
+      "level": "read"
+    },
+    {
+      "name": "tool.095",
+      "level": "read"
+    },
+    {
+      "name": "tool.096",
+      "level": "read"
+    },
+    {
+      "name": "tool.097",
+      "level": "read"
+    },
+    {
+      "name": "tool.098",
+      "level": "read"
+    },
+    {
+      "name": "tool.099",
+      "level": "read"
+    },
+    {
+      "name": "tool.100",
+      "level": "read"
+    },
+    {
+      "name": "tool.101",
+      "level": "read"
+    },
+    {
+      "name": "tool.102",
+      "level": "read"
+    },
+    {
+      "name": "tool.103",
+      "level": "read"
+    },
+    {
+      "name": "tool.104",
+      "level": "read"
+    },
+    {
+      "name": "tool.105",
+      "level": "read"
+    },
+    {
+      "name": "tool.106",
+      "level": "read"
+    },
+    {
+      "name": "tool.107",
+      "level": "read"
+    },
+    {
+      "name": "tool.108",
+      "level": "read"
+    },
+    {
+      "name": "tool.109",
+      "level": "read"
+    },
+    {
+      "name": "tool.110",
+      "level": "read"
+    },
+    {
+      "name": "tool.111",
+      "level": "read"
+    },
+    {
+      "name": "tool.112",
+      "level": "read"
+    },
+    {
+      "name": "tool.113",
+      "level": "read"
+    },
+    {
+      "name": "tool.114",
+      "level": "read"
+    },
+    {
+      "name": "tool.115",
+      "level": "read"
+    },
+    {
+      "name": "tool.116",
+      "level": "read"
+    },
+    {
+      "name": "tool.117",
+      "level": "read"
+    },
+    {
+      "name": "tool.118",
+      "level": "read"
+    },
+    {
+      "name": "tool.119",
+      "level": "read"
+    },
+    {
+      "name": "tool.120",
+      "level": "read"
+    },
+    {
+      "name": "tool.121",
+      "level": "read"
+    },
+    {
+      "name": "tool.122",
+      "level": "read"
+    },
+    {
+      "name": "tool.123",
+      "level": "read"
+    },
+    {
+      "name": "tool.124",
+      "level": "read"
+    },
+    {
+      "name": "tool.125",
+      "level": "read"
+    },
+    {
+      "name": "tool.126",
+      "level": "read"
+    },
+    {
+      "name": "tool.127",
+      "level": "read"
+    },
+    {
+      "name": "tool.128",
+      "level": "read"
+    },
+    {
+      "name": "tool.129",
+      "level": "read"
+    },
+    {
+      "name": "tool.130",
+      "level": "read"
+    },
+    {
+      "name": "tool.131",
+      "level": "read"
+    },
+    {
+      "name": "tool.132",
+      "level": "read"
+    },
+    {
+      "name": "tool.133",
+      "level": "read"
+    },
+    {
+      "name": "tool.134",
+      "level": "read"
+    },
+    {
+      "name": "tool.135",
+      "level": "read"
+    },
+    {
+      "name": "tool.136",
+      "level": "read"
+    },
+    {
+      "name": "tool.137",
+      "level": "read"
+    },
+    {
+      "name": "tool.138",
+      "level": "read"
+    },
+    {
+      "name": "tool.139",
+      "level": "read"
+    },
+    {
+      "name": "tool.140",
+      "level": "read"
+    },
+    {
+      "name": "tool.141",
+      "level": "read"
+    },
+    {
+      "name": "tool.142",
+      "level": "read"
+    },
+    {
+      "name": "tool.143",
+      "level": "read"
+    },
+    {
+      "name": "tool.144",
+      "level": "read"
+    },
+    {
+      "name": "tool.145",
+      "level": "read"
+    },
+    {
+      "name": "tool.146",
+      "level": "read"
+    },
+    {
+      "name": "tool.147",
+      "level": "read"
+    },
+    {
+      "name": "tool.148",
+      "level": "read"
+    },
+    {
+      "name": "tool.149",
+      "level": "read"
+    },
+    {
+      "name": "tool.150",
+      "level": "read"
+    },
+    {
+      "name": "tool.151",
+      "level": "read"
+    },
+    {
+      "name": "tool.152",
+      "level": "read"
+    },
+    {
+      "name": "tool.153",
+      "level": "read"
+    },
+    {
+      "name": "tool.154",
+      "level": "read"
+    },
+    {
+      "name": "tool.155",
+      "level": "read"
+    },
+    {
+      "name": "tool.156",
+      "level": "read"
+    },
+    {
+      "name": "tool.157",
+      "level": "read"
+    },
+    {
+      "name": "tool.158",
+      "level": "read"
+    },
+    {
+      "name": "tool.159",
+      "level": "read"
+    },
+    {
+      "name": "tool.160",
+      "level": "read"
+    },
+    {
+      "name": "tool.161",
+      "level": "read"
+    },
+    {
+      "name": "tool.162",
+      "level": "read"
+    },
+    {
+      "name": "tool.163",
+      "level": "read"
+    },
+    {
+      "name": "tool.164",
+      "level": "read"
+    },
+    {
+      "name": "tool.165",
+      "level": "read"
+    },
+    {
+      "name": "tool.166",
+      "level": "read"
+    },
+    {
+      "name": "tool.167",
+      "level": "read"
+    },
+    {
+      "name": "tool.168",
+      "level": "read"
+    },
+    {
+      "name": "tool.169",
+      "level": "read"
+    },
+    {
+      "name": "tool.170",
+      "level": "read"
+    },
+    {
+      "name": "tool.171",
+      "level": "read"
+    },
+    {
+      "name": "tool.172",
+      "level": "read"
+    },
+    {
+      "name": "tool.173",
+      "level": "read"
+    },
+    {
+      "name": "tool.174",
+      "level": "read"
+    },
+    {
+      "name": "tool.175",
+      "level": "read"
+    },
+    {
+      "name": "tool.176",
+      "level": "read"
+    },
+    {
+      "name": "tool.177",
+      "level": "read"
+    },
+    {
+      "name": "tool.178",
+      "level": "read"
+    },
+    {
+      "name": "tool.179",
+      "level": "read"
+    },
+    {
+      "name": "tool.180",
+      "level": "read"
+    },
+    {
+      "name": "tool.181",
+      "level": "read"
+    },
+    {
+      "name": "tool.182",
+      "level": "read"
+    },
+    {
+      "name": "tool.183",
+      "level": "read"
+    },
+    {
+      "name": "tool.184",
+      "level": "read"
+    },
+    {
+      "name": "tool.185",
+      "level": "read"
+    },
+    {
+      "name": "tool.186",
+      "level": "read"
+    },
+    {
+      "name": "tool.187",
+      "level": "read"
+    },
+    {
+      "name": "tool.188",
+      "level": "read"
+    },
+    {
+      "name": "tool.189",
+      "level": "read"
+    },
+    {
+      "name": "tool.190",
+      "level": "read"
+    },
+    {
+      "name": "tool.191",
+      "level": "read"
+    },
+    {
+      "name": "tool.192",
+      "level": "read"
+    },
+    {
+      "name": "tool.193",
+      "level": "read"
+    },
+    {
+      "name": "tool.194",
+      "level": "read"
+    },
+    {
+      "name": "tool.195",
+      "level": "read"
+    },
+    {
+      "name": "tool.196",
+      "level": "read"
+    },
+    {
+      "name": "tool.197",
+      "level": "read"
+    },
+    {
+      "name": "tool.198",
+      "level": "read"
+    },
+    {
+      "name": "tool.199",
+      "level": "read"
+    },
+    {
+      "name": "tool.200",
+      "level": "read"
+    },
+    {
+      "name": "tool.201",
+      "level": "read"
+    },
+    {
+      "name": "tool.202",
+      "level": "read"
+    },
+    {
+      "name": "tool.203",
+      "level": "read"
+    },
+    {
+      "name": "tool.204",
+      "level": "read"
+    },
+    {
+      "name": "tool.205",
+      "level": "read"
+    },
+    {
+      "name": "tool.206",
+      "level": "read"
+    },
+    {
+      "name": "tool.207",
+      "level": "read"
+    },
+    {
+      "name": "tool.208",
+      "level": "read"
+    },
+    {
+      "name": "tool.209",
+      "level": "read"
+    },
+    {
+      "name": "tool.210",
+      "level": "read"
+    },
+    {
+      "name": "tool.211",
+      "level": "read"
+    },
+    {
+      "name": "tool.212",
+      "level": "read"
+    },
+    {
+      "name": "tool.213",
+      "level": "read"
+    },
+    {
+      "name": "tool.214",
+      "level": "read"
+    },
+    {
+      "name": "tool.215",
+      "level": "read"
+    },
+    {
+      "name": "tool.216",
+      "level": "read"
+    },
+    {
+      "name": "tool.217",
+      "level": "read"
+    },
+    {
+      "name": "tool.218",
+      "level": "read"
+    },
+    {
+      "name": "tool.219",
+      "level": "read"
+    },
+    {
+      "name": "tool.220",
+      "level": "read"
+    },
+    {
+      "name": "tool.221",
+      "level": "read"
+    },
+    {
+      "name": "tool.222",
+      "level": "read"
+    },
+    {
+      "name": "tool.223",
+      "level": "read"
+    },
+    {
+      "name": "tool.224",
+      "level": "read"
+    },
+    {
+      "name": "tool.225",
+      "level": "read"
+    },
+    {
+      "name": "tool.226",
+      "level": "read"
+    },
+    {
+      "name": "tool.227",
+      "level": "read"
+    },
+    {
+      "name": "tool.228",
+      "level": "read"
+    },
+    {
+      "name": "tool.229",
+      "level": "read"
+    },
+    {
+      "name": "tool.230",
+      "level": "read"
+    },
+    {
+      "name": "tool.231",
+      "level": "read"
+    },
+    {
+      "name": "tool.232",
+      "level": "read"
+    },
+    {
+      "name": "tool.233",
+      "level": "read"
+    },
+    {
+      "name": "tool.234",
+      "level": "read"
+    },
+    {
+      "name": "tool.235",
+      "level": "read"
+    },
+    {
+      "name": "tool.236",
+      "level": "read"
+    },
+    {
+      "name": "tool.237",
+      "level": "read"
+    },
+    {
+      "name": "tool.238",
+      "level": "read"
+    },
+    {
+      "name": "tool.239",
+      "level": "read"
+    },
+    {
+      "name": "tool.240",
+      "level": "read"
+    },
+    {
+      "name": "tool.241",
+      "level": "read"
+    },
+    {
+      "name": "tool.242",
+      "level": "read"
+    },
+    {
+      "name": "tool.243",
+      "level": "read"
+    },
+    {
+      "name": "tool.244",
+      "level": "read"
+    },
+    {
+      "name": "tool.245",
+      "level": "read"
+    },
+    {
+      "name": "tool.246",
+      "level": "read"
+    },
+    {
+      "name": "tool.247",
+      "level": "read"
+    },
+    {
+      "name": "tool.248",
+      "level": "read"
+    },
+    {
+      "name": "tool.249",
+      "level": "read"
+    },
+    {
+      "name": "tool.250",
+      "level": "read"
+    },
+    {
+      "name": "tool.251",
+      "level": "read"
+    },
+    {
+      "name": "tool.252",
+      "level": "read"
+    },
+    {
+      "name": "tool.253",
+      "level": "read"
+    },
+    {
+      "name": "tool.254",
+      "level": "read"
+    },
+    {
+      "name": "tool.255",
+      "level": "read"
+    },
+    {
+      "name": "tool.256",
+      "level": "read"
+    }
+  ],
+  "deadline": "2030-01-01T00:00:00Z",
+  "context_refs": [],
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "synthetic prompt"
+      }
+    ]
+  }
+}

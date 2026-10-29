@@ -1,0 +1,4 @@
+# Change-scope allow-list for CI runs of infra/ci/validate.sh (docs/foundation/OPERATIONS.md).
+# It deliberately lists no path. validate.sh runs the harness with --base HEAD, so B-SCOPE and
+# B-PROTECTED assert that a CI run changed nothing relative to the checked-out commit. Goal scope is
+# enforced separately, by each Goal's own final wrapper run.

@@ -1,0 +1,453 @@
+# Baseline CI (docs/foundation/OPERATIONS.md). Two gating jobs run the repository's containerized validation
+# entry point through infra/ci/hosted-context.sh on the hosted medium runner, beside a job-private TLS Docker
+# daemon. `validate:checks` runs in every supported pipeline (the fast profile, or the narrow affected profile when the change
+# touches only registered feature areas); `validate:integration` runs the remainder of the integration or full profile that
+# infra/ci/select-profile.sh requires, and the two partitions' union is the pipeline's coverage (see
+# docs/foundation/OPERATIONS.md). There is no publish or release job, and neither of them uses a
+# CI/CD secret. `identity-staging` (docs/foundation/IDENTITY.md) runs only on the protected
+# identity-qualification branch, for a web or scheduled pipeline, in the environment identity-staging: the
+# only job that receives the environment-scoped WorkOS staging variables, which hosted-context.sh forwards to
+# the staging profile in exactly that context.
+# No push starts a pipeline (no automatic post-merge cloud checks): feature branches, staging (qualify it with a
+# local full run on the exact merged commit), the default branch and every tag.
+# Automatic MR pipelines require a changed path outside documentation (root *.md and docs/**/*.md). The globs below
+# also name repository-management paths (management/, .agents/skills/claude-session-handoff/) that this template
+# does not ship; they are inert here and kept because B-CI-CONFIG pins the exact rule list.
+# These positive globs are their complement, using GitLab's Ruby fnmatch semantics; nested Claude
+# skills (**/.claude/skills/**) are always admitted. Unknown directories and non-Markdown controls remain
+# covered; explicit full requests remain.
+# Release qualification: promotion merges to the default branch and RC/final release tags start no pipeline. The only
+# full hosted release qualification is
+# the RC-promotion merge request from release/<MAJOR.MINOR.PATCH-rc.N> to the default branch: admitted without the
+# documentation filter, both jobs automatic and required (the full union, CI meta-tests and every present area). The
+# source-branch pattern only routes; validate.sh proves the RC (annotated tag peeled to the merge request head,
+# contained in staging) or refuses. The rule variable GIT_FETCH_EXTRA_FLAGS adds the staging and tag refs to the
+# runner's own credentialed fetch, before the adapter removes credentials.
+# Manual staging/preview deployment (docs/foundation/STAGING.md): the typed pipeline inputs below default to
+# today's behaviour (action Validate, environment none), and MR, RC, schedule, push and tag pipelines keep those
+# defaults. A non-default action is admitted only in a web or API pipeline on the protected staging branch; there it
+# replaces the validation jobs: Deploy environment = staging:prepare -> staging:check -> staging:build -> staging:deploy,
+# Stop environment = staging:stop alone (empty candidate and duration). environment none, or a stop with a candidate or duration,
+# leaves zero jobs, so GitLab refuses the pipeline before any credential exists. Inputs are interpolated only where
+# their options/regex make them inert text; no pipeline variable selects or overrides anything. The jobs run control
+# code only, through infra/ci/staging-action.sh; prepare and build hold no ID token, environment or protected
+# variable; check reads with the environment's read audience; deploy and stop mutate under the environment's
+# resource group with the start and stop audiences.
+# Adopting this file in your own GitLab project: the identity-staging job and every staging:* job refuse (exit 16)
+# until infra/ci/hosted-context.sh is re-pinned to your project (STG_PROJECT_ID and STG_PROJECT_PATH_SHA; see
+# docs/foundation/STAGING.md "Pinning your GitLab project"). The runner tag saas-linux-medium-amd64 is GitLab's
+# hosted Linux medium runner; a self-managed runner needs a Docker-in-Docker capable executor and the matching tag.
+# The input descriptions keep their reviewed wording because B-CI-CONFIG pins the spec header exactly.
+spec:
+  inputs:
+    action:
+      type: string
+      description: "Validate (the ordinary pipeline), Deploy environment or Stop environment (G072; protected staging web/API pipelines only)"
+      options: [Validate, "Deploy environment", "Stop environment"]
+      default: Validate
+    environment:
+      type: string
+      description: "none, or the allowlisted environment (infra/staging/ci-environments.txt) for Deploy environment and Stop environment"
+      options: [none, staging, preview-1]
+      default: none
+    candidate:
+      type: string
+      description: "Deploy environment only: empty or staging (the commit of this pipeline), a full SHA, or for preview-1 a same-repository branch"
+      default: ""
+      regex: '^([0-9a-f]{40}|[A-Za-z0-9][A-Za-z0-9._/-]{0,199})?$'
+    duration:
+      type: string
+      description: "Deploy environment only: empty (2 h for a stopped VM; a running VM keeps its session) or 600-28800 s as N, Nm or Nh"
+      default: ""
+      regex: '^([1-9][0-9]{0,5}[mh]?)?$'
+---
+workflow:
+  # Keep integration and credential-bearing qualification runs stable. Only MR
+  # checks are superseded automatically when that MR receives a newer commit.
+  auto_cancel:
+    on_new_commit: none
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "staging" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "staging"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    # Deployment mode (a non-default action) only for a web or API pipeline on the protected staging branch.
+    - if: '"$[[ inputs.action ]]" != "Validate" && $CI_PIPELINE_SOURCE != "web" && $CI_PIPELINE_SOURCE != "api"'
+      when: never
+    - if: '"$[[ inputs.action ]]" != "Validate" && $CI_COMMIT_BRANCH != "staging"'
+      when: never
+    - if: '"$[[ inputs.action ]]" != "Validate" && $CI_COMMIT_REF_PROTECTED != "true"'
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.([1-9][0-9]*)$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      auto_cancel:
+        on_new_commit: interruptible
+      changes: &non_documentation
+        - "{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "{[^.dm]*,.[^a]*,.a[^g]*,.ag[^e]*,.age[^n]*,.agen[^t]*,.agent[^s]*,.agents?*,.,.a,.ag,.age,.agen,.agent,d[^o]*,do[^c]*,doc[^s]*,docs?*,d,do,doc,m[^a]*,ma[^n]*,man[^a]*,mana[^g]*,manag[^e]*,manage[^m]*,managem[^e]*,manageme[^n]*,managemen[^t]*,management?*,m,ma,man,mana,manag,manage,managem,manageme,managemen}/**/*"
+        - ".agents/*"
+        - ".agents/{[^s]*,s[^k]*,sk[^i]*,ski[^l]*,skil[^l]*,skill[^s]*,skills?*,s,sk,ski,skil,skill}/**/*"
+        - ".agents/skills/*"
+        - ".agents/skills/{[^c]*,c[^l]*,cl[^a]*,cla[^u]*,clau[^d]*,claud[^e]*,claude[^-]*,claude-[^s]*,claude-s[^e]*,claude-se[^s]*,claude-ses[^s]*,claude-sess[^i]*,claude-sessi[^o]*,claude-sessio[^n]*,claude-session[^-]*,claude-session-[^h]*,claude-session-h[^a]*,claude-session-ha[^n]*,claude-session-han[^d]*,claude-session-hand[^o]*,claude-session-hando[^f]*,claude-session-handof[^f]*,claude-session-handoff?*,c,cl,cla,clau,claud,claude,claude-,claude-s,claude-se,claude-ses,claude-sess,claude-sessi,claude-sessio,claude-session,claude-session-,claude-session-h,claude-session-ha,claude-session-han,claude-session-hand,claude-session-hando,claude-session-handof}/**/*"
+        - ".agents/skills/claude-session-handoff/{[^S]*,S[^K]*,SK[^I]*,SKI[^L]*,SKIL[^L]*,SKILL[^.]*,SKILL.[^m]*,SKILL.m[^d]*,SKILL.md?*,S,SK,SKI,SKIL,SKILL,SKILL.,SKILL.m}"
+        - ".agents/skills/claude-session-handoff/{[^ar]*,a[^g]*,ag[^e]*,age[^n]*,agen[^t]*,agent[^s]*,agents?*,a,ag,age,agen,agent,r[^e]*,re[^f]*,ref[^e]*,refe[^r]*,refer[^e]*,refere[^n]*,referen[^c]*,referenc[^e]*,reference[^s]*,references?*,r,re,ref,refe,refer,refere,referen,referenc,reference}/**/*"
+        - ".agents/skills/claude-session-handoff/agents/{[^o]*,o[^p]*,op[^e]*,ope[^n]*,open[^a]*,opena[^i]*,openai[^.]*,openai.[^y]*,openai.y[^a]*,openai.ya[^m]*,openai.yam[^l]*,openai.yaml?*,o,op,ope,open,opena,openai,openai.,openai.y,openai.ya,openai.yam}"
+        - ".agents/skills/claude-session-handoff/agents/*/**/*"
+        - ".agents/skills/claude-session-handoff/references/{[^l]*,l[^o]*,lo[^c]*,loc[^a]*,loca[^l]*,local[^-]*,local-[^s]*,local-s[^e]*,local-se[^s]*,local-ses[^s]*,local-sess[^i]*,local-sessi[^o]*,local-sessio[^n]*,local-session[^-]*,local-session-[^h]*,local-session-h[^a]*,local-session-ha[^n]*,local-session-han[^d]*,local-session-hand[^o]*,local-session-hando[^f]*,local-session-handof[^f]*,local-session-handoff[^.]*,local-session-handoff.[^m]*,local-session-handoff.m[^d]*,local-session-handoff.md?*,l,lo,loc,loca,local,local-,local-s,local-se,local-ses,local-sess,local-sessi,local-sessio,local-session,local-session-,local-session-h,local-session-ha,local-session-han,local-session-hand,local-session-hando,local-session-handof,local-session-handoff,local-session-handoff.,local-session-handoff.m}"
+        - ".agents/skills/claude-session-handoff/references/*/**/*"
+        - "**/.claude/skills/**/*"
+        - "docs/**/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/{[^v]*,v[^0]*,v,v0?*}/**/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/v0/{*[^dl],*[^m]d,*[^.]md,*[^n]l,*[^o]nl,*[^s]onl,*[^j]sonl,*[^.]jsonl,d,md,l,nl,onl,sonl,jsonl,.jsonl}"
+        - "management/v0/{[^S]*,S[^E]*,SE[^S]*,SES[^S]*,SESS[^I]*,SESSI[^O]*,SESSIO[^N]*,SESSION[^-]*,SESSION-[^H]*,SESSION-H[^A]*,SESSION-HA[^N]*,SESSION-HAN[^D]*,SESSION-HAND[^O]*,SESSION-HANDO[^F]*,SESSION-HANDOF[^F]*,SESSION-HANDOFF[^S]*,SESSION-HANDOFFS?*,S,SE,SES,SESS,SESSI,SESSIO,SESSION,SESSION-,SESSION-H,SESSION-HA,SESSION-HAN,SESSION-HAND,SESSION-HANDO,SESSION-HANDOF,SESSION-HANDOFF}.jsonl"
+        - "management/v0/{[^pr]*,p[^l]*,pl[^a]*,pla[^n]*,plan[^s]*,plans?*,r[^e]*,re[^s]*,res[^u]*,resu[^l]*,resul[^t]*,result[^s]*,results?*,p,pl,pla,plan,r,re,res,resu,resul,result}/**/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/v0/plans/*/**/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/v0/plans/{*[^dn],*[^o]n,*[^s]on,*[^j]son,*[^.]json,n,on,son,json,*[^m]d,*[^.]md,d,md}"
+        - "management/v0/plans/{[^G]*,G[^0-9]*,G[0-9][^0-9]*,G[0-9][0-9][^0-9]*,G[0-9][0-9][0-9][^-]*,G[0-9][0-9][0-9]-[^p]*,G[0-9][0-9][0-9]-p[^l]*,G[0-9][0-9][0-9]-pl[^a]*,G[0-9][0-9][0-9]-pla[^n]*,G[0-9][0-9][0-9]-plan[^n]*,G[0-9][0-9][0-9]-plann[^i]*,G[0-9][0-9][0-9]-planni[^n]*,G[0-9][0-9][0-9]-plannin[^g]*,G[0-9][0-9][0-9]-planning[^-]*,G[0-9][0-9][0-9]-planning-[^i]*,G[0-9][0-9][0-9]-planning-i[^n]*,G[0-9][0-9][0-9]-planning-in[^p]*,G[0-9][0-9][0-9]-planning-inp[^u]*,G[0-9][0-9][0-9]-planning-inpu[^t]*,G[0-9][0-9][0-9]-planning-input[^s]*,G,G[0-9],G[0-9][0-9],G[0-9][0-9][0-9],G[0-9][0-9][0-9]-,G[0-9][0-9][0-9]-p,G[0-9][0-9][0-9]-pl,G[0-9][0-9][0-9]-pla,G[0-9][0-9][0-9]-plan,G[0-9][0-9][0-9]-plann,G[0-9][0-9][0-9]-planni,G[0-9][0-9][0-9]-plannin,G[0-9][0-9][0-9]-planning,G[0-9][0-9][0-9]-planning-,G[0-9][0-9][0-9]-planning-i,G[0-9][0-9][0-9]-planning-in,G[0-9][0-9][0-9]-planning-inp,G[0-9][0-9][0-9]-planning-inpu,G[0-9][0-9][0-9]-planning-input}.json"
+        - "management/v0/results/*/**/{*[^d],*[^m]d,*[^.]md,d,md}"
+        - "management/v0/results/{*[^dt],*[^m]d,*[^.]md,d,md,*[^x]t,*[^t]xt,*[^.]txt,t,xt,txt,.txt}"
+        - "management/v0/results/{[^G]*,G[^0-9]*,G[0-9][^0-9]*,G[0-9][0-9][^0-9]*,G[0-9][0-9][0-9][^-]*,G[0-9][0-9][0-9]-[^s]*,G[0-9][0-9][0-9]-s[^c]*,G[0-9][0-9][0-9]-sc[^o]*,G[0-9][0-9][0-9]-sco[^p]*,G[0-9][0-9][0-9]-scop[^e]*,G[0-9][0-9][0-9]-scope[^-]*,G[0-9][0-9][0-9]-scope-[^a]*,G[0-9][0-9][0-9]-scope-a[^l]*,G[0-9][0-9][0-9]-scope-al[^l]*,G[0-9][0-9][0-9]-scope-all[^o]*,G[0-9][0-9][0-9]-scope-allo[^w]*,G[0-9][0-9][0-9]-scope-allow[^l]*,G[0-9][0-9][0-9]-scope-allowl[^i]*,G[0-9][0-9][0-9]-scope-allowli[^s]*,G[0-9][0-9][0-9]-scope-allowlis[^t]*,G[0-9][0-9][0-9]-scope-allowlist?*,G,G[0-9],G[0-9][0-9],G[0-9][0-9][0-9],G[0-9][0-9][0-9]-,G[0-9][0-9][0-9]-s,G[0-9][0-9][0-9]-sc,G[0-9][0-9][0-9]-sco,G[0-9][0-9][0-9]-scop,G[0-9][0-9][0-9]-scope,G[0-9][0-9][0-9]-scope-,G[0-9][0-9][0-9]-scope-a,G[0-9][0-9][0-9]-scope-al,G[0-9][0-9][0-9]-scope-all,G[0-9][0-9][0-9]-scope-allo,G[0-9][0-9][0-9]-scope-allow,G[0-9][0-9][0-9]-scope-allowl,G[0-9][0-9][0-9]-scope-allowli,G[0-9][0-9][0-9]-scope-allowlis}.txt"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "identity-qualification" && $CI_COMMIT_REF_PROTECTED == "true"
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "api" && $CI_COMMIT_BRANCH
+    - when: never
+
+stages: [checks, integration, staging]
+
+"validate:checks":
+  stage: checks
+  rules:
+    - if: '"$[[ inputs.action ]]" != "Validate"'
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.([1-9][0-9]*)$/
+      variables:
+        GIT_FETCH_EXTRA_FLAGS: "--prune --quiet +refs/heads/staging:refs/remotes/origin/staging +refs/tags/*:refs/tags/*"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      interruptible: true
+    - when: on_success
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 40m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 35m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
+  script:
+    - sh infra/ci/hosted-context.sh -- --profile fast --publish-dir ci-evidence
+  after_script:
+    - sh infra/ci/hosted-context.sh --after-script
+  artifacts:
+    when: always
+    expire_in: 90 days
+    access: developer
+    paths: [ci-evidence/]
+    reports:
+      junit: ci-evidence/junit.xml
+
+"validate:integration":
+  stage: integration
+  # Ordering only: checks artifacts must not enter the integration job's clean checkout.
+  needs:
+    - job: "validate:checks"
+      artifacts: false
+  rules:
+    # In rule order: the RC-promotion merge request runs the full remainder automatically and as a
+    # required job (the only hosted release qualification). Ordinary feature qualification is a local
+    # `bash infra/ci/validate.sh --profile full` on the exact merged staging commit; no push (staging,
+    # default branch, tags) starts a pipeline (workflow). The ordinary MR gate is an optional manual job
+    # that consumes no runner time unless explicitly started; explicit schedules and web/API pipelines run
+    # it automatically. Deployment mode
+    # runs no validation job.
+    - if: '"$[[ inputs.action ]]" != "Validate"'
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.([1-9][0-9]*)$/
+      variables:
+        GIT_FETCH_EXTRA_FLAGS: "--prune --quiet +refs/heads/staging:refs/remotes/origin/staging +refs/tags/*:refs/tags/*"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 3h
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 2h45m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 10m
+  script:
+    - sh infra/ci/hosted-context.sh -- --profile gate --publish-dir ci-evidence
+  after_script:
+    - sh infra/ci/hosted-context.sh --after-script
+  artifacts:
+    when: always
+    expire_in: 90 days
+    access: developer
+    paths: [ci-evidence/]
+    reports:
+      junit: ci-evidence/junit.xml
+
+identity-staging:
+  stage: integration
+  # Independent of the validation jobs; it starts at once.
+  needs: []
+  rules:
+    - if: '"$[[ inputs.action ]]" != "Validate"'
+      when: never
+    - if: $CI_COMMIT_BRANCH == "identity-qualification" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "schedule")
+  environment:
+    name: identity-staging
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 45m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 40m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
+  script:
+    - sh infra/ci/hosted-context.sh -- --profile staging --publish-dir ci-evidence
+  after_script:
+    - sh infra/ci/hosted-context.sh --after-script
+  artifacts:
+    when: always
+    expire_in: 90 days
+    access: developer
+    paths: [ci-evidence/]
+    reports:
+      junit: ci-evidence/junit.xml
+
+# Deploy environment, credential-free: resolves and pins the candidate (frozen pipeline commit by default), applies the
+# infrastructure-compatibility gate and hands the next jobs a bundle, candidate.tsv and the candidate schema.
+"staging:prepare":
+  stage: staging
+  needs: []
+  rules:
+    - if: '"$[[ inputs.action ]]" == "Deploy environment" && "$[[ inputs.environment ]]" != "none" && $CI_COMMIT_BRANCH == "staging" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 10m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 7m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
+  script:
+    - 'sh infra/ci/staging-action.sh prepare --environment "$[[ inputs.environment ]]" --candidate "$[[ inputs.candidate ]]" --duration "$[[ inputs.duration ]]"'
+  after_script:
+    - 'sh infra/ci/staging-action.sh --after-script prepare --environment "$[[ inputs.environment ]]"'
+  artifacts:
+    expire_in: 1 day
+    access: none
+    paths: [staging-prepare/]
+
+# Deploy environment, read-only: the environment's read identity decides image reuse (a valid published manifest whose
+# digests exist) after authentication; outside the mutation resource group. Its dotenv carries STAGING_REUSE only.
+"staging:check":
+  stage: staging
+  needs: ["staging:prepare"]
+  rules:
+    - if: '"$[[ inputs.action ]]" == "Deploy environment" && "$[[ inputs.environment ]]" != "none" && $CI_COMMIT_BRANCH == "staging" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+  environment:
+    name: "$[[ inputs.environment ]]"
+    action: prepare
+  id_tokens:
+    STAGING_CI_ID_TOKEN:
+      aud: "staging-ci:$[[ inputs.environment ]]:read"
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 10m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 7m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 2m
+  script:
+    - 'sh infra/ci/staging-action.sh check --environment "$[[ inputs.environment ]]" --candidate "$[[ inputs.candidate ]]" --duration "$[[ inputs.duration ]]"'
+  after_script:
+    - 'sh infra/ci/staging-action.sh --after-script check --environment "$[[ inputs.environment ]]"'
+  artifacts:
+    expire_in: 1 day
+    access: developer
+    reports:
+      dotenv: staging-check/reuse.env
+
+# Deploy environment, credential-free image build (skipped inside the job when check decided reuse): one build slot for
+# every environment; candidate code runs only inside build containers of the job-private daemon.
+"staging:build":
+  stage: staging
+  needs: ["staging:prepare", "staging:check"]
+  rules:
+    - if: '"$[[ inputs.action ]]" == "Deploy environment" && "$[[ inputs.environment ]]" != "none" && $CI_COMMIT_BRANCH == "staging" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+  resource_group: staging-image-build
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 45m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 40m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
+  script:
+    - 'sh infra/ci/staging-action.sh build --environment "$[[ inputs.environment ]]" --candidate "$[[ inputs.candidate ]]" --duration "$[[ inputs.duration ]]"'
+  after_script:
+    - 'sh infra/ci/staging-action.sh --after-script build --environment "$[[ inputs.environment ]]"'
+  artifacts:
+    expire_in: 1 day
+    access: none
+    paths: [staging-build/]
+
+# Deploy environment, the mutation: validates everything locally, then reads, then writes (lease, images, start, deploy,
+# readiness, metadata, receipt) as the environment's deployer, serialized with stop by the environment resource group.
+"staging:deploy":
+  stage: staging
+  needs: ["staging:prepare", "staging:check", "staging:build"]
+  rules:
+    - if: '"$[[ inputs.action ]]" == "Deploy environment" && "$[[ inputs.environment ]]" != "none" && $CI_COMMIT_BRANCH == "staging" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+  environment:
+    name: "$[[ inputs.environment ]]"
+    action: start
+  resource_group: "staging-env-$[[ inputs.environment ]]"
+  id_tokens:
+    STAGING_CI_ID_TOKEN:
+      aud: "staging-ci:$[[ inputs.environment ]]:start"
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 60m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 55m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
+  script:
+    - 'sh infra/ci/staging-action.sh deploy --environment "$[[ inputs.environment ]]" --candidate "$[[ inputs.candidate ]]" --duration "$[[ inputs.duration ]]"'
+  after_script:
+    - 'sh infra/ci/staging-action.sh --after-script deploy --environment "$[[ inputs.environment ]]"'
+  artifacts:
+    when: always
+    expire_in: 90 days
+    access: developer
+    paths: [staging-summary/]
+
+# Stop, in a fresh pipeline: no candidate, build, artifact or earlier workspace; the environment's stop identity,
+# the same resource group as deploy. A candidate or duration leaves the rule unmatched (zero jobs, creation refused).
+"staging:stop":
+  stage: staging
+  needs: []
+  rules:
+    - if: '"$[[ inputs.action ]]" == "Stop environment" && "$[[ inputs.environment ]]" != "none" && "$[[ inputs.candidate ]]" == "" && "$[[ inputs.duration ]]" == "" && $CI_COMMIT_BRANCH == "staging" && $CI_COMMIT_REF_PROTECTED == "true" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+  environment:
+    name: "$[[ inputs.environment ]]"
+    action: stop
+  resource_group: "staging-env-$[[ inputs.environment ]]"
+  id_tokens:
+    STAGING_CI_ID_TOKEN:
+      aud: "staging-ci:$[[ inputs.environment ]]:stop"
+  tags: [saas-linux-medium-amd64]
+  image: docker:29.8.2-cli@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c
+  services:
+    - name: docker:29.8.2-dind@sha256:7dcdfc4a20246236f558175182ccace1eb15a41bd3eb119dd2284f393498b7c1
+      alias: docker
+  timeout: 30m
+  interruptible: false
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    GIT_CLEAN_FLAGS: -ffdx
+    FF_GIT_URLS_WITHOUT_TOKENS: "true"
+    RUNNER_SCRIPT_TIMEOUT: 25m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
+  script:
+    - 'sh infra/ci/staging-action.sh stop --environment "$[[ inputs.environment ]]" --candidate "$[[ inputs.candidate ]]" --duration "$[[ inputs.duration ]]"'
+  after_script:
+    - 'sh infra/ci/staging-action.sh --after-script stop --environment "$[[ inputs.environment ]]"'
+  artifacts:
+    when: always
+    expire_in: 90 days
+    access: developer
+    paths: [staging-summary/]

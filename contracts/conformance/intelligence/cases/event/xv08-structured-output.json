@@ -1,0 +1,8 @@
+{
+  "type": "structured_output",
+  "request_id": "req-conformance-0001",
+  "data": {
+    "field": 1,
+    "label": "synthetic"
+  }
+}

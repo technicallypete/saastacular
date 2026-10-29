@@ -1,0 +1,19 @@
+# Browser tests for web (profile "browser"); use together with local.yml while the stack runs:
+#   docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/browser.yml \
+#     --profile browser run --rm --build --no-deps web-browser
+# The runner shares the web container's network namespace, so web itself is not reconfigured and
+# no network is added. It publishes no port and receives only public display values, no secrets.
+services:
+  web-browser:
+    profiles: [browser]
+    build:
+      context: ../../web
+      dockerfile: ../infra/docker/web-browser.Dockerfile
+      target: browser
+    network_mode: "service:web"
+    init: true
+    shm_size: "1gb"
+    environment:
+      WEB_BASE_URL: http://127.0.0.1:3000
+      EXPECTED_PRODUCT_NAME: ${PRODUCT_NAME:?PRODUCT_NAME is required}
+      EXPECTED_PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:?PLATFORM_BASE_DOMAIN is required}

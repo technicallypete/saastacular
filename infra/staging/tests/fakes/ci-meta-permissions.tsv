@@ -1,0 +1,8 @@
+deployer	roles/storage.objectAdmin	*
+deployer	roles/storage.legacyBucketReader	*
+ci-stop	roles/storage.objectViewer	*
+ci-stop	roles/storage.objectCreator	*
+ci-stop	roles/storage.legacyBucketReader	*
+ci-stop	ciMetaMutable	current.tsv,lease
+ci-read	roles/storage.objectViewer	*
+ci-read	roles/storage.legacyBucketReader	*

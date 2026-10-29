@@ -1,0 +1,7 @@
+{
+  "type": "tool_result",
+  "request_id": "req-conformance-0001",
+  "call_id": "call-3",
+  "is_error": false,
+  "content": "synthetic tool output"
+}

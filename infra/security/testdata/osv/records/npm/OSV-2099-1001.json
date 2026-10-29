@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.6.0",
+  "id": "OSV-2099-1001",
+  "modified": "2026-10-01T00:00:00Z",
+  "published": "2026-10-01T00:00:00Z",
+  "summary": "G012 synthetic High advisory (CVSS 7.5, fixture only)",
+  "details": "Synthetic record for the B-DEPSCAN offline fixture; not a real vulnerability.",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "npm",
+        "name": "g012-fixture-high"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "1.0.1"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "severity": [
+    {
+      "type": "CVSS_V3",
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+    }
+  ]
+}

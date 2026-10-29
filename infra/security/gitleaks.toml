@@ -1,0 +1,37 @@
+# Secret scanning for this repository (checks profile: secret-scan).
+# .env holds local secrets by design and is never committed; it is excluded.
+[extend]
+useDefault = true
+
+# The pinned gitleaks (v8.30.1) cannot mix the deprecated [allowlist] table with [[allowlists]]; the same
+# exclusions, unchanged, in the current form.
+[[allowlists]]
+description = "local-only files that are never committed"
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\.local$''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+]
+
+# G051 O1 (Codex post-cycle-4 review): the G007 planning-input manifests record the public SHA-256 of the tracked
+# core/internal/identity/credential.go; generic-api-key reads its key name as a credential. Only that exact line
+# (that key and that verified digest) is exempt, and only from generic-api-key; every other rule, key, digest and
+# file is still scanned. A changed file digest is scanned again.
+[[allowlists]]
+description = "public provenance digest of core/internal/identity/credential.go in planning-input manifests"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''^\s*"core/internal/identity/credential\.go": "12dd3d07db3e8b9a787822725b66fbe6f073a342cdb8af8bb896cb81c675e638",?\s*$''']
+
+# MAINT secret-scan ADR-007 (Codex release 2026-10-20): the G062 planning-input manifests record the public SHA-256 of
+# the tracked docs/adr/ADR-007-verified-domain-routing-and-authentication.md; generic-api-key reads its key name as a
+# credential. Only that exact line (that key and that verified digest) is exempt, and only from generic-api-key; every
+# other rule, key, digest and file is still scanned. A changed file digest is scanned again. The line is exempt bare (with
+# an optional trailing comma) or as one Markdown inline-code citation (one backtick pair), the form in which the hash-bound
+# proposal record cites it (Codex handoff 6ef24385); any other text on the line is scanned.
+[[allowlists]]
+description = "public provenance digest of docs/adr/ADR-007-verified-domain-routing-and-authentication.md in planning-input manifests"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''^\s*("docs/adr/ADR-007-verified-domain-routing-and-authentication\.md": "1e9513ab070aefc4ec7afac8ca44d8be184a0e7831f3837f85bce53ee90e495b",?|`"docs/adr/ADR-007-verified-domain-routing-and-authentication\.md": "1e9513ab070aefc4ec7afac8ca44d8be184a0e7831f3837f85bce53ee90e495b"`)\s*$''']

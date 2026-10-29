@@ -1,0 +1,17 @@
+# Copy to the private inputs directory as terraform.tfvars (0600, outside Git) and replace every value.
+# Identifiers only: no secret belongs here.
+project_id                     = "replace-me"
+region                         = "replace-me1"
+zone                           = "replace-me1-a"
+environment_name               = "staging"
+deployer_service_account_email = "staging-deployer@replace-me.iam.gserviceaccount.com"
+vm_service_account_email       = "staging-vm@replace-me.iam.gserviceaccount.com"
+operator_principals            = []
+machine_type                   = "e2-standard-2"
+data_disk_size_gb              = 50
+# Default session length at VM creation (600 to 28800 s); staging.sh passes -var on every plan, an existing VM ignores it.
+session_max_seconds            = 7200
+zone_id                        = "replace-me"
+base_domain                    = "staging.example.net"
+dns_ttl                        = 300
+custom_label                   = "custom"

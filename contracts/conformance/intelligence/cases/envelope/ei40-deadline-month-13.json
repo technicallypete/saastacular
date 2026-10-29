@@ -1,0 +1,19 @@
+{
+  "request_id": "req-conformance-0001",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "capability": "chat",
+  "authorization_ref": "authz-ref-1",
+  "organization_id": "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b",
+  "user_id": "2b3c4d5e-6f70-4812-9a3b-4c5d6e7f8091",
+  "allowed_tools": [],
+  "deadline": "2027-13-01T00:00:00Z",
+  "context_refs": [],
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "synthetic prompt"
+      }
+    ]
+  }
+}

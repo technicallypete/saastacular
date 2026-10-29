@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Fake date for the G072 offline fixtures: the real date, with "now" fixed at FAKE_ROOT/now (or FAKE_NOW) unless the
+# caller passes its own -d/--date. Makes timestamps, lease expiry and receipts deterministic.
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+real="$(fake_real date)"
+for a in "$@"; do case $a in -d | --date | --date=* | -d*) exec "$real" "$@" ;; esac; done
+exec "$real" -d "@$(fake_now)" "$@"

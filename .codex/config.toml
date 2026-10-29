@@ -1,0 +1,7 @@
+# Shared model defaults for this repository. Individual sessions may override them.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
+
+[agents]
+default_subagent_model = "gpt-6.1-sol"
+default_subagent_reasoning_effort = "high"

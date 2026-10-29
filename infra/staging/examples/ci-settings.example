@@ -1,0 +1,19 @@
+# Example STAGING_CI_SETTINGS for infra/staging/ci.sh (G072; docs/foundation/STAGING.md "CI start/deploy and stop").
+# One protected GitLab file variable per environment, scoped to that exact environment name, next to STAGING_CI_CONF
+# (the G070 staging.conf without EVIDENCE_DIR, PRIVATE_DIR, GOOGLE_ADC_FILE and GCLOUD_IMPERSONATE_SA, with
+# SESSION_MAX_SECONDS=7200), STAGING_CI_BACKEND and STAGING_CI_TFVARS. KEY=VALUE lines, parsed (never sourced);
+# non-secret identifiers only. Replace every placeholder; no value here is a credential.
+
+# The environment project's workload identity provider created by infra/terraform/bootstrap/ci-federation.sh:
+# projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/<pool>/providers/<provider>.
+CI_WIF_PROVIDER=projects/000000000000/locations/global/workloadIdentityPools/example-pool/providers/example-provider
+
+# Required for every CI deploy (G057 hazard rule): the Secret Manager versions of all three identity secrets, each a
+# version number or none, all three numbers or all three none; latest is refused. A preview without its own identity
+# provider app pins none (authentication reported unavailable; no staging provider secret is reused). Comma-separated.
+CI_IDENTITY_PINS=IDENTITY_WORKOS_CLIENT_ID=none,IDENTITY_WORKOS_ISSUER=none,IDENTITY_WORKOS_API_KEY=none
+
+# Optional, during proof windows: sibling environments' buckets that this environment's CI identities must not reach
+# (non-mutating testIamPermissions probes in the check, deploy and stop jobs; any granted permission fails the job, exit
+# 6). The owner may list them here or in the CI_DENIAL_PROBES job variable the launcher passes through; both are used.
+# CI_DENIAL_PROBES=bucket:example-sibling-tfstate bucket:example-sibling-preview-1-ci-meta

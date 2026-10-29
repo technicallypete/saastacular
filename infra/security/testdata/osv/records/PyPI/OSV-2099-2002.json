@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.6.0",
+  "id": "OSV-2099-2002",
+  "modified": "2026-10-01T00:00:00Z",
+  "published": "2026-10-01T00:00:00Z",
+  "summary": "G012 synthetic advisory without severity (fixture only)",
+  "details": "Synthetic record for the B-DEPSCAN offline fixture; not a real vulnerability.",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "g012-fixture-unrated"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "3.0.1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

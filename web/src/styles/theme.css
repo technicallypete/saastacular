@@ -1,0 +1,106 @@
+/* Vestive v0.2 — colour values. shadcn convention: :root is light, .dark is dark.
+   The brand defaults to dark: put class="dark" on <html> (next-themes: defaultTheme="dark"). */
+:root, .light, [data-theme="light"] {
+  color-scheme: light;
+  /* Vestive brand (light-tuned so every role keeps 4.5:1 as text) */
+  --vx-gold: #8a5a00;
+  --vx-orange: #a84400;
+  --vx-blue: #0075ff;
+  --vx-green: #66892f;
+  --vx-cyan: #00ffff;
+  --vx-lime: #c9d839;
+  --vx-umber: #90826c;
+  --vx-ink: #202020;
+  --vx-star: #b07800;
+
+  /* shadcn slots — Taupe neutrals, Vestive accents */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.3);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.3);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.3);
+  --primary: var(--vx-blue);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.96 0.002 17.2);
+  --secondary-foreground: oklch(0.214 0.009 43.1);
+  --muted: oklch(0.96 0.002 17.2);
+  --muted-foreground: oklch(0.547 0.021 43.1);
+  --accent: oklch(0.96 0.002 17.2);
+  --accent-foreground: oklch(0.214 0.009 43.1);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.005 34.3);
+  --input: oklch(0.922 0.005 34.3);
+  --ring: var(--vx-gold);
+  --chart-1: oklch(0.879 0.169 91.605);
+  --chart-2: oklch(0.769 0.188 70.08);
+  --chart-3: oklch(0.666 0.179 58.318);
+  --chart-4: oklch(0.555 0.163 48.998);
+  --chart-5: oklch(0.473 0.137 46.201);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.986 0.002 67.8);
+  --sidebar-foreground: oklch(0.147 0.004 49.3);
+  --sidebar-primary: var(--vx-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.96 0.002 17.2);
+  --sidebar-accent-foreground: oklch(0.214 0.009 43.1);
+  --sidebar-border: oklch(0.922 0.005 34.3);
+  --sidebar-ring: var(--vx-gold);
+}
+
+.dark, [data-theme="dark"] {
+  color-scheme: dark;
+  --vx-gold: #f8ce8a;
+  --vx-orange: #fc6600;
+  --vx-blue: #0075ff;
+  --vx-green: #66892f;
+  --vx-cyan: #00ffff;
+  --vx-lime: #c9d839;
+  --vx-umber: #90826c;
+  --vx-ink: #202020;
+  --vx-star: #fdc262;
+
+  --background: oklch(0.147 0.004 49.3);
+  --foreground: oklch(0.986 0.002 67.8);
+  --card: oklch(0.214 0.009 43.1);
+  --card-foreground: oklch(0.986 0.002 67.8);
+  --popover: oklch(0.214 0.009 43.1);
+  --popover-foreground: oklch(0.986 0.002 67.8);
+  --primary: var(--vx-blue);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.268 0.011 36.5);
+  --secondary-foreground: oklch(0.986 0.002 67.8);
+  --muted: oklch(0.268 0.011 36.5);
+  --muted-foreground: oklch(0.714 0.014 41.2);
+  --accent: oklch(0.268 0.011 36.5);
+  --accent-foreground: oklch(0.986 0.002 67.8);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--vx-gold);
+  --chart-1: oklch(0.879 0.169 91.605);
+  --chart-2: oklch(0.769 0.188 70.08);
+  --chart-3: oklch(0.666 0.179 58.318);
+  --chart-4: oklch(0.555 0.163 48.998);
+  --chart-5: oklch(0.473 0.137 46.201);
+  --sidebar: oklch(0.214 0.009 43.1);
+  --sidebar-foreground: oklch(0.986 0.002 67.8);
+  --sidebar-primary: var(--vx-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.268 0.011 36.5);
+  --sidebar-accent-foreground: oklch(0.986 0.002 67.8);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: var(--vx-gold);
+}
+
+:root {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-heading: "Oswald", "Arial Narrow", sans-serif;
+  --font-label: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --vx-angle: polygon(15% 0%, 100% 0%, 100% 35%, 85% 100%, 0% 100%, 0% 65%);
+  --vx-ribbon: linear-gradient(90deg, #0a63e8 0%, #0075ff 5%, #0cacf1 14%, #23c3e7 22%, #35c0d5 30%, #48bdc2 38%, #5abab0 46%, #6cb79e 54%, #7fb48b 62%, #91b179 70%, #a3ae67 79%, #b6ab54 88%, #bfa94b 96%);
+  --vx-container: 1360px;
+  --vx-gutter: clamp(20px, 4vw, 40px);
+  --vx-section-y: 88px;
+}

@@ -1,0 +1,19 @@
+# Local environment files hold secrets and are never committed (B-ENV-EXAMPLE).
+.env
+.env.local
+
+# Machine-local Claude session delivery metadata; shared outcomes stay in management docs.
+/management/**/SESSION-HANDOFFS.jsonl
+
+# Machine-local Codex worker checkouts.
+/.codex/worktrees/
+
+# Machine-local Codex chat attachments.
+/.codex-attachments/
+
+# Shared operator-private evidence, secrets and scratch in the main checkout.
+/.local/
+
+# Machine-local Claude permissions and isolated worker checkouts.
+/.claude/settings.local.json
+/.claude/worktrees/

@@ -1,0 +1,1113 @@
+{
+  "version": 1,
+  "services": {
+    "core": {
+      "logger": "",
+      "events": {
+        "core listening": {
+          "levels": ["info"],
+          "required": ["port", "app_env"],
+          "properties": {
+            "port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "app_env": { "enum": ["development", "test", "production"] }
+          }
+        },
+        "core.exit": {
+          "levels": ["error"],
+          "required": ["error_type"],
+          "properties": {
+            "error_type": {
+              "enum": [
+                "config_invalid", "database_pool_invalid", "default_tenant_unavailable", "listen_failed", "serve_failed",
+                "shutdown_timeout", "unknown"
+              ]
+            },
+            "config_keys": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "APP_ENV", "CORE_LISTEN_ADDR", "CUSTOM_DOMAIN_CNAME_TARGET", "DATABASE_NAME", "DB_HOST", "DB_PASSWORD",
+                  "DB_PORT", "DB_USER", "IDENTITY_COOKIE_PROFILE", "IDENTITY_JWT_ALGORITHMS", "IDENTITY_MAX_AUTH_AGE",
+                  "IDENTITY_PROVIDER", "IDENTITY_PUBLIC_ORIGINS", "IDENTITY_SESSION_ABSOLUTE", "IDENTITY_SESSION_IDLE",
+                  "IDENTITY_WORKOS_API_BASE_URL", "IDENTITY_WORKOS_API_KEY", "IDENTITY_WORKOS_API_KEY_FILE",
+                  "IDENTITY_WORKOS_CLIENT_ID", "IDENTITY_WORKOS_ISSUER", "INTELLIGENCE_SERVICE_TOKEN", "INTELLIGENCE_URL",
+                  "OBJECT_STORE_ACCESS_KEY", "OBJECT_STORE_BUCKET", "OBJECT_STORE_ENDPOINT", "OBJECT_STORE_FORCE_PATH_STYLE",
+                  "OBJECT_STORE_MAX_OBJECT_BYTES", "OBJECT_STORE_REGION", "OBJECT_STORE_SECRET_KEY", "OBJECT_STORE_SIGNED_URL_DEFAULT_TTL",
+                  "OBJECT_STORE_SIGNED_URL_MAX_TTL", "OBJECT_STORE_SIGNING_ENDPOINT", "OBJECT_STORE_TRANSFER_TIMEOUT",
+                  "PLATFORM_BASE_DOMAIN", "PRODUCT_NAME", "REDIS_HOST", "REDIS_PASSWORD", "REDIS_PORT"
+                ]
+              }
+            }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "error_type": { "const": "config_invalid" } } },
+              "then": { "required": ["config_keys"] },
+              "else": { "not": { "required": ["config_keys"] } }
+            }
+          ]
+        },
+        "http.server.error": {
+          "levels": ["warn"],
+          "required": ["error_type"],
+          "properties": {
+            "error_type": {
+              "enum": [
+                "superfluous_write_header", "hijacked_write_header", "hijacked_write", "invalid_content_length",
+                "conflicting_length_headers", "handler_panic", "tls_handshake_error", "accept_error", "other"
+              ]
+            }
+          }
+        },
+        "auth.login.started": {
+          "levels": ["info"],
+          "required": ["outcome"],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "started", "origin_rejected", "already_authenticated", "identity_unconfigured", "identity_namespace_mismatch",
+                "identity_unavailable", "invalid_request", "continuation_invalid", "host_changed", "organization_not_member"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        },
+        "auth.callback.completed": {
+          "levels": ["info"],
+          "required": ["outcome"],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "signed_in", "session_rotated", "already_signed_in", "ambiguous_parameter", "origin_rejected",
+                "identity_unconfigured", "identity_namespace_mismatch", "transaction_invalid", "transaction_expired",
+                "login_canceled", "code_rejected", "provider_error", "provider_timeout", "identity_unavailable",
+                "impersonation_refused", "stale_authentication", "identity_conflict", "user_disabled", "invalid_request",
+                "host_changed", "organization_not_member", "enrollment_status", "enrollment_closed", "invitation_mismatch",
+                "recipient_proof_unavailable", "signup", "tenant_created", "signup_origin_rejected", "signup_user_mismatch"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        },
+        "auth.session.revoked": {
+          "levels": ["info"],
+          "required": ["outcome", "scope"],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "local_revoked", "provider_session_revoked", "provider_revoke_failed", "provider_logout_redirected",
+                "invalid_request", "origin_rejected", "unauthenticated", "csrf_failed", "identity_unavailable"
+              ]
+            },
+            "scope": { "enum": ["current", "all", "provider", "disabled", "invalid", "mcp"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        },
+        "auth.provider.revocation": {
+          "levels": ["info", "warn"],
+          "required": ["outcome", "scope"],
+          "properties": {
+            "outcome": {
+              "enum": ["provider_session_revoked", "provider_revoke_failed", "provider_logout_redirected", "provider_logout_returned"]
+            },
+            "scope": { "enum": ["provider", "identity_conflict"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        },
+        "auth.relay": {
+          "levels": ["info"],
+          "required": ["outcome"],
+          "properties": {
+            "outcome": { "enum": ["relayed", "refused"] },
+            "reason": { "enum": ["relay_unconfigured", "state_invalid", "not_custom_host", "unavailable"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "relayed" } } },
+              "then": { "not": { "required": ["reason"] } },
+              "else": { "required": ["reason"] }
+            }
+          ]
+        },
+        "domain.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": ["list", "claim", "rotate", "verify", "recheck", "remove", "retry_withdrawal", "set_slug"]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "unsupported_media_type", "origin_rejected", "unauthenticated",
+                "csrf_failed", "not_available", "forbidden", "not_found", "unknown_host", "host_invalid", "host_reserved",
+                "host_taken", "slug_reserved", "slug_taken", "domain_state_invalid", "domain_retry_exhausted",
+                "domains_unavailable"
+              ]
+            },
+            "detail": { "enum": ["stale_result", "withdrawal_unrecorded"] },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "domains_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "domains_unavailable" } } }
+            }
+          ]
+        },
+        "default_tenant": {
+          "levels": ["info", "warn"],
+          "required": ["outcome"],
+          "properties": {
+            "outcome": { "enum": ["active", "inactive"] },
+            "reason": { "enum": ["invalid_slug", "unknown_slug"] },
+            "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 63 },
+            "organization_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "active" } } },
+              "then": { "required": ["slug", "organization_id"], "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"], "not": { "required": ["organization_id"] }, "properties": { "level": { "const": "warn" } } }
+            },
+            {
+              "if": { "required": ["reason"], "properties": { "reason": { "const": "invalid_slug" } } },
+              "then": { "not": { "required": ["slug"] } }
+            },
+            {
+              "if": { "required": ["reason"], "properties": { "reason": { "const": "unknown_slug" } } },
+              "then": { "required": ["slug"] }
+            }
+          ]
+        },
+        "platform_root_page": {
+          "levels": ["warn"],
+          "required": ["outcome", "fallback"],
+          "properties": {
+            "outcome": { "const": "invalid_value" },
+            "fallback": { "const": "signup_redirect" }
+          }
+        },
+        "branding.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": { "enum": ["get", "update", "reset", "set_logo", "remove_logo", "delete_object"] },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "unsupported_media_type", "origin_rejected", "unauthenticated",
+                "csrf_failed", "not_available", "forbidden", "not_found", "unknown_host", "version_conflict",
+                "contrast_failed", "logo_invalid", "payload_too_large", "publication_outcome_unknown", "branding_unavailable"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "warn" },
+                  "reason": { "not": { "enum": ["branding_unavailable", "publication_outcome_unknown"] } }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "error" },
+                  "reason": { "enum": ["branding_unavailable", "publication_outcome_unknown"] }
+                }
+              }
+            }
+          ]
+        },
+        "branding.public": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": { "enum": ["projection", "logo"] },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": { "enum": ["ambiguous_parameter", "unknown_host", "not_found", "branding_unavailable"] },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "branding_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "branding_unavailable" } } }
+            }
+          ]
+        },
+        "onboarding.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "list_groups", "suggest_slug", "create_group", "get_group", "complete_onboarding", "list_profiles", "get_profile",
+                "update_profile", "method", "path"
+              ]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "origin_rejected", "unauthenticated", "csrf_failed", "not_available",
+                "forbidden", "not_found", "method_not_allowed", "conflict", "onboarding_unavailable"
+              ]
+            },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "onboarding_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "onboarding_unavailable" } } }
+            }
+          ]
+        },
+        "enrollment.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "public", "status", "request", "admit", "abandon", "get_policy", "update_policy", "list_requests",
+                "decide_request", "revoke_request", "method", "path"
+              ]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "origin_rejected", "unauthenticated", "csrf_failed", "not_available",
+                "forbidden", "not_found", "method_not_allowed", "conflict", "enrollment_unavailable", "rate_limited",
+                "unknown_host", "enrollment_closed"
+              ]
+            },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "enrollment_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "enrollment_unavailable" } } }
+            }
+          ]
+        },
+        "membership.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "list_members", "self_member", "change_role", "remove_member", "promote_owner", "demote_owner", "leave_scope",
+                "transfer_ownership", "list_invitations", "issue_invitation", "my_invitations", "invitation_candidates",
+                "get_invitation", "revoke_invitation", "accept_invitation", "retirement_eligibility", "group_authority",
+                "set_group_authority", "method", "path"
+              ]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "origin_rejected", "unauthenticated", "csrf_failed", "not_available",
+                "forbidden", "not_found", "method_not_allowed", "conflict", "membership_unavailable"
+              ]
+            },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "membership_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "membership_unavailable" } } }
+            }
+          ]
+        },
+        "identity.namespace_mismatch": { "levels": ["warn"] },
+        "labels.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "list_labels", "create_label", "update_label", "delete_label", "list_group_labels", "assign_label",
+                "unassign_label", "method", "path"
+              ]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "origin_rejected", "unauthenticated", "csrf_failed", "not_available",
+                "forbidden", "not_found", "method_not_allowed", "conflict", "labels_unavailable"
+              ]
+            },
+            "host_tag": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "labels_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "labels_unavailable" } } }
+            }
+          ]
+        },
+        "tenancy.operation": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "organization.create", "organization.rename", "group.create", "group.rename", "group.change_slug",
+                "membership.grant", "membership.change", "membership.remove", "business_profile.create",
+                "business_profile.update", "association.link", "association.unlink", "retirement.retire"
+              ]
+            },
+            "scope_type": { "enum": ["organization", "group"] },
+            "outcome": { "enum": ["ok", "rejected", "failed"] },
+            "error_code": {
+              "enum": [
+                "invalid_id", "invalid_name", "invalid_slug", "slug_reserved", "slug_required", "invalid_role",
+                "organization_not_found", "group_not_found", "user_not_found", "membership_not_found", "slug_conflict",
+                "membership_exists", "invalid_display_name", "invalid_legal_name", "invalid_description",
+                "invalid_industry", "invalid_website", "business_profile_not_found", "association_not_found",
+                "association_exists", "unavailable", "internal", "recipient_ineligible", "last_owner", "dependent_bindings",
+                "owner_authority", "retirement_blocked", "context", "not_found", "invalid_input"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "properties": { "level": { "const": "info" } }, "not": { "required": ["error_code"] } },
+              "else": { "required": ["error_code"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "rejected" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "error_code": { "not": { "enum": ["unavailable", "internal"] } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "error_code": { "enum": ["unavailable", "internal"] } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["membership.grant", "membership.change", "membership.remove"] } } },
+              "then": { "required": ["scope_type"] },
+              "else": { "not": { "required": ["scope_type"] } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "retirement.retire" } } },
+              "else": {
+                "properties": {
+                  "error_code": {
+                    "not": {
+                      "enum": ["last_owner", "dependent_bindings", "owner_authority", "retirement_blocked", "context", "not_found", "invalid_input"]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["organization.create", "retirement.retire"] } } },
+              "else": { "properties": { "error_code": { "not": { "const": "recipient_ineligible" } } } }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "access.decision": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome", "reason"],
+          "properties": {
+            "operation": {
+              "enum": [
+                "access.begin_request", "access.resolve", "organization.get", "organization.get_policy", "organization.set_policy",
+                "group.get", "group.rename", "group.change_slug", "business_profile.get", "business_profile.update", "audit.read",
+                "access.begin_verified_request", "mcp.connection.create", "mcp.connection.list", "mcp.connection.activate",
+                "mcp.connection.rename", "mcp.authorize", "mcp.get_context", "mcp.list_groups", "mcp.switch_group", "domain.list", "domain.claim",
+                "domain.rotate", "domain.verify", "domain.recheck", "domain.remove", "domain.retry_withdrawal",
+                "organization.set_slug", "branding.get", "branding.update", "branding.reset", "branding.set_logo",
+                "branding.remove_logo", "group.suggest_slug", "group.create", "group.list", "group.onboarding.get",
+                "group.onboarding.complete_new", "group.onboarding.complete_existing", "business_profile.list",
+                "membership.list", "membership.self", "membership.change_role", "membership.remove", "membership.leave",
+                "ownership.promote", "ownership.demote", "ownership.transfer", "invitation.list", "invitation.mine",
+                "invitation.candidates", "invitation.issue", "invitation.revoke", "invitation.get", "invitation.accept",
+                "invitation.consume", "retirement.eligibility", "enrollment.admit", "enrollment.policy.get",
+                "enrollment.policy.update", "enrollment.request", "enrollment.status", "enrollment.abandon",
+                "enrollment.requests.list", "enrollment.requests.decide", "enrollment.requests.revoke",
+                "organization.set_group_override", "label.definition.list", "label.definition.create",
+                "label.definition.update", "label.definition.delete", "label.assignment.list", "label.assign", "label.unassign"
+              ]
+            },
+            "capability": {
+              "enum": [
+                "organization.read", "organization.manage_members", "organization.manage_policy", "group.read", "group.update",
+                "group.manage_members", "business_profile.profile.read", "business_profile.profile.update",
+                "business_profile.select_for_onboarding", "business_profile.privileged_settings.manage", "audit.read",
+                "organization.manage_domains", "organization.manage_branding", "group.create", "group.complete_onboarding",
+                "organization.manage_owners", "group.manage_owners", "organization.leave", "group.leave",
+                "label.organization.manage", "label.group.manage", "label.group.read"
+              ]
+            },
+            "outcome": { "enum": ["established", "allow", "deny", "failed"] },
+            "reason": {
+              "enum": [
+                "allowed", "context_established", "session_invalid", "selector_invalid", "context_forged", "context_scope_missing",
+                "context_scope_ended", "context_scope_mismatch", "context_subject_mismatch", "context_scope_nested",
+                "organization_not_permitted", "group_not_selectable", "target_not_found", "target_kind_mismatch",
+                "target_outside_context", "capability_unknown", "role_not_permitted", "no_linked_path", "edit_policy_disabled",
+                "fact_inconsistent", "input_invalid", "write_conflict", "store_unavailable", "aborted", "canceled",
+                "commit_outcome_unknown", "enrollment_closed", "enrollment_restricted", "recipient_ineligible", "host_changed",
+                "enrollment_not_ready", "approval_revoked", "allowed_override"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "operation": { "enum": ["access.begin_request", "access.resolve", "access.begin_verified_request"] } } },
+              "then": {
+                "not": { "required": ["capability"] },
+                "properties": { "outcome": { "enum": ["established", "deny", "failed"] }, "reason": { "not": { "const": "allowed" } } }
+              },
+              "else": {
+                "properties": { "outcome": { "enum": ["allow", "deny", "failed"] }, "reason": { "not": { "const": "context_established" } } }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "enum": [
+                      "access.begin_request", "access.resolve", "access.begin_verified_request", "mcp.connection.create",
+                      "mcp.connection.list", "mcp.connection.activate", "mcp.connection.rename", "mcp.authorize", "mcp.get_context",
+                      "mcp.list_groups", "mcp.switch_group", "membership.self", "invitation.mine", "invitation.accept", "invitation.consume",
+                      "retirement.eligibility", "enrollment.admit", "enrollment.request", "enrollment.status",
+                      "enrollment.abandon"
+                    ]
+                  }
+                }
+              },
+              "then": { "not": { "required": ["capability"] } },
+              "else": {
+                "if": {
+                  "properties": {
+                    "operation": {
+                      "enum": [
+                        "invitation.get", "invitation.revoke", "label.definition.list", "label.definition.create",
+                        "label.definition.update", "label.definition.delete", "label.assignment.list", "label.assign",
+                        "label.unassign"
+                      ]
+                    }
+                  }
+                },
+                "else": { "required": ["capability"] }
+              }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["invitation.get", "invitation.revoke"] } } },
+              "then": { "properties": { "capability": { "enum": ["organization.manage_members", "group.manage_members"] } } }
+            },
+            {
+              "if": { "properties": { "reason": { "enum": ["enrollment_restricted", "approval_revoked"] } } },
+              "then": { "properties": { "operation": { "const": "enrollment.admit" }, "outcome": { "const": "deny" } } }
+            },
+            {
+              "if": { "properties": { "reason": { "enum": ["enrollment_closed", "recipient_ineligible", "host_changed"] } } },
+              "then": { "properties": { "operation": { "enum": ["enrollment.admit", "enrollment.request"] }, "outcome": { "const": "deny" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["enrollment.requests.list", "enrollment.requests.decide", "enrollment.requests.revoke"] } } },
+              "then": { "properties": { "capability": { "const": "organization.manage_members" } } }
+            },
+            {
+              "if": { "properties": { "reason": { "const": "enrollment_not_ready" } } },
+              "then": { "properties": { "operation": { "const": "enrollment.policy.update" }, "outcome": { "const": "deny" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["organization.get", "organization.get_policy", "enrollment.policy.get"] } } },
+              "then": { "properties": { "capability": { "const": "organization.read" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["organization.set_policy", "enrollment.policy.update"] } } },
+              "then": { "properties": { "capability": { "const": "organization.manage_policy" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "group.get" } } },
+              "then": { "properties": { "capability": { "const": "group.read" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["group.rename", "group.change_slug"] } } },
+              "then": { "properties": { "capability": { "const": "group.update" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "business_profile.get" } } },
+              "then": { "properties": { "capability": { "const": "business_profile.profile.read" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "business_profile.update" } } },
+              "then": { "properties": { "capability": { "const": "business_profile.profile.update" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "audit.read" } } },
+              "then": { "properties": { "capability": { "const": "audit.read" } } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "enum": [
+                      "domain.list", "domain.claim", "domain.rotate", "domain.verify", "domain.recheck", "domain.remove",
+                      "domain.retry_withdrawal", "organization.set_slug"
+                    ]
+                  }
+                }
+              },
+              "then": { "properties": { "capability": { "const": "organization.manage_domains" } } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": { "enum": ["branding.get", "branding.update", "branding.reset", "branding.set_logo", "branding.remove_logo"] }
+                }
+              },
+              "then": { "properties": { "capability": { "const": "organization.manage_branding" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["group.suggest_slug", "group.create"] } } },
+              "then": { "properties": { "capability": { "const": "group.create" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["group.list", "group.onboarding.get"] } } },
+              "then": { "properties": { "capability": { "const": "group.read" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["group.onboarding.complete_new", "group.onboarding.complete_existing"] } } },
+              "then": { "properties": { "capability": { "const": "group.complete_onboarding" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "business_profile.list" } } },
+              "then": { "properties": { "capability": { "const": "business_profile.profile.read" } } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": { "enum": ["membership.list", "membership.change_role", "membership.remove", "invitation.list", "invitation.issue"] }
+                }
+              },
+              "then": { "properties": { "capability": { "enum": ["organization.manage_members", "group.manage_members"] } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["ownership.promote", "ownership.demote", "ownership.transfer"] } } },
+              "then": { "properties": { "capability": { "enum": ["organization.manage_owners", "group.manage_owners"] } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "membership.leave" } } },
+              "then": { "properties": { "capability": { "enum": ["organization.leave", "group.leave"] } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "invitation.candidates" } } },
+              "then": { "properties": { "capability": { "const": "group.manage_members" } } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "enum": [
+                      "label.definition.list", "label.definition.create", "label.definition.update", "label.definition.delete"
+                    ]
+                  }
+                }
+              },
+              "then": { "properties": { "capability": { "enum": ["label.organization.manage", "label.group.manage", "label.group.read"] } } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": { "enum": ["label.assignment.list", "label.assign", "label.unassign"] }
+                }
+              },
+              "then": {
+                "properties": {
+                  "capability": { "enum": ["label.organization.manage", "label.group.manage", "label.group.read", "group.read"] }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "enum": ["established", "allow"] } } },
+              "then": { "properties": { "level": { "const": "info" } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "allow" } } },
+              "then": { "properties": { "reason": { "enum": ["allowed", "allowed_override"] } } },
+              "else": { "properties": { "reason": { "not": { "enum": ["allowed", "allowed_override"] } } } }
+            },
+            {
+              "if": { "properties": { "reason": { "const": "allowed_override" } } },
+              "then": {
+                "required": ["capability"],
+                "properties": {
+                  "outcome": { "const": "allow" },
+                  "capability": {
+                    "enum": [
+                      "group.update", "group.manage_members", "group.complete_onboarding", "business_profile.profile.update",
+                      "business_profile.select_for_onboarding"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "established" } } },
+              "then": { "properties": { "reason": { "const": "context_established" } } },
+              "else": { "properties": { "reason": { "not": { "const": "context_established" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "deny" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "warn" },
+                  "reason": { "not": { "enum": ["store_unavailable", "aborted", "canceled", "commit_outcome_unknown"] } }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "error" },
+                  "reason": { "enum": ["store_unavailable", "aborted", "canceled", "commit_outcome_unknown"] }
+                }
+              }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "signup.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": ["start", "status", "slug", "create", "challenge", "prove", "complete", "abandon", "method", "path"]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "unauthenticated", "csrf_failed", "slug_taken", "intent_used", "user_disabled",
+                "continuation_invalid", "signup_context_mismatch", "signup_unconfigured", "signup_unavailable", "origin_rejected",
+                "rate_limited", "not_found", "method_not_allowed"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "signup_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "signup_unavailable" } } }
+            }
+          ]
+        },
+        "storage.operation": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome", "reason"],
+          "properties": {
+            "operation": { "enum": ["object.put", "object.get", "object.metadata", "object.sign", "object.delete"] },
+            "outcome": { "enum": ["allow", "deny", "failed"] },
+            "reason": {
+              "enum": [
+                "allowed", "reconciled_ready", "not_creator", "object_not_ready", "objects_unconfigured", "provider_unavailable",
+                "provider_outcome_unknown", "object_bytes_missing", "binding_mismatch", "integrity_mismatch", "compensated",
+                "compensation_failed", "source_not_released", "session_invalid", "context_forged", "context_scope_missing",
+                "context_scope_ended", "context_scope_mismatch", "context_subject_mismatch", "organization_not_permitted",
+                "group_not_selectable", "target_not_found", "target_kind_mismatch", "target_outside_context", "capability_unknown",
+                "role_not_permitted", "fact_inconsistent", "input_invalid", "store_unavailable", "aborted", "canceled",
+                "commit_outcome_unknown"
+              ]
+            },
+            "stage": { "enum": ["t1", "provider", "verify", "t2", "reconcile", "compensate", "audit"] },
+            "actor_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "organization_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "group_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "object_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+            "physical": { "enum": ["confirmed", "pending"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "operation": { "enum": ["object.get", "object.metadata"] } } },
+              "then": { "not": { "required": ["stage"] } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "object.sign" } } },
+              "then": { "properties": { "stage": { "const": "audit" } } },
+              "else": { "properties": { "stage": { "not": { "const": "audit" } } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "object.sign" } } },
+              "else": { "not": { "required": ["ttl_seconds"] } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "object.delete" } } },
+              "else": { "not": { "required": ["physical"] } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "allow" } } },
+              "then": { "properties": { "level": { "const": "info" } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "deny" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "warn" },
+                  "reason": { "not": { "enum": ["allowed", "reconciled_ready", "store_unavailable", "aborted", "canceled", "commit_outcome_unknown"] } }
+                },
+                "not": { "anyOf": [{ "required": ["ttl_seconds"] }, { "required": ["physical"] }] }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": {
+                "properties": { "level": { "const": "error" }, "reason": { "not": { "enum": ["allowed", "reconciled_ready"] } } },
+                "not": { "anyOf": [{ "required": ["ttl_seconds"] }, { "required": ["physical"] }] }
+              }
+            },
+            {
+              "if": { "required": ["actor_id"] },
+              "then": { "required": ["organization_id"] },
+              "else": { "not": { "anyOf": [{ "required": ["organization_id"] }, { "required": ["group_id"] }, { "required": ["object_id"] }] } }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "audit.record_failed": {
+          "levels": ["error"],
+          "required": ["action"],
+          "properties": {
+            "action": {
+              "enum": ["auth.sign_in", "access.denied", "object.url_issued", "object.upload_failed", "object.deletion_pending", "revocation.unaudited"]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "audit.gap": {
+          "levels": ["error"],
+          "required": ["operation", "independent"],
+          "properties": {
+            "operation": { "enum": ["logout", "logout_all", "provider_logout", "disabled"] },
+            "independent": { "enum": ["recorded", "failed", "not_attempted"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "mcp.request": {
+          "levels": ["warn", "error"],
+          "required": ["outcome", "reason"],
+          "properties": {
+            "outcome": { "enum": ["refused", "failed"] },
+            "reason": {
+              "enum": [
+                "method_not_allowed", "invalid_request", "origin_rejected", "rate_limited", "request_too_large",
+                "batch_unsupported", "token_missing", "token_invalid", "subject_unmapped", "connection_unknown",
+                "binding_mismatch", "context_denied", "unavailable"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "unavailable" } } },
+              "else": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "unavailable" } } } }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "mcp.connection": {
+          "levels": ["info", "warn", "error"],
+          "required": ["outcome"],
+          "properties": {
+            "outcome": { "enum": ["activated", "renewed", "refused", "failed"] },
+            "reason": { "enum": ["context_denied", "connection_unknown", "unavailable"] },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "enum": ["activated", "renewed"] } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "enum": ["context_denied", "connection_unknown"] } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "unavailable" } } }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "mcp.setup": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": { "enum": ["list", "create", "revoke", "rename"] },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "unsupported_media_type", "origin_rejected", "unauthenticated",
+                "csrf_failed", "not_available", "not_found", "mcp_unavailable", "invalid_name"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "mcp_unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "mcp_unavailable" } } }
+            },
+            {
+              "if": { "required": ["request_id"] },
+              "then": { "required": ["trace_id"] },
+              "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "http.request.completed": { "completion": true, "error_types": ["panic"] }
+      }
+    },
+    "web": {
+      "logger": "",
+      "events": {
+        "http.request.completed": {
+          "completion": true,
+          "error_types": [
+            "AbortError", "TimeoutError", "DOMException", "TypeError", "RangeError", "SyntaxError", "ReferenceError",
+            "EvalError", "URIError", "AggregateError", "Error", "NonError"
+          ]
+        }
+      }
+    },
+    "intelligence": {
+      "logger": "^[A-Za-z0-9_.-]{1,64}$",
+      "events": {
+        "configured": {
+          "levels": ["info"],
+          "logger": "intelligence",
+          "required": ["capabilities"],
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "enum": ["chat", "fast", "reasoning", "extraction", "embedding"] }
+            }
+          }
+        },
+        "execution": {
+          "levels": ["info"],
+          "logger": "intelligence.observability",
+          "required": ["request_id", "trace_id", "capability", "outcome"],
+          "properties": {
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+            "capability": { "enum": ["chat", "fast", "reasoning", "extraction", "embedding"] },
+            "outcome": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "usage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "configured_provider", "configured_model", "gateway", "actual_provider", "actual_model",
+                "input_tokens", "output_tokens", "latency_ms", "estimated_cost"
+              ],
+              "properties": {
+                "configured_provider": { "type": "string", "maxLength": 512 },
+                "configured_model": { "type": "string", "maxLength": 512 },
+                "gateway": { "type": "string", "maxLength": 512 },
+                "actual_provider": { "type": "string", "maxLength": 512 },
+                "actual_model": { "type": "string", "maxLength": 512 },
+                "input_tokens": { "anyOf": [{ "type": ["integer", "null"], "minimum": 0 }, { "const": "[REDACTED]" }] },
+                "output_tokens": { "anyOf": [{ "type": ["integer", "null"], "minimum": 0 }, { "const": "[REDACTED]" }] },
+                "latency_ms": { "type": "integer", "minimum": 0 },
+                "estimated_cost": { "type": ["number", "null"], "minimum": 0 }
+              }
+            }
+          }
+        },
+        "INTELLIGENCE_SERVICE_TOKEN is not set; /internal/* refuses all requests": {
+          "levels": ["warn"]
+        },
+        "http.request.completed": { "completion": true, "logger": "intelligence.http", "error_type_class": true },
+        "intelligence.message": {
+          "levels": ["debug", "info", "warn", "error"],
+          "logger_pattern": "^intelligence(\\.[A-Za-z0-9_-]+)*$"
+        },
+        "intelligence.startup.failed": {
+          "levels": ["error"],
+          "required": ["error_type"],
+          "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } }
+        },
+        "uvicorn.process_started": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.startup_waiting": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.startup_complete": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.listening": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.shutting_down": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.shutdown_waiting": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.shutdown_complete": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.process_finished": { "levels": ["info"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.app_load_failed": { "levels": ["error"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.invalid_request": { "levels": ["warn"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.asgi_exception": { "levels": ["error"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.server_error": { "levels": ["error"], "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } } },
+        "uvicorn.other": {
+          "levels": ["debug", "info", "warn", "error"],
+          "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } }
+        },
+        "library.log": {
+          "levels": ["warn", "error"],
+          "properties": { "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } }
+        },
+        "python.warning": {
+          "levels": ["warn"],
+          "required": ["category"],
+          "properties": { "category": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" } }
+        }
+      }
+    }
+  }
+}

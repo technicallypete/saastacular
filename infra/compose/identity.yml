@@ -1,0 +1,158 @@
+# Identity test overlay (G004; docs/foundation/IDENTITY.md). Test only: never part of a production deployment.
+# Use it on top of local.yml (and migrate.yml or browser.yml where a command needs them), for example:
+#   docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/identity.yml up -d --build --wait
+# It adds:
+#   identity-setup  one-shot per-run generator (identitysetup): run CA and test-host leaf, the emulator's signing
+#                   key, API key and rendered seed, the browser tests' users; all in the project's identity-run volume
+#   emulator        the pinned WorkOS emulator, reachable only on the edge network (http://emulator:4100)
+#   proxy           the pinned TLS test proxy in web's network namespace: https://localhost:543 and every
+#                   https://*.localhost:543 and https://*.acme.test:543 name to web (G016: web's host gate and core
+#                   decide what each name is; G062: a newly created <slug>.localhost tenant routes at once, with no
+#                   DNS or CNAME step), https://attacker.localhost:543 to a static attack page
+#   core-replica    a second core instance on the same database, without host ports, for replica checks
+# and configures core for the WorkOS adapter, for hostname resolution (G016; docs/foundation/DOMAINS.md: the platform
+# domain localhost with port 543, so <slug>.localhost:543 are the seeded Organizations' platform hosts, auth.localhost the
+# shared auth host and the only IDENTITY_PUBLIC_ORIGINS entry, localhost and www.localhost the public entry (G062:
+# https://localhost:543 is also the platform root signup origin and its own /auth/callback), and the DNS and TLS
+# fixture adapters of infra/identity/{dns,tls}-fixture.tsv) and for tenant-bound MCP connections (G014;
+# docs/foundation/MCP.md) with, as the test trust anchor accepted only with APP_ENV=test, the per-run Connect test
+# signer's public key set from identitysetup. By default core uses the emulator. The
+# IDENTITY_TEST_* variables (from an out-of-repository env file; IDENTITY.md "identity:manual") point core at a real
+# WorkOS staging environment instead (MCP_TEST_CONNECT_ISSUER and an empty MCP_TEST_CONNECT_JWKS_FILE do the same for
+# the MCP issuer); IDENTITY_PROXY_PUBLISH publishes the proxy (default: a random loopback port).
+services:
+  identity-setup:
+    build:
+      context: ../validation/tools
+      dockerfile: ../../docker/validation-tools.Dockerfile
+      target: runtime
+    # Root only to own the new volume; it hands core/api-key to core's user and exits.
+    user: "0:0"
+    command:
+      - identitysetup
+      - --out
+      - /identity
+      - --template
+      - /templates/emulator-seed.yaml
+      - --hosts
+      - org-a.localhost,org-b.localhost,org-c.localhost,org-z.localhost,auth.localhost,localhost,www.localhost,attacker.localhost,portal.acme.test,old.acme.test,unknown.acme.test
+      - --core-owner
+      - "65532:65532"
+    volumes:
+      - identity-run:/identity
+      - ../identity/emulator-seed.yaml:/templates/emulator-seed.yaml:ro
+    network_mode: none
+
+  emulator:
+    image: ghcr.io/workos/emulate:0.14.0@sha256:767021483ed125614a1a489329477e60601a2b248eedc0ac74b1e571604319ed
+    command:
+      - --host
+      - 0.0.0.0
+      - --seed
+      - /identity/emulator/seed.yaml
+      - --signing-key
+      - /identity/emulator/signing.pem
+      - --kid
+      - identity-test-emulator
+      - --issuer
+      - https://workos-emulator.localhost
+      # G062: localhost is the platform root's own signup callback (https://localhost:543/auth/callback); *.localhost
+      # admits the callback of a tenant created during the run (<slug>.localhost, unknown in advance). Core alone builds
+      # every redirect URI from the request's resolved host; this list is the emulator's open-redirect guard only.
+      - --redirect-hosts
+      - org-a.localhost,org-b.localhost,org-c.localhost,auth.localhost,localhost,*.localhost
+      - --interactive-password
+    environment:
+      NO_UPDATE_NOTIFIER: "1"
+      WORKOS_EMULATE_DISABLE_UPDATE_CHECK: "1"
+    volumes:
+      - identity-run:/identity:ro
+    depends_on:
+      identity-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [edge]
+
+  core:
+    environment: &core-identity
+      APP_ENV: test
+      IDENTITY_PROVIDER: workos
+      IDENTITY_WORKOS_CLIENT_ID: ${IDENTITY_TEST_CLIENT_ID:-client_01IDENTITYTESTEMULATOR}
+      IDENTITY_WORKOS_ISSUER: ${IDENTITY_TEST_ISSUER:-https://workos-emulator.localhost/user_management/client_01IDENTITYTESTEMULATOR}
+      IDENTITY_WORKOS_API_BASE_URL: ${IDENTITY_TEST_API_BASE_URL:-http://emulator:4100}
+      IDENTITY_WORKOS_API_KEY: ${IDENTITY_TEST_API_KEY:-}
+      IDENTITY_WORKOS_API_KEY_FILE: ${IDENTITY_TEST_API_KEY_FILE-/identity/core/api-key}
+      IDENTITY_PUBLIC_ORIGINS: https://auth.localhost:543
+      IDENTITY_COOKIE_PROFILE: https
+      IDENTITY_SESSION_IDLE: ${IDENTITY_TEST_SESSION_IDLE:-30m}
+      IDENTITY_SESSION_ABSOLUTE: ${IDENTITY_TEST_SESSION_ABSOLUTE:-8h}
+      IDENTITY_MAX_AUTH_AGE: ${IDENTITY_TEST_MAX_AUTH_AGE:-}
+      MCP_CONNECT_ISSUER: ${MCP_TEST_CONNECT_ISSUER:-https://connect.identity.test}
+      MCP_CONNECT_JWKS_FILE: ${MCP_TEST_CONNECT_JWKS_FILE-/identity/mcp/connect-jwks.json}
+      PLATFORM_BASE_DOMAIN: localhost
+      CUSTOM_DOMAIN_CNAME_TARGET: edge.localhost
+      PLATFORM_HOST_PORT: "543"
+      PLATFORM_AUTH_HOST: auth.localhost
+      CUSTOM_DOMAIN_DNS_FIXTURE_FILE: /etc/domains/dns.tsv
+      DOMAIN_TLS_ADAPTER: fixture
+      DOMAIN_TLS_FIXTURE_FILE: /etc/domains/tls.tsv
+      DEFAULT_TENANT_SLUG: ${IDENTITY_TEST_DEFAULT_TENANT_SLUG:-}
+      PLATFORM_ROOT_PAGE: ${IDENTITY_TEST_PLATFORM_ROOT_PAGE-landing}
+    volumes:
+      - identity-run:/identity:ro
+      - ../identity/dns-fixture.tsv:/etc/domains/dns.tsv:ro
+      - ../identity/tls-fixture.tsv:/etc/domains/tls.tsv:ro
+    depends_on:
+      emulator:
+        condition: service_healthy
+
+  core-replica:
+    extends:
+      file: local.yml
+      service: core
+    environment: *core-identity
+    ports: !reset []
+    volumes:
+      - identity-run:/identity:ro
+      - ../identity/dns-fixture.tsv:/etc/domains/dns.tsv:ro
+      - ../identity/tls-fixture.tsv:/etc/domains/tls.tsv:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      emulator:
+        condition: service_healthy
+
+  web:
+    environment:
+      IDENTITY_COOKIE_PROFILE: https
+      # G062: web derives the platform root of a tenant continuation hop (/signup/continue, /signup/complete) from its own
+      # PLATFORM_BASE_DOMAIN and the request's port (web/lib/signup-client.ts rootOfTenantRequest), so it must name the
+      # overlay's domain exactly as core does; .env's value is the real platform domain.
+      PLATFORM_BASE_DOMAIN: localhost
+    ports:
+      - "${IDENTITY_PROXY_PUBLISH:-127.0.0.1:}:543"
+
+  proxy:
+    image: nginx:1.30.5-alpine3.24@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+    network_mode: "service:web"
+    volumes:
+      - ../identity/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../identity/attacker:/srv/attacker:ro
+      - identity-run:/identity:ro
+    depends_on:
+      web:
+        condition: service_healthy
+      identity-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "543"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  identity-run: {}

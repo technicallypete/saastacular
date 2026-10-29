@@ -1,0 +1,137 @@
+# Reviewed path classes for CI profile selection (G003 CI revision Plan r2 §2.4; infra/ci/select-profile.sh).
+# Format: class<TAB>kind<TAB>path. kind "file" matches exactly; kind "dir" is a prefix ending in "/". An exact
+# file entry wins, otherwise the longest directory prefix. Classes: docs -> fast, agent -> fast (G049),
+# runtime -> integration, foundation -> full; a path that matches nothing selects full (unknown-path). Malformed
+# rows, duplicates, absolute paths or ".." fail closed. A project-subtree .claude/skills/ path (not under root
+# .claude/ or .agents/) is foundation in select-profile.sh, ahead of the Markdown documentation rule (G049).
+#
+# G051 feature areas (Plan r3 §3.2-§3.3): classes area-web, area-core and area-intel select the affected profile
+# for the area-ordinary files of an explicitly registered area. Kind "dir" only; the area name is the last path
+# segment. Allowed roots: area-web web/app/(features)/<n>/, web/tests/browser/features/<n>/ and
+# web/tests/fixtures/features/<n>/ (<n> ^[a-z][a-z0-9-]{0,31}$); area-core core/internal/<n>/; area-intel
+# intelligence/src/<n>/ and intelligence/tests/<n>/ (<n> ^[a-z][a-z0-9]{0,31}$). A bad root or name, a file row,
+# a duplicate, or any other row inside an area root exits 16. No web/features/ root exists until a reviewed
+# guard extension. Registering an area is a foundation change; G051 registers none.
+#
+# docs: root *.md, docs/**/*.md and management/**/*.md are documentation.
+# Automatic documentation-only push/MR pipelines are omitted by workflow.
+# management/v0/plans/G###-planning-inputs*.json is also documentation (planning provenance).
+# Exactly management/v0/SESSION-HANDOFFS.jsonl is non-executable session tracking, also omitted.
+docs	file	management/v0/SESSION-HANDOFFS.jsonl
+# management/v0/results/G###-scope-allowlist.txt is supervisor scope metadata (exact filename shape, no subdirectories).
+# The selector and workflow omit scope-only automatic pipelines; scope enforcement itself remains required.
+# Other non-Markdown controls retain foundation; mixed changes use remaining paths.
+# runtime: application code (unit tests colocated with the code included).
+runtime	dir	core/
+runtime	dir	web/
+runtime	dir	intelligence/
+# G009 (Plan r1 §2): the owned object-store adapter is foundation. Its covering checks are B-OBJ-* in the migrations
+# suite, which the integration profile never runs.
+foundation	dir	core/internal/objectstore/
+# G011 (Plan r2 §10.3): the audit primitive package is foundation. Its covering checks are B-AUDIT-* in the migrations
+# suite, which the integration profile never runs.
+foundation	dir	core/internal/audit/
+# Non-Markdown documentation and management controls remain foundation.
+foundation	dir	docs/
+foundation	dir	management/
+docs	file	AGENTS.md
+docs	file	CLAUDE.md
+# Markdown instructions remain subject to review; explicit CI validates commands.
+docs	file	README.md
+# G049: the three exact handoff instruction/metadata files are documentation (their automatic pipelines are
+# omitted by workflow); other root agent paths select fast except the exact Vestive Claude alias below.
+# The shared root Vestive skill and any unknown web agent configuration remain foundation.
+docs	file	.agents/skills/claude-session-handoff/SKILL.md
+docs	file	.agents/skills/claude-session-handoff/agents/openai.yaml
+docs	file	.agents/skills/claude-session-handoff/references/local-session-handoff.md
+foundation	dir	.agents/skills/vestive-brand/
+foundation	file	.claude/skills/vestive-brand
+agent	dir	.agents/
+agent	dir	.claude/
+foundation	dir	web/.claude/
+foundation	dir	web/.agents/
+# foundation: CI, compose and build.
+foundation	file	.gitlab-ci.yml
+foundation	file	.env.example
+# Fast metadata check; workflow still admits .gitignore-only pipelines.
+# Required secret exclusions are checked by B-ENV-EXAMPLE in lint.
+docs	file	.gitignore
+# The bundled, tracked development tooling (the optional Restruct SDLC skill).
+foundation	dir	distributions/skills/
+foundation	dir	infra/
+# foundation: contracts and oracles.
+foundation	dir	contracts/
+# foundation: dependencies and locks.
+foundation	file	core/go.mod
+foundation	file	core/go.sum
+foundation	file	web/package.json
+foundation	file	web/package-lock.json
+foundation	file	intelligence/pyproject.toml
+foundation	file	intelligence/uv.lock
+# foundation: migrations.
+foundation	dir	core/migrations/
+foundation	dir	core/internal/migrate/
+foundation	dir	core/cmd/migrate/
+# The migration CLI's own core dependencies (core/cmd/migrate imports observability, which imports config).
+foundation	dir	core/internal/observability/
+foundation	dir	core/internal/config/
+# G005: the tenancy model's real-PostgreSQL tests (B-TENANCY-IT) run in the migrations suite, which only full runs.
+foundation	dir	core/internal/tenancy/
+# foundation: build and test configuration.
+foundation	file	web/next.config.ts
+foundation	file	web/tsconfig.json
+foundation	file	web/eslint.config.mjs
+foundation	file	web/postcss.config.mjs
+foundation	file	web/components.json
+foundation	file	web/playwright.config.ts
+foundation	file	web/next-env.d.ts
+# foundation: harness-bound fixtures and oracles.
+foundation	dir	web/tests/browser/
+foundation	dir	web/tests/fixtures/
+foundation	file	intelligence/tests/conformance_exchange.py
+# G051 R3 widening (Plan r3 §3.2): security, first-paint, UI-primitive, shared-helper and contract paths select
+# full. Identity and authorization:
+foundation	dir	core/internal/identity/
+foundation	dir	core/cmd/server/
+foundation	dir	web/app/auth/
+foundation	dir	web/app/sign-in/
+foundation	dir	web/app/account/
+foundation	dir	web/app/api/account/
+# G014: the MCP connection setup page and its create and revoke routes.
+foundation	dir	web/app/connections/
+# G018: the Group onboarding and shared Business Profile pages and their form routes.
+foundation	dir	web/app/groups/
+foundation	dir	web/app/business-profiles/
+# G019: the Organization members page and invitation pages and their form routes (Group members are under web/app/groups/).
+foundation	dir	web/app/organization/members/
+foundation	dir	web/app/invitations/
+# G058: the join pages and routes, the enrollment management page and route, and the enrollment HTTP adapter.
+foundation	dir	web/app/join/
+foundation	dir	web/app/organization/enrollment/
+foundation	dir	core/internal/enrollment/
+# G062: the platform signup service. Its covering checks are B-SIGNUP-* in the migrations suite, which the integration profile never runs.
+foundation	dir	core/internal/signup/
+# G062 (Plan r5 §2): the platform root signup pages and routes (their browser proof is identity:browser in the full profile).
+foundation	dir	web/app/signup/
+foundation	dir	web/components/account/
+# G020: the labels HTTP adapter, the Organization labels page and route and the label components (the Group label pages
+# are under web/app/groups/). Their covering checks are B-LABELS-* in the migrations suite and identity:browser, full only.
+foundation	dir	core/internal/labels/
+foundation	dir	web/app/organization/labels/
+foundation	dir	web/components/labels/
+foundation	dir	intelligence/src/security/
+# First paint and tokens:
+foundation	file	web/app/globals.css
+foundation	file	web/app/layout.tsx
+foundation	dir	web/public/
+foundation	dir	web/components/layout/
+# UI primitives:
+foundation	dir	web/components/ui/
+# G069: the unaltered Vestive Brand kit source root (UI primitives, like web/components/ui/).
+foundation	dir	web/src/
+# Shared helpers:
+foundation	dir	web/lib/
+foundation	dir	web/tests/unit/
+# Contracts:
+foundation	dir	core/internal/mcp/
+foundation	dir	intelligence/src/streaming/

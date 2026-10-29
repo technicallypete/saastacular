@@ -1,0 +1,97 @@
+/* Vestive v0.2 — Tailwind v4 theme mapping, base styles and brand motion.
+   Expects the colour variables from theme.css (or the design system's tokens.css). */
+@import "./ribbon-wave.css";
+@import "./rhea-leftovers.css";
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-heading: "Oswald", "Arial Narrow", sans-serif;
+  --font-label: "Barlow Condensed", "Arial Narrow", sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Vestive brand colours */
+  --color-gold: var(--vx-gold);
+  --color-orange: var(--vx-orange);
+  --color-blue: var(--vx-blue);
+  --color-green: var(--vx-green);
+  --color-cyan: var(--vx-cyan);
+  --color-lime: var(--vx-lime);
+  --color-umber: var(--vx-umber);
+  --color-ink: var(--vx-ink);
+  --color-star: var(--vx-star);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground font-sans; }
+  h1, h2, h3, h4 { font-family: var(--font-heading); }
+  ::selection { background: color-mix(in oklch, var(--vx-gold) 30%, transparent); }
+}
+
+/* ---- the angled silhouette (from the icon's container and the original site's buttons) ---- */
+@utility vx-angle { clip-path: var(--vx-angle); }
+
+/* ---- signature motion ---- */
+@layer components {
+.vx-ribbon {
+  display: block; background: var(--vx-ribbon); background-size: 220% 100%; background-position: 0 0;
+  animation: vx-ribbon-wave 7s linear infinite, vx-ribbon-flow 5s ease-in-out infinite alternate;
+}
+.vx-ribbon-edge {
+  position: absolute; left: 0; bottom: 100%; width: 100%; height: 14px;
+  background: var(--vx-ribbon); background-size: 220% 100%;
+  clip-path: polygon(0% 8%,9% 8%,14% 24%,21% 46%,34% 60%,100% 74%,100% 100%,0% 100%);
+  animation: vx-ribbon-flow 2.4s ease-in-out infinite alternate;
+}
+}
+@keyframes vx-ribbon-flow { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@keyframes vx-edge-trace { 0% { width: 0; opacity: 0; } 2% { opacity: .95; } 10% { width: 100%; opacity: .95; } 17% { opacity: .8; } 34% { width: 100%; opacity: 0; } 100% { width: 100%; opacity: 0; } }
+@keyframes vx-node-fire { 0% { transform: scale(1); opacity: 0; } 4% { transform: scale(2.3); opacity: 1; } 14% { transform: scale(1); opacity: .7; } 34% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes vx-node-ring { 0% { transform: scale(.4); opacity: 0; } 6% { opacity: .5; } 30% { transform: scale(3.6); opacity: 0; } 100% { transform: scale(3.6); opacity: 0; } }
+@layer components { .vx-hatch { background-image: repeating-linear-gradient(135deg, var(--border) 0 2px, transparent 2px 14px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-ribbon, .vx-ribbon-edge, [data-motion] { animation: none !important; }
+}

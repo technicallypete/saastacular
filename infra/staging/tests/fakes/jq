@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Fake jq for the G072 offline fixtures: answers only the exact jq programs of infra/staging/lib.sh and staging.sh
+# (recognised by a fixed fragment) from FAKE_ROOT/tf, consuming stdin, and ci-lib.sh's probe verdict (emulated below);
+# any other program exits 97 (class X). The host has no jq; the real programs run in the pinned jq image (check.sh
+# LIFECYCLE-DRYRUN; the probe program in the staging-ci context image).
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+prog=""
+for a in "$@"; do [[ $a == -* ]] || { prog=$a; break; }; done
+# ci-lib.sh PROBE_JQ, pinned verbatim (a changed program is unmodelled, exit 97), emulated with Python's strict JSON
+# decoder (python3 -I; NaN/Infinity refused as jq refuses them): one output line per JSON value in stdin, as jq -r; a
+# parse error after N values prints those N results and exits 2, as jq does; empty input prints nothing, exit 0.
+PROBE_JQ='if type == "object" and .kind == "storage#testIamPermissionsResponse" and ((has("permissions") | not) or ((.permissions | type) == "array" and all(.permissions[]; type == "string"))) then (if ((.permissions // []) | length) == 0 then "denied" else "granted" end) else "invalid" end'
+if [[ $prog == "$PROBE_JQ" ]]; then
+  fake_log jq R probe-verdict
+  exec python3 -I -c '
+import json, sys
+data = sys.stdin.read()
+def no_constant(c):
+    raise ValueError(c)
+dec = json.JSONDecoder(parse_constant=no_constant)
+i, n = 0, len(data)
+while True:
+    while i < n and data[i] in " \t\n\r":
+        i += 1
+    if i >= n:
+        sys.exit(0)
+    try:
+        v, i = dec.raw_decode(data, i)
+    except ValueError:
+        sys.exit(2)
+    ok = isinstance(v, dict) and v.get("kind") == "storage#testIamPermissionsResponse" and (
+        "permissions" not in v or (isinstance(v["permissions"], list) and all(isinstance(x, str) for x in v["permissions"])))
+    print(("denied" if len(v.get("permissions") or []) == 0 else "granted") if ok else "invalid")
+'
+fi
+cat >/dev/null
+case $prog in
+  *'.values.root_module // {} | [recurse(.child_modules[]?) | .resources[]? | .values.name? // empty]'*)
+    fake_log jq R state_names; cat "$FAKE_ROOT/tf/state_names" 2>/dev/null || true ;;
+  *'select(.type | startswith("cloudflare_"))'*) fake_log jq R receipt-dns ;;
+  *'def str:'*'.resource_changes[]?'*) fake_log jq R plan_changes ;;
+  *'def leaves:'*)
+    fake_log jq R refresh_scope_rows
+    printf 'drift\tmodule.vm.google_compute_instance.vm\tupdate\n'
+    printf 'diff\tmodule.vm.google_compute_instance.vm\tscheduling[0].max_run_duration[0].seconds\t%s\t%s\n' \
+      "$(fake_get tf/refresh_from)" "$(fake_get tf/refresh_want)"
+    ;;
+  '.result | length') fake_log jq R cf-count; echo 0 ;;
+  *) fake_log jq X "$prog"; echo "fake jq: unmodelled program" >&2; exit 97 ;;
+esac

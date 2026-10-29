@@ -1,0 +1,2 @@
+{"type":"error","request_id":"req-conformance-0001","code":"capability_not_configured","message":"capability 'chat' is not configured","retryable":false}
+{"type":"done","request_id":"req-conformance-0001"}

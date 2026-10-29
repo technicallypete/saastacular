@@ -1,0 +1,7 @@
+{
+  "type": "error",
+  "request_id": "req-conformance-0001",
+  "code": "GATEWAY_ERROR",
+  "message": "synthetic",
+  "retryable": false
+}

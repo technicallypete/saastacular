@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:validationtools:logrecord:completion:v1",
+  "title": "HTTP request completion record",
+  "description": "Exactly one record per scoped request (G003 Plan §5.2). The key set is exactly the §5.2 set: parent_span_id only when the inbound traceparent was valid, error_type only for a failed outcome, core_probe only on web /api/ready, logger only on intelligence. Per-service error_type categories are enforced from events.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "time",
+    "level",
+    "service",
+    "event",
+    "method",
+    "route",
+    "status",
+    "duration_ms",
+    "request_id",
+    "request_id_source",
+    "trace_id",
+    "trace_source",
+    "span_id",
+    "trace_flags",
+    "outcome"
+  ],
+  "properties": {
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "level": { "enum": ["info", "warn", "error"] },
+    "service": { "enum": ["web", "core", "intelligence"] },
+    "event": { "const": "http.request.completed" },
+    "method": { "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"] },
+    "route": {
+      "enum": [
+        "/healthz", "/readyz", "unmatched", "/api/health", "/api/ready",
+        "/internal/v1/auth/session", "/internal/v1/auth/callback", "/internal/v1/auth/login", "/internal/v1/auth/logout",
+        "/internal/v1/auth/provider-logout/return", "/internal/v1/mcp/connections", "/internal/v1/mcp/connections/revoke", "/internal/v1/mcp/connections/rename",
+        "/internal/v1/auth/relay", "/internal/v1/hosts/resolve", "/internal/v1/domains", "/internal/v1/domains/tls-ask",
+        "/internal/v1/domains/rotate", "/internal/v1/domains/verify", "/internal/v1/domains/recheck",
+        "/internal/v1/domains/remove", "/internal/v1/domains/retry-withdrawal", "/internal/v1/organization/slug",
+        "/internal/v1/branding/public", "/internal/v1/branding/logo", "/internal/v1/branding", "/internal/v1/branding/reset",
+        "/internal/v1/branding/logo/remove", "/internal/v1/branding/objects/delete", "/internal/v1/groups",
+        "/internal/v1/groups/slug-suggestion", "/internal/v1/groups/{id}", "/internal/v1/groups/{id}/business-profile",
+        "/internal/v1/business-profiles", "/internal/v1/business-profiles/{id}", "/internal/v1/members",
+        "/internal/v1/members/self", "/internal/v1/members/{user_id}/role", "/internal/v1/members/{user_id}/remove",
+        "/internal/v1/members/{user_id}/promote", "/internal/v1/members/{user_id}/demote", "/internal/v1/members/leave",
+        "/internal/v1/ownership/transfer", "/internal/v1/invitations", "/internal/v1/invitations/mine",
+        "/internal/v1/invitations/candidates", "/internal/v1/invitations/{id}", "/internal/v1/invitations/{id}/revoke",
+        "/internal/v1/invitations/{id}/accept", "/internal/v1/account/retirement-eligibility",
+        "/internal/v1/enrollment/public", "/internal/v1/enrollment/status", "/internal/v1/enrollment/request",
+        "/internal/v1/enrollment/admit", "/internal/v1/enrollment/abandon", "/internal/v1/enrollment/policy",
+        "/internal/v1/enrollment/requests", "/internal/v1/enrollment/requests/{id}/decide",
+        "/internal/v1/enrollment/requests/{id}/revoke", "/internal/v1/organization/group-authority",
+        "/internal/v1/signup/status", "/internal/v1/signup/slug", "/internal/v1/signup/organizations",
+        "/internal/v1/signup/challenge", "/internal/v1/signup/prove", "/internal/v1/signup/complete",
+        "/internal/v1/signup/abandon", "/internal/v1/groups/{id}/labels", "/internal/v1/groups/{id}/labels/assign",
+        "/internal/v1/groups/{id}/labels/unassign", "/internal/v1/labels", "/internal/v1/labels/{id}/delete",
+        "/internal/v1/labels/{id}/update"
+      ]
+    },
+    "status": { "type": "integer", "minimum": 0, "maximum": 599 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+    "request_id_source": { "enum": ["inbound", "generated"] },
+    "trace_id": { "$ref": "#/$defs/trace_id" },
+    "trace_source": { "enum": ["inbound", "generated"] },
+    "span_id": { "$ref": "#/$defs/span_id" },
+    "parent_span_id": { "$ref": "#/$defs/span_id" },
+    "trace_flags": { "enum": ["00", "01"] },
+    "outcome": { "enum": ["completed", "cancelled", "failed"] },
+    "error_type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]{0,63}$" },
+    "core_probe": { "enum": ["ok", "not_ready", "timeout", "unreachable"] },
+    "logger": { "const": "intelligence.http" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "failed" } } },
+      "then": { "required": ["error_type"], "properties": { "level": { "const": "error" } } },
+      "else": { "not": { "required": ["error_type"] } }
+    },
+    {
+      "if": { "properties": { "outcome": { "not": { "const": "failed" } }, "status": { "minimum": 500 } } },
+      "then": { "properties": { "level": { "const": "warn" } } }
+    },
+    {
+      "if": { "properties": { "outcome": { "not": { "const": "failed" } }, "status": { "maximum": 499 } } },
+      "then": { "properties": { "level": { "const": "info" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": 0 } } },
+      "then": { "properties": { "outcome": { "enum": ["cancelled", "failed"] } } }
+    },
+    {
+      "if": { "properties": { "trace_source": { "const": "inbound" } } },
+      "then": { "required": ["parent_span_id"] },
+      "else": { "not": { "required": ["parent_span_id"] } }
+    },
+    {
+      "if": { "properties": { "service": { "const": "core" } } },
+      "then": {
+        "properties": {
+          "route": {
+            "enum": [
+              "/healthz", "/readyz", "unmatched",
+              "/internal/v1/auth/session", "/internal/v1/auth/callback", "/internal/v1/auth/login", "/internal/v1/auth/logout",
+              "/internal/v1/auth/provider-logout/return", "/internal/v1/mcp/connections", "/internal/v1/mcp/connections/revoke", "/internal/v1/mcp/connections/rename",
+              "/internal/v1/auth/relay", "/internal/v1/hosts/resolve", "/internal/v1/domains", "/internal/v1/domains/tls-ask",
+              "/internal/v1/domains/rotate", "/internal/v1/domains/verify", "/internal/v1/domains/recheck",
+              "/internal/v1/domains/remove", "/internal/v1/domains/retry-withdrawal", "/internal/v1/organization/slug",
+              "/internal/v1/branding/public", "/internal/v1/branding/logo", "/internal/v1/branding", "/internal/v1/branding/reset",
+              "/internal/v1/branding/logo/remove", "/internal/v1/branding/objects/delete", "/internal/v1/groups",
+              "/internal/v1/groups/slug-suggestion", "/internal/v1/groups/{id}", "/internal/v1/groups/{id}/business-profile",
+              "/internal/v1/business-profiles", "/internal/v1/business-profiles/{id}", "/internal/v1/members",
+              "/internal/v1/members/self", "/internal/v1/members/{user_id}/role", "/internal/v1/members/{user_id}/remove",
+              "/internal/v1/members/{user_id}/promote", "/internal/v1/members/{user_id}/demote", "/internal/v1/members/leave",
+              "/internal/v1/ownership/transfer", "/internal/v1/invitations", "/internal/v1/invitations/mine",
+              "/internal/v1/invitations/candidates", "/internal/v1/invitations/{id}", "/internal/v1/invitations/{id}/revoke",
+              "/internal/v1/invitations/{id}/accept", "/internal/v1/account/retirement-eligibility",
+              "/internal/v1/enrollment/public", "/internal/v1/enrollment/status", "/internal/v1/enrollment/request",
+              "/internal/v1/enrollment/admit", "/internal/v1/enrollment/abandon", "/internal/v1/enrollment/policy",
+              "/internal/v1/enrollment/requests", "/internal/v1/enrollment/requests/{id}/decide",
+              "/internal/v1/enrollment/requests/{id}/revoke", "/internal/v1/organization/group-authority",
+              "/internal/v1/signup/status", "/internal/v1/signup/slug", "/internal/v1/signup/organizations",
+              "/internal/v1/signup/challenge", "/internal/v1/signup/prove", "/internal/v1/signup/complete",
+              "/internal/v1/signup/abandon", "/internal/v1/groups/{id}/labels", "/internal/v1/groups/{id}/labels/assign",
+              "/internal/v1/groups/{id}/labels/unassign", "/internal/v1/labels", "/internal/v1/labels/{id}/delete",
+              "/internal/v1/labels/{id}/update"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "service": { "const": "web" } } },
+      "then": { "properties": { "route": { "enum": ["/api/health", "/api/ready"] } } }
+    },
+    {
+      "if": { "properties": { "service": { "const": "intelligence" } } },
+      "then": { "required": ["logger"], "properties": { "route": { "enum": ["/healthz", "/readyz"] } } },
+      "else": { "not": { "required": ["logger"] } }
+    },
+    {
+      "if": {
+        "required": ["service", "route"],
+        "properties": { "service": { "const": "web" }, "route": { "const": "/api/ready" } }
+      },
+      "then": {
+        "if": { "properties": { "outcome": { "const": "completed" } } },
+        "then": { "required": ["core_probe"] }
+      },
+      "else": { "not": { "required": ["core_probe"] } }
+    }
+  ],
+  "$defs": {
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$", "not": { "const": "00000000000000000000000000000000" } },
+    "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$", "not": { "const": "0000000000000000" } }
+  }
+}

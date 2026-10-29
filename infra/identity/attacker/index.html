@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Cross-origin attack page for the identity overlay (G004 E-CSRF-5; test only). Served at
+     https://attacker.localhost:543/ by the test proxy. The fragment names one attack:
+       #logout | #logout-all | #provider-logout | #login   a form POST to org-a's route
+       #<route>:text                                       the same with enctype text/plain
+       #<route>:token=<value>                              the same carrying a guessed csrf_token
+     The page submits once on load; it reads nothing back (it cannot). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Attacker</title>
+  </head>
+  <body>
+    <main>
+      <h1>Attacker</h1>
+      <form id="attack" method="post"></form>
+    </main>
+    <script>
+      (function () {
+        var spec = decodeURIComponent(location.hash.slice(1));
+        var parts = spec.split(":");
+        var route = parts[0];
+        if (["logout", "logout-all", "provider-logout", "login"].indexOf(route) < 0) return;
+        var form = document.getElementById("attack");
+        form.action = "https://org-a.localhost:543/auth/" + route;
+        for (var i = 1; i < parts.length; i++) {
+          if (parts[i] === "text") form.enctype = "text/plain";
+          if (parts[i].indexOf("token=") === 0) {
+            var input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "csrf_token";
+            input.value = parts[i].slice(6);
+            form.appendChild(input);
+          }
+        }
+        form.submit();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,134 @@
+# Public synthetic staging overlay (docs/foundation/STAGING.md). Composed only on the staging VM, by
+# infra/staging/remote/*.sh, over local.yml and migrate.yml:
+#   docker compose --env-file /run/<env>/app.env -f infra/compose/local.yml -f infra/compose/migrate.yml \
+#     -f infra/compose/staging.yml --profile migrate <command>
+# Never combined with identity.yml, browser.yml, secret-scan.yml or the checks profile.
+# - Development-loader profile, not production readiness: APP_ENV=development with the production-equivalent settings
+#   explicit (HTTPS cookies on web and core, no host port, no fixture, the default WorkOS adapter, the real edge-probe).
+#   Identity stays unconfigured until its Secret Manager versions exist (authentication unavailable, never bypassed).
+# - Only the edge publishes host ports (80, 443); every backend's host mapping is reset. BIND_ADDRESS and the *_PORT
+#   values stay required by local.yml's interpolation but publish nothing.
+# - Every built service runs a digest-pinned image (IMAGE_* from the deploy manifest) and never builds here.
+# - restart: unless-stopped resumes the same pinned images after a VM restart; it is not a deployment and not a
+#   recovery check (remote/start.sh holds app and edge until the stores, migrations and the dataset marker pass).
+# - The edge's /data volume (ACME account and certificates) is EDGE_DATA_VOLUME: edge-data (the retained production
+#   issuer's volume) or edge-data-rehearsal (the Let's Encrypt staging directory). Reset never removes either.
+x-staging-labels: &staging-labels
+  staging.environment: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+  staging.managed-by: compose
+
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+    # PostgreSQL's fast shutdown (SIGINT) gets time to finish before Docker kills it.
+    stop_grace_period: 60s
+    labels: *staging-labels
+
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+    labels: *staging-labels
+
+  minio:
+    build: !reset null
+    image: ${IMAGE_MINIO:?IMAGE_MINIO is required}
+    pull_policy: missing
+    ports: !reset []
+    restart: unless-stopped
+    labels: *staging-labels
+
+  minio-init:
+    build: !reset null
+    image: ${IMAGE_MINIO_INIT:?IMAGE_MINIO_INIT is required}
+    pull_policy: missing
+    labels: *staging-labels
+
+  migrate:
+    build: !reset null
+    image: ${IMAGE_MIGRATE:?IMAGE_MIGRATE is required}
+    pull_policy: missing
+    environment:
+      APP_ENV: development
+    labels: *staging-labels
+
+  core:
+    build: !reset null
+    image: ${IMAGE_CORE:?IMAGE_CORE is required}
+    pull_policy: missing
+    ports: !reset []
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      PLATFORM_AUTH_HOST: ${PLATFORM_AUTH_HOST:?PLATFORM_AUTH_HOST is required}
+      IDENTITY_PROVIDER: workos
+      IDENTITY_COOKIE_PROFILE: https
+      # Optional: all three set (from the Secret Manager versions) or none (identity unconfigured).
+      IDENTITY_WORKOS_CLIENT_ID: ${IDENTITY_WORKOS_CLIENT_ID-}
+      IDENTITY_WORKOS_ISSUER: ${IDENTITY_WORKOS_ISSUER-}
+      IDENTITY_WORKOS_API_KEY: ${IDENTITY_WORKOS_API_KEY-}
+      # Exactly https://<PLATFORM_AUTH_HOST> when identity is configured, empty otherwise.
+      IDENTITY_PUBLIC_ORIGINS: ${IDENTITY_PUBLIC_ORIGINS-}
+      # The edge-probe verifies a custom host's chain against the edge itself, inside the VM.
+      DOMAIN_TLS_EDGE_ADDR: edge:443
+      # Optional root host settings (staging.conf; empty = unset): DOMAINS.md "Default-tenant root alias and root
+      # presentation".
+      DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG:-}
+      PLATFORM_ROOT_PAGE: ${PLATFORM_ROOT_PAGE:-}
+      # Optional MCP settings (staging.conf; empty = unset = MCP disabled, no route): docs/foundation/MCP.md. The issuer is
+      # this environment's exact AuthKit Connect issuer, a public value; the origins need it.
+      MCP_CONNECT_ISSUER: ${MCP_CONNECT_ISSUER:-}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
+    labels: *staging-labels
+
+  web:
+    build: !reset null
+    image: ${IMAGE_WEB:?IMAGE_WEB is required}
+    pull_policy: missing
+    ports: !reset []
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      IDENTITY_COOKIE_PROFILE: https
+    labels: *staging-labels
+
+  intelligence:
+    build: !reset null
+    image: ${IMAGE_INTELLIGENCE:?IMAGE_INTELLIGENCE is required}
+    pull_policy: missing
+    ports: !reset []
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+    labels: *staging-labels
+
+  # The public edge (infra/docker/edge.Dockerfile, infra/edge/Caddyfile): the only service with host ports. It joins
+  # the edge network only and reaches web, and core's internal tls-ask route, there.
+  edge:
+    image: ${IMAGE_EDGE:?IMAGE_EDGE is required}
+    pull_policy: missing
+    restart: unless-stopped
+    environment:
+      EDGE_BASE_DOMAIN: ${EDGE_BASE_DOMAIN:?EDGE_BASE_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      EDGE_ACME_CA: ${EDGE_ACME_CA:?EDGE_ACME_CA is required}
+      CF_API_TOKEN: ${CF_API_TOKEN:?CF_API_TOKEN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - edge-data:/data
+      - edge-config:/config
+      - ../edge/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      core:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks: [edge]
+    labels: *staging-labels
+
+volumes:
+  edge-data:
+    name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}_${EDGE_DATA_VOLUME:-edge-data}
+  edge-config: {}

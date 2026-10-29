@@ -1,0 +1,6 @@
+# DNS fixture of the identity test overlay (CUSTOM_DOMAIN_DNS_FIXTURE_FILE, APP_ENV=test only; G016 Plan r4 §5.4; test
+# only, never production): name<TAB>TXT|CNAME|NXDOMAIN|SERVFAIL<TAB>value. portal.acme.test proves ownership with the
+# challenge infra/identity/mcp-seed.sql stores and points at the overlay's CNAME target; old.acme.test is gone.
+portal.acme.test	CNAME	edge.localhost
+_platform-verify.portal.acme.test	TXT	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+old.acme.test	NXDOMAIN

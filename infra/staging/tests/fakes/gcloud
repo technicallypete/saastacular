@@ -1,0 +1,352 @@
+#!/usr/bin/env bash
+# Fake gcloud for the G072 offline fixtures (see fakelib.sh). Models: Cloud Storage objects with generation
+# preconditions and the per-principal IAM model of perms.tsv (shared contract 2); the instance (describe, list, start,
+# stop, set-scheduling), OS Login keys, IAP SSH to a fake VM side (remote scripts, uploads, the observed-lineage
+# query), Secret Manager access, Artifact Registry describes and auth. Principal: the impersonated service account
+# (<env>-deployer / -ci-stop / -ci-read) or, without impersonation, FAKE_BASE_PRINCIPAL (operator, federated-start,
+# federated-stop, federated-read). Anything unmodelled exits 97 and is logged with class X.
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+
+ARGV="$*"
+declare -A F=()
+POS=()
+VALUED=" --project --impersonate-service-account --format --zone --zones --region --filter --command --key-file --ttl --cred-file --secret "
+while (($#)); do
+  case $1 in
+    --*=*) F[${1%%=*}]=${1#*=} ;;
+    --*)
+      if [[ $VALUED == *" $1 "* ]]; then F[$1]=${2-}; shift; else F[$1]=1; fi
+      ;;
+    *) POS+=("$1") ;;
+  esac
+  shift
+done
+P1=${POS[0]:-} P2=${POS[1]:-} P3=${POS[2]:-}
+
+die_x() { fake_log gcloud X "$ARGV"; printf 'fake gcloud: %s\n' "$*" >&2; exit 97; }
+err() { printf 'ERROR: (gcloud.%s) %s\n' "$1" "$2" >&2; exit "${3:-1}"; }
+
+# ---- principal and impersonation
+BASE=${FAKE_BASE_PRINCIPAL:-operator}
+SA=${F[--impersonate-service-account]:-}
+if [[ -n $SA ]]; then
+  case ${SA%%@*} in
+    *-ci-stop) PRINCIPAL=ci-stop ;;
+    *-ci-read) PRINCIPAL=ci-read ;;
+    *-deployer) PRINCIPAL=deployer ;;
+    *) PRINCIPAL=unknown ;;
+  esac
+  case "$BASE:$PRINCIPAL" in
+    operator:deployer | federated-start:deployer | federated-stop:ci-stop | federated-read:ci-read) ;;
+    *)
+      fake_log gcloud A "$ARGV"
+      err auth "Permission 'iam.serviceAccounts.getAccessToken' denied on resource $SA for $BASE (403)" 1
+      ;;
+  esac
+else
+  PRINCIPAL=$BASE
+fi
+
+# ---- Cloud Storage model
+perms_for() { # PRINCIPAL BUCKET KEY -> space-separated permissions
+  local p=$1 b=$2 k=$3 who grant keys out=""
+  if [[ $b != *-ci-meta ]]; then
+    # Any other bucket (the Terraform state bucket): G070's deployer objectAdmin only; nothing for the CI identities.
+    [[ $p != deployer ]] || out="buckets.get objects.get objects.list objects.create objects.delete"
+    printf '%s' "$out"
+    return 0
+  fi
+  while IFS=$'\t' read -r who grant keys; do
+    [[ $who == "$p" ]] || continue
+    if [[ $keys != '*' ]]; then [[ ",$keys," == *",$k,"* ]] || continue; fi
+    case $grant in
+      roles/storage.objectAdmin) out+=" objects.get objects.list objects.create objects.delete" ;;
+      roles/storage.objectViewer) out+=" objects.get objects.list" ;;
+      roles/storage.objectCreator) out+=" objects.create" ;;
+      roles/storage.legacyBucketReader) out+=" buckets.get objects.list" ;;
+      ciMetaMutable) out+=" objects.delete" ;;
+      *) ;;
+    esac
+  done <"$FAKE_ROOT/perms.tsv"
+  printf '%s' "$out"
+}
+need() { # PERM BUCKET KEY VERB
+  local have
+  have=" $(perms_for "$PRINCIPAL" "$2" "$3") "
+  [[ $have == *" storage.$1 "* || $have == *" $1 "* ]] && return 0
+  err "storage.$4" "HTTPError 403: $PRINCIPAL does not have storage.$1 access to gs://$2/$3." 1
+}
+split_url() { # gs://B/KEY[#GEN] -> B K G
+  local u=${1#gs://}
+  B=${u%%/*} K="" G=""
+  [[ $u == */* ]] && K=${u#*/}
+  if [[ $K == *'#'* ]]; then G=${K##*#}; K=${K%#*}; fi
+}
+odir() { printf '%s/gcs/%s/obj/%s' "$FAKE_ROOT" "$1" "${2//\//%2F}"; }
+live_gen() { local d; d="$(odir "$1" "$2")"; [[ -f $d/gen ]] && cat "$d/gen" || echo 0; }
+next_gen() { local n; n=$(($(fake_get gcs/.counter 1000) + 1)); fake_set gcs/.counter "$n"; printf '%s' "$n"; }
+bucket_ok() { [[ -d $FAKE_ROOT/gcs/$1 ]] || err "storage.$2" "gs://$1 not found: 404." 1; }
+
+storage() {
+  local url gen d n m src dst
+  case "$P2 $P3" in
+    "buckets describe")
+      fake_log gcloud R "$ARGV"
+      split_url "${POS[3]:-}"
+      case ${FAKE_BUCKET_MODE:-} in
+        403) err storage.buckets.describe "HTTPError 403: $PRINCIPAL does not have storage.buckets.get access to the Google Cloud Storage bucket." 1 ;;
+        500) err storage.buckets.describe "HTTPError 503: backend error" 1 ;;
+      esac
+      bucket_ok "$B" buckets.describe
+      need buckets.get "$B" "" buckets.describe
+      # --raw value(name,projectNumber): the owner is gcs/<B>/.owner when present (a foreign project, "none" for a
+      # missing field, any text for a malformed one), else this project's number (FAKE_ROOT/project-number).
+      local owner
+      owner="$(cat "$FAKE_ROOT/gcs/$B/.owner" 2>/dev/null || fake_get project-number 123456789012)"
+      if [[ ${F[--format]:-} == 'value(name,projectNumber)' && -n ${F[--raw]:-} && $owner != none ]]; then
+        printf '%s\t%s\n' "$B" "$owner"
+      else
+        printf '%s\n' "$B"
+      fi
+      ;;
+    "objects describe")
+      fake_log gcloud R "$ARGV"
+      split_url "${POS[3]:-}"; bucket_ok "$B" objects.describe
+      need objects.get "$B" "$K" objects.describe
+      gen="$(live_gen "$B" "$K")"
+      ((gen > 0)) || err storage.objects.describe "gs://$B/$K not found: 404." 1
+      printf '%s\n' "$gen"
+      ;;
+    "cat "*)
+      fake_log gcloud R "$ARGV"
+      split_url "$P3"; bucket_ok "$B" cat
+      need objects.get "$B" "$K" cat
+      d="$(odir "$B" "$K")"; gen=${G:-$(live_gen "$B" "$K")}
+      [[ $gen != 0 && -f $d/v$gen ]] || err storage.cat "gs://$B/$K not found: 404." 1
+      cat "$d/v$gen"
+      ;;
+    "cp "*)
+      src=$P3 dst=${POS[3]:-}
+      if [[ $src == gs://* ]]; then
+        fake_log gcloud R "$ARGV"
+        split_url "$src"; bucket_ok "$B" cp
+        need objects.get "$B" "$K" cp
+        d="$(odir "$B" "$K")"; gen=${G:-$(live_gen "$B" "$K")}
+        [[ $gen != 0 && -f $d/v$gen ]] || err storage.cp "gs://$B/$K not found: 404." 1
+        cp "$d/v$gen" "$dst"
+        return 0
+      fi
+      fake_log gcloud W "$ARGV"
+      [[ -n ${F[--if-generation-match]:-} ]] || die_x "unconditional write to $dst (no --if-generation-match)"
+      split_url "$dst"; bucket_ok "$B" cp
+      gen="$(live_gen "$B" "$K")" m=${F[--if-generation-match]}
+      [[ $m == "$gen" ]] || err storage.cp "HTTPError 412: At least one of the pre-conditions you specified did not hold. (gs://$B/$K)" 1
+      need objects.create "$B" "$K" cp
+      ((gen == 0)) || need objects.delete "$B" "$K" cp
+      [[ -f $src ]] || err storage.cp "$src not found" 1
+      d="$(odir "$B" "$K")"; mkdir -p "$d"; n="$(next_gen)"
+      cp "$src" "$d/v$n"; printf '%s\n' "$n" >"$d/gen"
+      ;;
+    "rm "*)
+      fake_log gcloud W "$ARGV"
+      [[ -n ${F[--if-generation-match]:-} ]] || die_x "unconditional delete of $P3 (no --if-generation-match)"
+      split_url "$P3"; bucket_ok "$B" rm
+      gen="$(live_gen "$B" "$K")" m=${F[--if-generation-match]}
+      ((gen > 0)) || err storage.rm "gs://$B/$K not found: 404." 1
+      [[ $m == "$gen" ]] || err storage.rm "HTTPError 412: At least one of the pre-conditions you specified did not hold. (gs://$B/$K)" 1
+      need objects.delete "$B" "$K" rm
+      printf '0\n' >"$(odir "$B" "$K")/gen"
+      ;;
+    "ls "*)
+      fake_log gcloud R "$ARGV"
+      split_url "$P3"; bucket_ok "$B" ls
+      need objects.list "$B" "$K" ls
+      n=0
+      for d in "$FAKE_ROOT/gcs/$B/obj"/*; do
+        [[ -d $d ]] || continue
+        m=${d##*/}; m=${m//%2F//}
+        [[ $m == "$K"* && "$(cat "$d/gen")" != 0 ]] || continue
+        printf 'gs://%s/%s\n' "$B" "$m"; n=$((n + 1))
+      done
+      ((n > 0)) || err storage.ls "One or more URLs matched no objects." 1
+      ;;
+    *) die_x "storage $P2 $P3" ;;
+  esac
+}
+
+# ---- Compute Engine model
+vm() { fake_get "vm/$1" "${2:-}"; }
+vm_exists() { [[ "$(vm status ABSENT)" != ABSENT ]]; }
+term_iso() { local t; t="$(vm term)"; [[ -z $t ]] || fake_iso "$t"; }
+need_compute() { # deployer or the stop identity (compute.instances.*); anything else is denied
+  case $PRINCIPAL in
+    deployer | ci-stop | operator) return 0 ;;
+    *) err compute "Required 'compute.instances.$1' permission for $PRINCIPAL (403)" 1 ;;
+  esac
+}
+compute_instances() {
+  local f=${F[--format]:-}
+  case $P3 in
+    describe)
+      fake_log gcloud R "$ARGV"
+      need_compute get
+      [[ ${FAKE_VM_UNREADABLE:-0} != 1 ]] || err compute.instances.describe "HTTPError 503: backend error" 1
+      vm_exists || err compute.instances.describe "The resource 'projects/x/zones/z/instances/${POS[3]:-}' was not found (404)" 1
+      case $f in
+        'value(status)') vm status ;;
+        'value(status,scheduling.maxRunDuration.seconds,resourceStatus.scheduling.terminationTimestamp)')
+          printf '%s\t%s\t%s\n' "$(vm status)" "$(vm max_run)" "$(term_iso)" ;;
+        'value(status,scheduling.maxRunDuration.seconds,scheduling.instanceTerminationAction,scheduling.provisioningModel,scheduling.automaticRestart,scheduling.onHostMaintenance,scheduling.preemptible)')
+          printf '%s\t%s\tSTOP\tSTANDARD\tTrue\tMIGRATE\tFalse\n' "$(vm status)" "$(vm max_run)" ;;
+        'yaml(status,scheduling,resourceStatus.scheduling)') printf 'status: %s\nscheduling:\n  maxRunDuration:\n    seconds: %s\n' "$(vm status)" "$(vm max_run)" ;;
+        'value(networkInterfaces[0].accessConfigs[0].natIP)') vm natip 203.0.113.10 ;;
+        'value(name,status,machineType.basename())') printf '%s\t%s\te2-standard-2\n' "${POS[3]:-}" "$(vm status)" ;;
+        'value(resourceStatus.scheduling.terminationTimestamp)') term_iso ;;
+        *) die_x "describe format $f" ;;
+      esac
+      ;;
+    list)
+      fake_log gcloud R "$ARGV"
+      need_compute list
+      case ${F[--filter]:-} in
+        name=*) ! vm_exists || printf '%s\n' "${F[--filter]#name=}" ;;
+        *) ;;
+      esac
+      ;;
+    start)
+      fake_log gcloud W "$ARGV"; need_compute start
+      fake_set vm/status RUNNING; fake_set vm/term "$(($(fake_now) + $(vm max_run 7200)))"
+      ;;
+    stop)
+      fake_log gcloud W "$ARGV"; need_compute stop
+      [[ ${FAKE_STOP_FAIL:-0} != 1 && ! -f $FAKE_ROOT/vm/stop_fail ]] || err compute.instances.stop "HTTPError 503: backend error" 1
+      fake_set vm/status TERMINATED; fake_set vm/term ""
+      ;;
+    set-scheduling)
+      fake_log gcloud W "$ARGV"
+      [[ $PRINCIPAL == deployer ]] || err compute.instances.setScheduling "403 for $PRINCIPAL" 1
+      [[ "$(vm status)" == TERMINATED ]] || err compute.instances.setScheduling "the instance must be stopped" 1
+      fake_set vm/max_run "${F[--max-run-duration]%s}"
+      ;;
+    *) die_x "compute instances $P3" ;;
+  esac
+}
+
+ssh_vm() { # the fake VM side of gcloud compute ssh --command
+  local c=${F[--command]:-} e sha m svc ref cand n
+  fake_log gcloud W "$ARGV"
+  [[ "$(vm ssh_mode ok)" != fail ]] || err compute.ssh "ssh: connection refused (fake vm/ssh_mode fail)" 255
+  need_compute get
+  [[ "$(vm status)" == RUNNING ]] || err compute.ssh "the instance is not running" 255
+  case $c in
+    'sudo docker compose version') echo "Docker Compose version v2" ;;
+    *"sudo tar -C "*" --no-same-owner -xf -")
+      rm -rf "$FAKE_ROOT/vm/incoming"; mkdir -p "$FAKE_ROOT/vm/incoming"
+      tar -x -C "$FAKE_ROOT/vm/incoming" -f -
+      ;;
+    "sudo bash /srv/"*"/remote/deploy.sh "*)
+      m=$FAKE_ROOT/vm/incoming/meta/manifest.tsv
+      cand="$(awk -F'\t' '$1 == "candidate" {print $2}' "$m")"
+      printf '%s\n' "$c" >"$FAKE_ROOT/vm/last-deploy-command"
+      printf 'step\t%s\tpromote\trelease %s\n' "$(fake_iso "$(fake_now)")" "${cand:0:12}"
+      case $(vm deploy_mode ok) in
+        fail-before) printf 'step\t-\tsecrets\tunavailable\n'; exit 2 ;;
+        hold) exit 3 ;;
+        expire) # the native STOP fires during the deploy: the clock passes the armed deadline, the VM stops
+          fake_set now "$(($(vm term "$(fake_now)") + 1))"; fake_set vm/status TERMINATED; fake_set vm/term ""; exit 255 ;;
+      esac
+      # migrations of the candidate (fixture repository), applied in order
+      git -C "$FAKE_REPO" ls-tree "$cand" core/migrations/ | sed -nE 's#.*core/migrations/0*([0-9]+)_[^/]*\.sql$#\1#p' |
+        sort -n >"$FAKE_ROOT/vm/db_versions"
+      fake_set vm/candidate "$cand"
+      for svc in core web intelligence edge; do
+        ref="$(awk -F'\t' -v s="$svc" '$1 == "image" && $2 == s {print $6}' "$m")"
+        printf 'digest\t%s\t%s\tmatch\n' "$svc" "$ref"
+      done
+      # vm/block-deploy holds the VM side after the migrations (a cancellation fixture kills the job meanwhile), at most 60 s.
+      if [[ -f $FAKE_ROOT/vm/block-deploy ]]; then
+        : >"$FAKE_ROOT/vm/deploy-blocked"
+        for ((n = 0; n < 600; n++)); do [[ -f $FAKE_ROOT/vm/block-deploy ]] || break; sleep 0.1; done
+      fi
+      case $(vm deploy_mode ok) in
+        fail-readiness) printf 'step\t-\treadiness\ta running image differs from the manifest\n'; exit 4 ;;
+        canary) printf 'step\t-\tapp-edge\tG072PLANCANARY leaked into an allowlisted line\n' ;;
+      esac
+      printf 'result\tREADY\t%s\n' "$cand"
+      ;;
+    "sudo bash /srv/"*"/current/infra/staging/remote/status.sh "*)
+      printf 'candidate\t%s\nresult\tSTATUS\n' "$(vm candidate 000000000000)" ;;
+    "sudo bash /srv/"*"/current/infra/staging/remote/stop.sh "*) printf 'step\t-\tstopped\tcompose stop\n' ;;
+    "sudo bash /srv/"*"/current/infra/staging/remote/start.sh "*)
+      # vm/block-start holds the VM-side start (a concurrency fixture keeps the lease held meanwhile), at most 60 s.
+      if [[ -f $FAKE_ROOT/vm/block-start ]]; then
+        : >"$FAKE_ROOT/vm/start-blocked"
+        for ((n = 0; n < 600; n++)); do [[ -f $FAKE_ROOT/vm/block-start ]] || break; sleep 0.1; done
+      fi
+      [[ "$(vm start_mode ok)" != fail ]] || { printf 'step\t-\trecovery-checks\tfailed\n'; exit 4; }
+      printf 'step\t-\trecovery-checks\tpassed\n'
+      ;;
+    "sudo bash /srv/"*"/current/infra/staging/remote/reset.sh "*) printf 'step\t-\treset\tdone\n' ;;
+    *goose_db_version*)
+      [[ $c == "$(fake_get lineage-query)" ]] || err compute.ssh "fake VM: the observed-lineage query differs from the pinned text" 99
+      if [[ -f $FAKE_ROOT/vm/observed ]]; then cat "$FAKE_ROOT/vm/observed"; else cat "$FAKE_ROOT/vm/db_versions" 2>/dev/null || true; fi
+      ;;
+    *) die_x "ssh command $c" ;;
+  esac
+}
+
+case "$P1 $P2" in
+  "storage "*) storage ;;
+  "compute instances") compute_instances ;;
+  "compute ssh") ssh_vm ;;
+  "compute addresses")
+    fake_log gcloud R "$ARGV"
+    [[ $P3 == describe ]] && { vm ip 203.0.113.10; exit 0; }
+    [[ $P3 == list ]] || die_x "compute addresses $P3"
+    ;;
+  "compute disks" | "compute firewall-rules" | "compute networks") fake_log gcloud R "$ARGV" ;;
+  "compute os-login")
+    fake_log gcloud W "$ARGV"
+    [[ "$P3 ${POS[3]:-}" == "ssh-keys add" || "$P3 ${POS[3]:-}" == "ssh-keys remove" ]] || die_x "os-login $P3"
+    [[ ${POS[3]} != add || ! -f $FAKE_ROOT/oslogin-fail ]] || err compute.os-login.ssh-keys.add "HTTPError 503: backend error" 1
+    printf '%s\t%s\t%s\n' "${POS[3]}" "${F[--key-file]:-}" "${F[--ttl]:-}" >>"$FAKE_ROOT/oslogin.tsv"
+    ;;
+  "projects describe")
+    fake_log gcloud R "$ARGV"
+    [[ $PRINCIPAL == deployer || $PRINCIPAL == operator ]] && [[ ! -f $FAKE_ROOT/projects-describe-fail ]] ||
+      err projects.describe "Permission 'resourcemanager.projects.get' denied for $PRINCIPAL (403)" 1
+    fake_get project-number 123456789012; echo
+    ;;
+  "auth login")
+    fake_log gcloud A "$ARGV"
+    [[ -n ${F[--cred-file]:-} && -f ${F[--cred-file]} ]] || err auth.login "no credential file" 1
+    printf '%s\n' "${F[--cred-file]}" >"$FAKE_ROOT/auth-cred-file"
+    cp "${F[--cred-file]}" "$FAKE_ROOT/auth-cred-copy.json"
+    ;;
+  "auth print-access-token")
+    fake_log gcloud A "$ARGV"
+    case $(fake_get token-mode ok) in
+      empty) exit 0 ;;
+      fail) err auth.print-access-token "There was a problem refreshing your current auth tokens" 1 ;;
+    esac
+    printf 'ya29.G072FAKEACCESSTOKENCANARY\n'
+    ;;
+  "secrets versions")
+    fake_log gcloud R "$ARGV"
+    [[ $P3 == access ]] || exit 0
+    [[ $PRINCIPAL == federated-start && ${F[--secret]:-} == *-TERRAFORM_CLOUDFLARE_API_TOKEN ]] ||
+      err secrets.versions.access "Permission 'secretmanager.versions.access' denied for $PRINCIPAL (403)" 1
+    fake_get cf-token
+    ;;
+  "secrets list") fake_log gcloud R "$ARGV" ;;
+  "artifacts docker")
+    fake_log gcloud R "$ARGV"
+    [[ "$P3 ${POS[3]:-}" == "images describe" ]] || die_x "artifacts docker $P3"
+    [[ $PRINCIPAL == deployer || $PRINCIPAL == ci-read ]] || err artifacts "403 for $PRINCIPAL" 1
+    grep -qxF -- "${POS[4]:-}" "$FAKE_ROOT/ar/digests" 2>/dev/null || err artifacts.docker.images.describe "NOT_FOUND: ${POS[4]:-} (404)" 1
+    printf '%s\n' "${POS[4]##*@}"
+    ;;
+  *) die_x "unmodelled call" ;;
+esac

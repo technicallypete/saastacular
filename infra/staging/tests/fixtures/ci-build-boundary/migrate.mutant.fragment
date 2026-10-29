@@ -1,0 +1,4 @@
+# Mutation control (ci-build-boundary.sh mutant-detected): inserted before USER in migrate.hostile.Dockerfile with the
+# placeholder replaced by the run's CI_JOB_TOKEN canary, so the image, its history and the build log carry the value
+# on purpose. The canary scan must report it; a scan that stays clean here fails the case.
+RUN printf '%s\n' '@G072_MUTANT_LEAK@' | tee /leak/mutant.txt

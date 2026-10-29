@@ -1,0 +1,116 @@
+# {{PROJECT_NAME}} — Agent Execution Budget Policy
+
+Budgets detect thrashing, scope growth and failing strategies. They are maxima, not targets, and never justify
+weakening validation, security, testing or acceptance criteria. Detail:
+[budgets reference](../.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md).
+
+## Ownership
+
+{{SUPERVISOR_AGENT}} assigns the budget class in each Goal (default {{DEFAULT_BUDGET}}). {{IMPLEMENTER_AGENT}}
+works within it, may recommend a change during planning and never increases its own budget. A change after Plan
+approval needs {{SUPERVISOR_AGENT}} approval recorded in the Goal or Plan history, and never implies scope,
+architecture or acceptance changes.
+
+## Goal execution attempts
+
+- One attempt is one Goal-level try. Commands, test batches, inner fix loops, rebases, handoffs, checkpoints and
+  restarts do not consume attempts.
+- The initial implementation is attempt 1. An attempt ends at a review-ready Result, a report that it cannot
+  satisfy the Goal, or an abandoned strategy. A retry or an authorized correction round consumes a new attempt.
+- Workers and subagents share the Goal's allowance; there is one ledger, kept by the implementer.
+
+## Classes and checkpoints
+
+| Class | Maximum | Checkpoint |
+|---|---|---|
+| B3 | 3 | after attempt 2 |
+| B5 | 5 | after attempt 3 |
+| B7 | 7 | after attempt 4 |
+| B15 (exceptional) | 15 | after attempts 8 and 12 |
+
+A checkpoint reassesses criteria done and remaining, failures, repeated patterns, uncertainty, convergence and
+bounds. It is not an automatic stop.
+
+## Exhaustion and extensions
+
+On exhaustion: stop, preserve state, keep failing criteria, update the Result and return control. An extension
+records the previous and new budget, attempts used (preserved), reason, remaining work and the approving supervisor.
+Counters are never reset.
+
+## Effort
+
+Recommendations only: planning {{PLANNING_EFFORT}}, implementation {{IMPLEMENTATION_EFFORT}}. Record unverifiable
+runtime effort as unknown.
+
+## Workload-based model selection
+
+Model choice is independent of effort and budget. The owner-approved Claude
+default is **Fable 5.1 high for planning and test corrections**, including failure
+diagnosis and corrective test/fix work. Default to **Opus 5.5 high for
+implementation and ordinary test execution/reporting**. Default the Claude
+coordinator to **Sonnet 5.5 high**; the owner may choose **Opus 5.5 high** for
+coordinator work. The owner
+may choose Opus for planning/test corrections; then use **xhigh**. Fable xhigh is
+selective for especially difficult work. Other providers may use equivalent
+owner-selected tiers; verify availability before adopting examples elsewhere.
+
+Apply the configured role effort separately. State model/effort before a new phase,
+honor owner choices and verify actual configuration where supported, otherwise
+record unknown. Never assume an instruction changed a worker's runtime. Do not
+interrupt an active batch, redo completed work, reset budgets or weaken gates
+solely to change models. A stronger model does not accelerate the underlying
+Docker/build/test process. These recommendations add no provider dependency or
+automatic configuration change.
+
+## Result accounting
+
+Every Result has an Execution Budget section: class, maximum, attempts used, and an attempt log with each
+attempt's contributions, outcome and boundary reason. Individual failures and commands are validation history, not
+attempts. Acceptance remains {{SUPERVISOR_AGENT}}'s decision.
+
+## Model-aware effort precedence — owner direction, 2026-10-15
+
+For Claude Fable 5.1 use **high** for planning, reviews, diagnosis and correction
+loops; use **xhigh** selectively for especially difficult architecture, security
+or concurrency work. When the owner chooses **Opus 5.5 for planning or test
+corrections**, use **xhigh**, including failure diagnosis and corrective test/fix
+work. Opus routine implementation and ordinary test execution/reporting remain
+**high**. Coordinator default is Sonnet 5.5 high; the owner may choose Opus 5.5 high. A correction phase is distinct from
+merely running an unchanged test command.
+
+These model-aware values supersede blanket planning-xhigh or implementation-high
+wording for the affected phases, without changing generic parameter fallbacks.
+Owner choices take precedence. Use supported runtime controls and verify actual
+or inherited model/effort, otherwise report unknown; prose does not configure a
+worker. Apply at the next phase or safe boundary, never by interrupting a running
+batch or restarting completed work. Preserve budgets, evidence, permissions and
+bindings; do not switch the current G013 worker mid-batch.
+
+Fable test-correction workers may escalate from high to xhigh when diagnosis is
+uncertain, a fix fails again, or the correction becomes substantially more
+complex. This owner-authorized effort increase needs no repeat approval. Apply
+through supported controls at the next safe boundary and record the reason and
+actual setting (or unknown) in the Result. Do not interrupt a running batch.
+Existing repeated-issue escalation and budget stops still apply; higher effort
+does not reset attempts or expand scope.
+
+
+## Fable weekly-limit fallback — owner direction, 2026-10-15
+
+When Fable's weekly allowance is confirmed exhausted, automatically use Opus 5.5
+**xhigh for planning and test-failure diagnosis/corrections** until Fable resets.
+Opus implementation and ordinary test execution/reporting remain **high**.
+Coordinator default remains Sonnet 5.5 high, with Opus 5.5 high available by
+owner choice. This standing fallback needs no repeat owner approval; honor an explicit
+owner override. Record the limit, fallback model/effort and actual setting (or
+unknown) in the existing Result/dispatch record. A generic tool error is not
+proof of a model limit.
+
+Use supported controls at the next safe boundary, preserving the existing task,
+artifacts, checkout, bindings, reviews and attempt count. Do not interrupt a
+running validation batch, redo completed work, reset budgets or weaken gates.
+If native switching is unavailable or refused, report the blocker once; do not
+bypass permissions. Once Fable's allowance reset is verified, return to its normal
+model/effort defaults at the next safe phase boundary, without restarting work or
+repeatedly probing the allowance. This is model selection only, not scope,
+execution-release or budget-extension authority.

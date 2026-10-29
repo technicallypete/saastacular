@@ -1,0 +1,63 @@
+@import "../src/globals.css";
+
+/* ---------------------------------------------------------------------------
+ * App stylesheet (G069 S4; docs/foundation/WEB-SHELL.md). The adopted kit's own chain, imported above unchanged,
+ * supplies the palette (src/styles/theme.css), the Tailwind theme mapping, base styles and motion, including its own
+ * reduced-motion rule. The kit's colours, focus, cursor and motion render unaltered (owner direction 2026-10-26: the
+ * kit exactly, contrast shortfalls waived). This file adds only three app-owned sections, none of which changes a kit
+ * colour or state: the dark variant's Light-preview boundary (functional), the self-hosted copies of the kit's fonts,
+ * and the decorative blueprint drawing. Cascade: the kit's :root/.dark, then an Organization's saved branding
+ * (components/branding/tenant-style.tsx, html:root:not(.dark) / html.dark:root), then a preview element's own inline
+ * values (components/branding/brand-preview.tsx).
+ * ------------------------------------------------------------------------- */
+
+/* The dark variant with the Light-preview boundary (G069 S4/S8, Codex P0.2 decision 4). The kit's own definition (in
+   its theme-mapping sheet under src/styles: an element that is, or is inside, .dark or [data-theme="dark"]) matches a
+   Light brand preview on a Dark page, so its content would take Dark utilities over Light values. This later
+   definition of the same name replaces it (Tailwind registers the last @custom-variant of a name), keeps the kit's
+   four selectors and excludes a Light preview element (BrandPreview: data-brand-preview with the light class) and
+   everything inside it.
+   The exclusion names preview elements only, so html.light never suppresses a Dark preview, and a Dark preview on a
+   Light page still matches .dark. Specificity is unchanged (:where and :not(:where) add none). Limited to the
+   single-level, non-portaled preview composition; not a nested-theme system. */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *):not(:where([data-brand-preview].light, [data-brand-preview].light *)));
+
+/* Bundled fonts (G048; Geist and Geist Mono G067): same-origin, unmodified upstream files; see WEB-SHELL.md */
+@font-face { font-family: "Oswald"; src: url("/fonts/oswald/oswald-wght.ttf") format("truetype"); font-weight: 200 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("/fonts/barlow-condensed/barlow-condensed-400.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("/fonts/barlow-condensed/barlow-condensed-600.ttf") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/geist/geist-wght.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/fonts/geist-mono/geist-mono-wght.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+
+/* Decorative imagery (G048): the original blueprint drawing as an alpha mask over the muted-foreground fill of the
+   active palette. Absolutely positioned behind in-flow content, never focusable, hidden under forced colours. */
+[data-blueprint] {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 46%;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--muted-foreground);
+  opacity: 0.5;
+  mask-image: url("/blueprint/overview.svg"), linear-gradient(to right, transparent, var(--foreground) 96px);
+  mask-size: 720px auto, 100% 100%;
+  mask-position: left center, 0 0;
+  mask-repeat: no-repeat;
+  mask-composite: intersect;
+}
+@media (width < 64rem) {
+  [data-blueprint] {
+    inset: auto 0 0 0;
+    width: auto;
+    height: var(--vx-section-y);
+    mask-image: url("/blueprint/overview.svg");
+    mask-size: 640px auto;
+    mask-position: right top;
+  }
+}
+@media (forced-colors: active) {
+  [data-blueprint] {
+    display: none;
+  }
+}
+

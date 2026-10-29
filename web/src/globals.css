@@ -1,0 +1,6 @@
+/* Vestive v0.2 globals.css — Tailwind v4 + shadcn/ui (Base UI, Rhea style, Taupe base). Import once. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./styles/theme.css";
+@import "./styles/vestive.css";

@@ -1,0 +1,21 @@
+{
+  "type": "tool_call",
+  "request_id": "req-conformance-0001",
+  "call_id": "call-1",
+  "name": "records.search",
+  "arguments": {
+    "query": {
+      "filters": [
+        {
+          "field": "status",
+          "values": [
+            "open",
+            "pending"
+          ]
+        }
+      ],
+      "limit": 10,
+      "include_archived": false
+    }
+  }
+}

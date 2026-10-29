@@ -1,0 +1,150 @@
+# Required check IDs for infra/validation/run.sh (G003 Plan §10, B-REQUIRED-CHECKS; suites relabelled by the G003
+# CI revision Plan r2 §2.1): ID<TAB>suite. 50 inherited (G001/G002) + 19 G003 + B-UNIT-CHECKS + 1 G048 + 8 G004 + 4 G005
+# + 3 G006 + 5 G051 + 4 G007 + 4 G008 + 5 G009 + 3 G011
+# + 3 G012 + 4 G013 + 3 G014 + 2 G016 + 2 G017 + 2 G018 + 2 G019 + 2 G058 + 2 G062 + 1 G064 + 3 G020 + 1 G057 - 3 retired generator checks = 131 rows (G004: B-IDENTITY-GUARDS lint, B-IDENTITY-CATALOG migrations,
+# B-IDENTITY-IT/E2E/PROBES/PRIVACY/CONFIG ops, B-IDENTITY-STAGING staging; G005: B-TENANCY-HTTP root,
+# B-TENANCY-CATALOG/MIGRATION/IT migrations; G006: B-BUSINESS-PROFILE-CATALOG/MIGRATION/IT migrations; G007:
+# B-POLICY-CATALOG/MIGRATION/IT/ORDERING migrations; G008: B-RLS-CATALOG/MIGRATION/IT/ORDERING migrations; G009:
+# B-OBJ-CATALOG/MIGRATION/IT/ORDERING/FAULTS migrations; G011: B-AUDIT-CATALOG/MIGRATION/IT migrations; G012:
+# B-SECRET-SOURCE lint, B-DEPSCAN lint-base, B-SECRET-ROTATION ops; G013: B-RETENTION-CATALOG/IT, B-RECOVERY-DRILL and
+# B-MAINTENANCE-DRILL migrations; G014: B-MCP-CATALOG/IT migrations, B-MCP-E2E ops; G016:
+# B-DOMAINS-CATALOG/IT migrations; G017: B-BRANDING-CATALOG/IT migrations; G018: B-ONBOARDING-CATALOG/IT
+# migrations; G019: B-MEMBERSHIP-CATALOG/IT migrations; G058: B-ENROLLMENT-CATALOG/IT migrations; G062: B-SIGNUP-CATALOG/IT migrations; G064: B-IT-ISOLATION migrations; G020:
+# B-LABELS-CATALOG/IT/ORDERING migrations; G057: B-PLATFORM-ADDRESS-CATALOG migrations). G051 (Plan r3
+# §3.1) relabels lint into lint (infra, 8),
+# lint-base (3), lint-web (5) and lint-core (1) with no ID change, and adds B-UNIT-WEB/CORE/INTEL
+# (unit-web/core/intel) and B-FEATURE-WEB/CORE (feature-web/core), which no static profile lists. Every ID of an
+# executed suite must occur exactly once as PASS.
+# lint is 9 and lint-base 4 since G012. Profiles (infra/ci/lib.sh): fast 32, integration 72, full 124 (-3 provenance), staging 5 (the staging suite and the four
+# final checks; only the identity-staging job).
+B-SHELL	lint
+B-HADOLINT	lint
+B-COMPOSE	lint
+B-ENV-EXAMPLE	lint
+B-LITERALS	lint-base
+B-NAMING	lint-base
+B-DEPS	lint
+B-DEPS-CONTROLS	controls
+B-WRAPPER-CONTROLS	controls
+B-WEB-BOUNDARY	lint-web
+B-WEB-TOKENS	lint-web
+B-WEB-COMPONENTS	lint-web
+B-WEB-DESIGN	lint-web
+B-WEB-ASSET-CONTROLS	lint-web
+B-MCP-SOURCE	lint-core
+B-MIGRATE-SET	lint
+B-DOCKERIGNORE	lint
+B-CI-CONFIG	lint
+B-SECRET-SOURCE	lint
+B-IDENTITY-GUARDS	lint-base
+B-DEPSCAN	lint-base
+B-CI-CONTROLS	ci-controls
+B-PROTECTED	provenance
+B-SKILL-UNCHANGED	provenance
+B-CONTRACT-TOOLS	contracts
+B-CONTRACT-GO	contracts
+B-CONTRACT-PY	contracts
+B-CONTRACT-AGREE	contracts
+B-CONTRACT-PEER	contracts
+B-CONTRACT-NEGATIVE	contracts
+B-UNIT-CHECKS	unit
+B-UNIT-WEB	unit-web
+B-UNIT-CORE	unit-core
+B-UNIT-INTEL	unit-intel
+B-CONFIGURE	root
+B-DEFAULTS	root
+B-PORTS-ROOT	root
+B-BOUNDARIES-ROOT	root
+B-BOUNDARY-CONTROLS	root
+B-MCP-HTTP	root
+B-WEB-HTTP	root
+B-HEALTH-ROOT	root
+B-BROWSER-ROOT	root
+B-CHECKS-ROOT	root
+B-CORE-ERROR-OUTPUT	root
+B-WEB-ERROR-OUTPUT	root
+B-INTEL-ERROR-OUTPUT	root
+B-DOCS-EXEC-GS	root
+B-BUILD-CONTEXT	root
+B-DOCS-EXEC-ROOT	root
+B-TENANCY-HTTP	root
+B-MIGRATE-CLI	migrations
+B-MIGRATE-CATALOG	migrations
+B-MIGRATE-ENV	migrations
+B-MIGRATE-IT	migrations
+B-IDENTITY-CATALOG	migrations
+B-TENANCY-CATALOG	migrations
+B-TENANCY-MIGRATION	migrations
+B-TENANCY-IT	migrations
+B-BUSINESS-PROFILE-CATALOG	migrations
+B-BUSINESS-PROFILE-MIGRATION	migrations
+B-BUSINESS-PROFILE-IT	migrations
+B-POLICY-CATALOG	migrations
+B-POLICY-MIGRATION	migrations
+B-POLICY-IT	migrations
+B-POLICY-ORDERING	migrations
+B-RLS-CATALOG	migrations
+B-RLS-MIGRATION	migrations
+B-RLS-IT	migrations
+B-RLS-ORDERING	migrations
+B-OBJ-CATALOG	migrations
+B-OBJ-MIGRATION	migrations
+B-OBJ-IT	migrations
+B-OBJ-ORDERING	migrations
+B-OBJ-FAULTS	migrations
+B-AUDIT-CATALOG	migrations
+B-AUDIT-MIGRATION	migrations
+B-AUDIT-IT	migrations
+B-RETENTION-CATALOG	migrations
+B-RETENTION-IT	migrations
+B-RECOVERY-DRILL	migrations
+B-MAINTENANCE-DRILL	migrations
+B-MCP-CATALOG	migrations
+B-MCP-IT	migrations
+B-DOMAINS-CATALOG	migrations
+B-DOMAINS-IT	migrations
+B-BRANDING-CATALOG	migrations
+B-BRANDING-IT	migrations
+B-ONBOARDING-CATALOG	migrations
+B-ONBOARDING-IT	migrations
+B-MEMBERSHIP-CATALOG	migrations
+B-MEMBERSHIP-IT	migrations
+B-ENROLLMENT-CATALOG	migrations
+B-ENROLLMENT-IT	migrations
+B-SIGNUP-CATALOG	migrations
+B-SIGNUP-IT	migrations
+B-IT-ISOLATION	migrations
+B-LABELS-CATALOG	migrations
+B-LABELS-IT	migrations
+B-LABELS-ORDERING	migrations
+B-PLATFORM-ADDRESS-CATALOG	migrations
+B-OBS-CONTEXT	ops
+B-OBS-CHAIN	ops
+B-OBS-TIMEOUTS	ops
+B-OBS-LOGS	ops
+B-OBS-PRIVACY	ops
+B-OUTAGE	ops
+B-PERSIST	ops
+B-IDENTITY-IT	ops
+B-IDENTITY-E2E	ops
+B-IDENTITY-PROBES	ops
+B-IDENTITY-PRIVACY	ops
+B-IDENTITY-CONFIG	ops
+B-MCP-E2E	ops
+B-SECRET-ROTATION	ops
+B-IDENTITY-STAGING	staging
+B-SOURCE-HASH	rename
+B-PORTS-OVERRIDE	rename
+B-RENAME	rename
+B-BROWSER-RENAME	rename
+B-DBRENAME	rename
+B-TOGGLE-OFF-ADDITIONS	off
+B-OBS-OFF	off
+B-BROWSER-OFF	off
+B-TOGGLE-OFF	off
+B-FEATURE-WEB	feature-web
+B-FEATURE-CORE	feature-core
+B-DOCKER-ONLY	final
+B-SECRET-CANARY	final
+B-SCOPE	final
+B-REQUIRED-CHECKS	final

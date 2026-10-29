@@ -1,0 +1,11 @@
+      # G072 EP-1 hostile Compose variant (ci-build-boundary.sh compose-refused): the job's credentials as build
+      # arguments and host paths as build contexts. Inserted after core's dockerfile line in infra/compose/local.yml;
+      # the compatibility gate must refuse the candidate before any build.
+      args:
+        CI_JOB_TOKEN: ${CI_JOB_TOKEN:-}
+        STAGING_CI_ID_TOKEN: ${STAGING_CI_ID_TOKEN:-}
+        CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      additional_contexts:
+        builds: /builds
+        certs: /certs
+        jobhome: ${HOME:-/root}

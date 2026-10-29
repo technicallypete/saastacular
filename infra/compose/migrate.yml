@@ -1,0 +1,24 @@
+# Migration runner (one-shot). Use it together with local.yml, from the
+# repository root:
+#   docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/migrate.yml run --rm --build migrate status
+# Commands: status | up | down | reapply | version (see docs/foundation/MIGRATIONS.md).
+# It joins only the data network and receives only the migrator credential;
+# core, web and intelligence never receive it.
+services:
+  migrate:
+    profiles: [migrate]
+    build:
+      context: ../../core
+      dockerfile: ../infra/docker/migrate.Dockerfile
+      target: runtime
+    environment:
+      DATABASE_NAME: ${DATABASE_NAME:?DATABASE_NAME is required}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:?DB_MIGRATOR_PASSWORD is required}
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [data]

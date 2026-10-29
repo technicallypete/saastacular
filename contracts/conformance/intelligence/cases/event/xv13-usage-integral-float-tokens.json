@@ -1,0 +1,15 @@
+{
+  "type": "usage",
+  "request_id": "req-conformance-0001",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "capability": "chat",
+  "configured_provider": "anthropic",
+  "configured_model": "test-model",
+  "gateway": "openrouter",
+  "actual_provider": "unknown",
+  "actual_model": "anthropic/test-model",
+  "input_tokens": 1.0,
+  "output_tokens": 1.0,
+  "latency_ms": 250,
+  "estimated_cost": 0.00042
+}

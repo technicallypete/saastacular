@@ -1,0 +1,11 @@
+policy_id=fixture-refusal
+policy_label=fixture
+scope=organization:00000000-0000-4000-8000-0000000000aa
+audit_retain_for_s=60
+batch_size=2
+max_batches=2
+statement_timeout_ms=5000
+lock_timeout_ms=1000
+run_timeout_s=120
+holds=
+audit_cutoff=2026-01-01T00:00:00Z

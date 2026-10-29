@@ -1,0 +1,22 @@
+# The reviewed intelligence opt-out of the maintained template .
+# infra/validation/run.sh (off suite) copies the repository, removes the
+# intelligence-only roots (OFF_REMOVED in run.sh) and applies each row below in order to the copy:
+# path<TAB>count<TAB>first line<TAB>replacement. The run of count lines starting at the only line equal to the first
+# line is replaced by the replacement line, or removed when the replacement is "-". A first line that is absent or
+# repeated fails B-TOGGLE-OFF-ADDITIONS. Rows contain no identity value and no secret.
+.env.example	1	INTELLIGENCE_PORT=8100	-
+.env.example	1	INTELLIGENCE_URL=http://intelligence:8000	-
+.env.example	14	INTELLIGENCE_SERVICE_TOKEN=	-
+infra/compose/local.yml	1	# Networks: edge (web<->core), data (core<->stores), inference (core<->intelligence).	# Networks: edge (web<->core), data (core<->stores).
+infra/compose/local.yml	1	# web never joins data or inference; intelligence never joins data.	# web never joins data.
+infra/compose/local.yml	2	      INTELLIGENCE_URL: ${INTELLIGENCE_URL:?INTELLIGENCE_URL is required}	-
+infra/compose/local.yml	1	    networks: [edge, data, inference]	    networks: [edge, data]
+infra/compose/local.yml	31	  intelligence:	-
+infra/compose/local.yml	10	  intelligence-check:	-
+infra/compose/local.yml	1	  inference: {}	-
+docs/foundation/VENDORS.md	2	| OpenRouter (model gateway) | Default `ModelGateway` adapter in `intelligence` | `intelligence` service (adapter only) | External processor; review terms, data retention and sub-processors | Prompts and completions when live calls are enabled; observability excludes content by default | Adapter contract only; no live traffic configured |	-
+docs/foundation/GETTING-STARTED.md	1	Host ports bind to `BIND_ADDRESS` (loopback by default): web `WEB_PORT`, core `CORE_PORT`, intelligence `INTELLIGENCE_PORT`, PostgreSQL `POSTGRES_PORT`, Redis `REDIS_PORT`, MinIO API `MINIO_API_PORT` and console `MINIO_CONSOLE_PORT`. Containers reach each other by service name on conventional internal ports.	Host ports bind to `BIND_ADDRESS` (loopback by default): web `WEB_PORT`, core `CORE_PORT`, PostgreSQL `POSTGRES_PORT`, Redis `REDIS_PORT`, MinIO API `MINIO_API_PORT` and console `MINIO_CONSOLE_PORT`. Containers reach each other by service name on conventional internal ports.
+docs/foundation/GETTING-STARTED.md	1	- Liveness: `GET /healthz` (core), `GET /api/health` (web), `GET /healthz` (intelligence).	- Liveness: `GET /healthz` (core), `GET /api/health` (web).
+docs/foundation/GETTING-STARTED.md	1	- Readiness: `GET /readyz` (core: PostgreSQL, Redis and the object store gate readiness; intelligence is reported but never gates it), `GET /api/ready` (web: requires core).	- Readiness: `GET /readyz` (core: PostgreSQL, Redis and the object store gate readiness), `GET /api/ready` (web: requires core).
+docs/foundation/GETTING-STARTED.md	1	docker compose --env-file .env -f infra/compose/local.yml --profile checks run --rm --build intelligence-check	-
+contracts/README.md	4	| Contract | Producer → consumer | Purpose |	No cross-service contracts exist yet: intelligence is disabled, so core is the only backend service.

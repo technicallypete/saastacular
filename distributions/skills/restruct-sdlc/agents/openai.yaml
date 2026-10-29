@@ -1,0 +1,4 @@
+interface:
+  display_name: "Restruct SDLC"
+  short_description: "Route to the SDLC management, repository supervisor or Claude session handoff skill"
+  default_prompt: "Use $restruct-sdlc to read only the child skill the current task needs: management, supervision or session handoff."

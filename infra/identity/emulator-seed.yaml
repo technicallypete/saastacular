@@ -1,0 +1,56 @@
+# Seed template for the WorkOS emulator in the identity test overlay (infra/compose/identity.yml; G004; test only).
+# identitysetup renders it once per run into the overlay's volume: {{API_KEY}} becomes the run's generated API key,
+# {{PASSWORD:name}} each user's generated password and {{CANARY:name}} a registered privacy canary. No secret is
+# stored here. Users are synthetic; the identity.test domain is reserved for tests. The layout (two-space user list
+# of email, password, first_name, last_name, email_verified) is the one identitysetup reads back for the browser
+# tests. dave (G014) is the member whose account infra/identity/mcp-seed.sql places in the MCP test Organizations. G016
+# D-2(a): the seed gives every sign-in user here an account and a membership, except erin (no account: her tenant-host
+# sign-in is refused); frank is the member whose name E-ATTR changes and restores. G058 (Plan r3 §6.4): grace is the
+# second account-less first-time recipient (an open signup or an Organization invitation, E-ENR-1/E-ENR-3), so the two
+# first-time cases are independent; her name differs from mcp-seed.sql's principal-less "Grace Admin". G062 (Plan r5
+# SUP-15) adds no seed user: the root signup's first-time creator is created per test through the emulator API, and the
+# existing-identity case reuses a seeded org-a member (its existing roles must stay unchanged).
+apiKeys:
+  "{{API_KEY}}":
+    environment: test
+users:
+  - email: alice@identity.test
+    password: "{{PASSWORD:alice}}"
+    first_name: Alice
+    last_name: Example
+    email_verified: true
+  - email: bob@identity.test
+    password: "{{PASSWORD:bob}}"
+    first_name: Bob
+    last_name: Example
+    email_verified: true
+  - email: carol@identity.test
+    password: "{{PASSWORD:carol}}"
+    first_name: Carol
+    last_name: Example
+    email_verified: true
+  - email: dave@identity.test
+    password: "{{PASSWORD:dave}}"
+    first_name: Dave
+    last_name: Example
+    email_verified: true
+  - email: erin@identity.test
+    password: "{{PASSWORD:erin}}"
+    first_name: Erin
+    last_name: Example
+    email_verified: true
+  - email: frank@identity.test
+    password: "{{PASSWORD:frank}}"
+    first_name: Frank
+    last_name: Example
+    email_verified: true
+  - email: grace@identity.test
+    password: "{{PASSWORD:grace}}"
+    first_name: Grace
+    last_name: Invitee
+    email_verified: true
+  - email: canary-{{CANARY:email}}@identity.test
+    password: "{{PASSWORD:hostile}}"
+    first_name: "<img src=x onerror=document.title='{{CANARY:script}}'>"
+    last_name: "{{CANARY:display}}"
+    email_verified: true

@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Fake docker for the G072 offline fixtures (see fakelib.sh): a tag -> image-ID table (load, save, tag, inspect, push
+# with registry digests, compose build, build) and the containerized Terraform of lib.sh tf() (init, plan, show,
+# apply, output) over FAKE_ROOT/tf and FAKE_ROOT/vm. Anything unmodelled exits 97 (class X). The "image archive" of
+# save/load is a text table (tag<TAB>id per line), gzip-compressed by the caller.
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+ARGV="$*"
+IMG=$FAKE_ROOT/docker/images.tsv
+DIG=$FAKE_ROOT/docker/digests.tsv
+mkdir -p "$FAKE_ROOT/docker" "$FAKE_ROOT/ar"
+touch "$IMG" "$DIG"
+
+die_x() { fake_log docker X "$ARGV"; printf 'fake docker: %s\n' "$*" >&2; exit 97; }
+img_id() { awk -F'\t' -v t="$1" '$1 == t {id = $2} END {if (id != "") print id; else exit 1}' "$IMG"; }
+img_set() { awk -F'\t' -v t="$1" '$1 != t' "$IMG" >"$IMG.new"; printf '%s\t%s\n' "$1" "$2" >>"$IMG.new"; mv "$IMG.new" "$IMG"; }
+hash_of() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+
+[[ ${1:-} != --config ]] || shift 2
+
+tf() {
+  local a=" $* " p rc=0
+  fake_log docker T "$*"
+  case ${1:-} in
+    init) ;;
+    output) fake_get tf/session 7200; echo ;;
+    plan)
+      if [[ $a == *" -destroy "* ]]; then rc=0
+      elif [[ $a == *" -refresh-only "* && $a == *" -lock=false "* ]]; then rc=0
+      elif [[ $a == *" -refresh-only "* ]]; then
+        p=${a##* -var session_max_seconds=}; p=${p%% *}
+        fake_set tf/refresh_want "$p"; fake_set tf/refresh_from "$(fake_get tf/session 7200)"; rc=2
+      else rc=$(fake_get tf/plan_rc 0); fi
+      ;;
+    show)
+      if [[ $a == *" -json "* ]]; then echo '{}'
+      else printf 'Terraform will perform the following actions:\n  # module.vm.google_compute_instance.vm will be updated in-place\n  ~ metadata_fingerprint = "G072PLANCANARY"\n'; fi
+      ;;
+    apply)
+      case $a in
+        *-refresh.tfplan*) fake_set tf/session "$(fake_get tf/refresh_want)" ;;
+        *-destroy.tfplan*) fake_set vm/status ABSENT; : >"$FAKE_ROOT/tf/state_names" ;;
+        *) ;;
+      esac
+      ;;
+    *) die_x "terraform $1" ;;
+  esac
+  return "$rc"
+}
+
+case ${1:-} in
+  run)
+    shift
+    # Record what the Terraform container receives: the Cloudflare token's presence (never its value) and the ADC file.
+    printf '%s\n' "$([[ -n ${CLOUDFLARE_API_TOKEN:-} ]] && echo set || echo unset)" >>"$FAKE_ROOT/tf-cf.log"
+    while (($#)) && [[ $1 != hashicorp/terraform:* ]]; do
+      [[ $1 != *:/adc.json:ro ]] || cp "${1%:/adc.json:ro}" "$FAKE_ROOT/tf-adc-copy.json" 2>/dev/null || true
+      shift
+    done
+    (($#)) || die_x "docker run of another image"
+    shift
+    tf "$@"
+    exit $?
+    ;;
+  load)
+    fake_log docker L "$ARGV"
+    shift
+    f=""
+    while (($#)); do case $1 in --input | -i) f=$2; shift ;; esac; shift; done
+    [[ -n $f && -f $f ]] || die_x "load without --input FILE"
+    gzip -dc "$f" | while IFS=$'\t' read -r t id; do [[ -z $t ]] || { img_set "$t" "$id"; printf 'Loaded image: %s\n' "$t"; }; done
+    ;;
+  save)
+    fake_log docker L "$ARGV"
+    shift
+    for t in "$@"; do id="$(img_id "$t")" || { echo "no such image: $t" >&2; exit 1; }; printf '%s\t%s\n' "$t" "$id"; done
+    ;;
+  tag)
+    fake_log docker L "$ARGV"
+    id="$(img_id "$2")" || { echo "Error: No such image: $2" >&2; exit 1; }
+    img_set "$3" "$id"
+    ;;
+  image)
+    case ${2:-} in
+      inspect)
+        fake_log docker R "$ARGV"
+        fmt="" ref=""
+        shift 2
+        while (($#)); do case $1 in --format) fmt=$2; shift ;; *) ref=$1 ;; esac; shift; done
+        id="$(img_id "$ref")" || { echo "Error: No such image: $ref" >&2; exit 1; }
+        case $fmt in
+          '{{.Id}}') printf '%s\n' "$id" ;;
+          '{{range .RepoDigests}}{{println .}}{{end}}') awk -F'\t' -v t="$ref" '$1 == t {print $2}' "$DIG" ;;
+          *) die_x "inspect format $fmt" ;;
+        esac
+        ;;
+      ls) fake_log docker R "$ARGV" ;;
+      *) die_x "image ${2:-}" ;;
+    esac
+    ;;
+  login) fake_log docker A "$ARGV"; cat >/dev/null ;;
+  push)
+    fake_log docker W "$ARGV"
+    id="$(img_id "$2")" || { echo "no such image $2" >&2; exit 1; }
+    ref="${2%:*}@sha256:$(hash_of "$id")"
+    printf '%s\t%s\n' "$2" "$ref" >>"$DIG"
+    printf '%s\n' "$ref" >>"$FAKE_ROOT/ar/digests"
+    ;;
+  compose)
+    fake_log docker L "$ARGV"
+    envf="" proj="" srcf=""
+    shift
+    while (($#)); do
+      case $1 in
+        --env-file) envf=$2; shift ;;
+        -f) [[ -n $srcf ]] || srcf=$2; shift ;;
+        build) shift; break ;;
+      esac
+      shift
+    done
+    proj="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$envf")"
+    # The mode of a tracked source file in the build context: a Dockerfile COPY keeps it (the image user is not the owner).
+    [[ -z $srcf ]] || fake_log docker R "srcmode $(stat -c %a "$srcf" 2>/dev/null || echo none)"
+    for s in "$@"; do img_set "$proj-$s" "sha256:$(hash_of "$proj-$s-$(fake_get build-salt)")"; done
+    ;;
+  build)
+    fake_log docker L "$ARGV"
+    t=""
+    while (($#)); do case $1 in --tag) t=$2; shift ;; esac; shift; done
+    img_set "$t" "sha256:$(hash_of "$t-$(fake_get build-salt)")"
+    ;;
+  *) die_x "unmodelled call" ;;
+esac

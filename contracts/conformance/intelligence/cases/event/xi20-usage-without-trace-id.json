@@ -1,0 +1,14 @@
+{
+  "type": "usage",
+  "request_id": "req-conformance-0001",
+  "capability": "chat",
+  "configured_provider": "anthropic",
+  "configured_model": "test-model",
+  "gateway": "openrouter",
+  "actual_provider": "unknown",
+  "actual_model": "anthropic/test-model",
+  "input_tokens": 12,
+  "output_tokens": 5,
+  "latency_ms": 250,
+  "estimated_cost": 0.00042
+}

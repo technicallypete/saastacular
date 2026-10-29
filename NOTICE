@@ -1,0 +1,19 @@
+SaaStacular
+Copyright 2026 Vitruvian Technology, Corp.
+
+This product includes software developed by Vitruvian Technology, Corp.
+
+Material in this repository that is owned by Vitruvian Technology, Corp. is
+licensed under the Apache License, Version 2.0 (see the LICENSE file).
+
+That grant is subject to the licenses that already apply to particular files
+and does not replace their notices. Files or directories that carry their own
+license file or license notice keep that license. In particular, the
+shadcn/ui-derived modules in the web application keep the shadcn/ui MIT notice
+(web/THIRD_PARTY_NOTICES.md), and the Restruct SDLC skill directory keeps its
+own MIT licenses (distributions/skills/restruct-sdlc/LICENSE,
+distributions/skills/restruct-sdlc/sdlc-management/LICENSE).
+
+Third-party material is not relicensed. See THIRD_PARTY_NOTICES.md for bundled
+third-party files, downloaded build and runtime dependencies, and optional
+components, with their licenses and the locations of their notices.

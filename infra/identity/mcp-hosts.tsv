@@ -1,0 +1,7 @@
+# Organization map of the identity test overlay (infra/compose/identity.yml; G014, G016; test only). One platform
+# host[:port], a tab, then the Organization UUID infra/identity/mcp-seed.sql creates with that host's slug. Since G016
+# core reads no host registry (MCP_TENANT_HOSTS_FILE is retired and refused): tenant hosts resolve through Organization
+# slugs and verified domains; the harness reads this map only to pass the seed and the MCP driver the UUIDs.
+org-a.localhost:543	0f14a000-0000-4000-8000-00000000000a
+org-b.localhost:543	0f14b000-0000-4000-8000-00000000000b
+org-c.localhost:543	0f14c000-0000-4000-8000-00000000000c

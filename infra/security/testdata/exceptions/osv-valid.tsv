@@ -1,0 +1,3 @@
+ecosystem	package	version	advisory	rationale	owner	expires	review_condition	compensating_control	review_record
+npm	g012-fixture-high	1.0.0	OSV-2099-1001	synthetic fixture exception	fixture-owner	2099-12-31	fixture review condition	fixture compensating control	management/v0/results/G012-D0-codex-disposition.md
+PyPI	g012-fixture-unrated	3.0.0	OSV-2099-2002	synthetic fixture exception	fixture-owner	2099-12-31	fixture review condition	fixture compensating control	management/v0/results/G012-D0-codex-disposition.md

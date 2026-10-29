@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Fake curl for the G072 offline fixtures: the Cloudflare DNS count of staging.sh retire (an empty result) and the
+# Cloud Storage testIamPermissions probes of ci.sh. Probe answers: FAKE_ROOT/probe-grants lists URL substrings that are
+# granted a permission (HTTP 200); otherwise FAKE_ROOT/probe-mode selects empty200 (default: 200 granting nothing),
+# deny403, deny404, granted200, transport (exit 7, no answer), 5xx (503), 401, garbage200 (unparsable body), and the
+# body shapes emptyarray200, truncated200, wrongkind200, permstring200, permnonstring200, emptybody200, twovalues200. -o FILE
+# and -w '%{http_code}' as curl. Consumes any --config on a pipe. No network.
+set -u
+# shellcheck source=fakelib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/fakelib.sh"
+url="" outf="" wfmt=""
+while (($#)); do
+  case $1 in
+    -o) outf=$2; shift ;;
+    -w) wfmt=$2; shift ;;
+    --config | --max-time) shift ;;
+    https://*) url=$1 ;;
+  esac
+  shift
+done
+fake_log curl R "$url"
+answer() { # CODE BODY ("" = an empty body, no newline)
+  local b=$2
+  [[ -z $b ]] || b+=$'\n'
+  if [[ -n $outf ]]; then printf '%s' "$b" >"$outf"; else printf '%s' "$b"; fi
+  [[ $wfmt != '%{http_code}' ]] || printf '%s' "$1"
+}
+case $url in
+  https://api.cloudflare.com/*) answer 200 '{"result":[]}' ;;
+  https://storage.googleapis.com/storage/v1/b/*/iam/testPermissions*)
+    mode="$(fake_get probe-mode empty200)"
+    if [[ -f $FAKE_ROOT/probe-grants ]] && grep -qF -f "$FAKE_ROOT/probe-grants" <<<"$url"; then mode=granted200; fi
+    case $mode in
+      empty200) answer 200 '{"kind":"storage#testIamPermissionsResponse"}' ;;
+      deny403) answer 403 '{"error":{"code":403,"message":"forbidden"}}' ;;
+      deny404) answer 404 '{"error":{"code":404,"message":"The specified bucket does not exist."}}' ;;
+      granted200) answer 200 '{"kind":"storage#testIamPermissionsResponse","permissions":["storage.objects.get"]}' ;;
+      transport) echo "curl: (7) Failed to connect" >&2; exit 7 ;;
+      5xx) answer 503 '{"error":{"code":503}}' ;;
+      401) answer 401 '{"error":{"code":401}}' ;;
+      garbage200) answer 200 '<html>proxy</html>' ;;
+      emptyarray200) answer 200 '{"kind":"storage#testIamPermissionsResponse","permissions":[]}' ;;
+      truncated200) answer 200 '{"kind":"storage#testIamPermissionsResponse",' ;;
+      wrongkind200) answer 200 '{"kind":"storage#bucket"}' ;;
+      permstring200) answer 200 '{"kind":"storage#testIamPermissionsResponse","permissions":"storage.objects.get"}' ;;
+      permnonstring200) answer 200 '{"kind":"storage#testIamPermissionsResponse","permissions":[1]}' ;;
+      emptybody200) answer 200 '' ;;
+      twovalues200) answer 200 '{"kind":"storage#testIamPermissionsResponse"} {"kind":"storage#testIamPermissionsResponse"}' ;;
+      *) echo "fake curl: unknown probe-mode" >&2; exit 97 ;;
+    esac
+    ;;
+  *) fake_log curl X "$url"; echo "fake curl: unmodelled URL" >&2; exit 97 ;;
+esac

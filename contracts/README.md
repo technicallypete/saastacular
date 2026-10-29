@@ -1,0 +1,8 @@
+# Contracts
+
+Cross-service protocol, schema and event contracts only. Shared business logic never lives here: authority, policy and domain rules belong to `core`.
+
+| Contract | Producer → consumer | Purpose |
+|---|---|---|
+| `intelligence/execution-envelope.schema.json` | core → intelligence | The Go-authorized execution envelope. Intelligence cannot change or widen it, and it carries no credentials |
+| `intelligence/stream-event.schema.json` | intelligence → core | Provider-independent typed events (`text_delta`, `tool_call`, `tool_result`, `citation`, `structured_output`, `usage`, `error`, `done`). `usage` carries no tenant or user dimensions; core attributes usage from its own envelope |

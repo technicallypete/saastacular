@@ -1,0 +1,5 @@
+# TLS fixture of the identity test overlay (DOMAIN_TLS_ADAPTER=fixture, DOMAIN_TLS_FIXTURE_FILE, APP_ENV=test only;
+# G016 Plan r4 §5.4; test only, never production): hostname<TAB>generation-or-*<TAB>request|status|remove<TAB>state
+# [<TAB>not-after]. The overlay edge (nginx) serves the run's test certificate; portal.acme.test reports it ready.
+portal.acme.test	*	status	ready	2099-01-01T00:00:00Z
+old.acme.test	*	remove	withdrawn

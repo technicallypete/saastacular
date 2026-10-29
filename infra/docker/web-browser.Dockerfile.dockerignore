@@ -1,0 +1,11 @@
+.git
+node_modules
+.next
+test-results
+playwright-report
+# Local environment files may hold secrets; Next.js would load them at build time.
+.env
+.env.*
+
+# Operator-private task files never belong in build contexts.
+.local

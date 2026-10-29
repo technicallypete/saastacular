@@ -1,0 +1,8 @@
+{
+  "type": "structured_output",
+  "request_id": "req-conformance-0001",
+  "schema_ref": "urn:example:schema:summary:v1",
+  "data": {
+    "summary": "synthetic"
+  }
+}
