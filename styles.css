@@ -810,6 +810,23 @@ p {
   margin-bottom: 0;
 }
 
+/* On a phone the portrait shrinks and stays beside the text instead of wrapping above it. */
+@media (max-width: 30rem) {
+  .author-inner {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .author-photo {
+    width: 5rem;
+  }
+
+  .author-text {
+    flex: 1 1 0;
+  }
+}
+
 /* Limits and provenance: a subordinate disclosure in the footer, open by default. */
 .limits-wrap {
   margin-bottom: 1.5rem;
