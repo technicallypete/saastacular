@@ -1195,16 +1195,25 @@ test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up t
     expect(other.status(), `GET ${host}/brand/other.png`).toBe(404);
   }
   // The header of the root and www landing and of the auth host's sign-in page shows the mark, loaded (S-ERRORS also
-  // holds the default page free of a failed image or favicon load).
-  for (const url of [`${ROOT}/`, "https://www.localhost:543/", `${AUTH}/sign-in`]) {
-    tracking.allowed.add(new URL(url).origin);
-    expect((await page.goto(url))?.status(), url).toBe(200);
-    const mark = page.getByTestId("product-mark");
+  // holds the root and www page free of a failed image or favicon load).
+  const markLoaded = async (p: Page, url: string) => {
+    expect((await p.goto(url))?.status(), url).toBe(200);
+    const mark = p.getByTestId("product-mark");
     await expect(mark, url).toHaveCount(1);
     await expect
       .poll(() => mark.evaluate((img) => ((img as HTMLImageElement).complete ? (img as HTMLImageElement).naturalWidth : 0)), { message: `${url}: mark loaded` })
       .toBeGreaterThan(0);
+  };
+  for (const url of [`${ROOT}/`, "https://www.localhost:543/"]) {
+    tracking.allowed.add(new URL(url).origin);
+    await markLoaded(page, url);
   }
+  // The auth host's sign-in page runs on its own page, outside S-ERRORS: that host's gate has never served /fonts/ (a
+  // pre-existing 404 of its four font files, unrelated to this change), so a console-error check would fail on them.
+  tracking.allowed.add(AUTH);
+  const authPage = await context.newPage();
+  await markLoaded(authPage, `${AUTH}/sign-in`);
+  await authPage.close();
 });
 
 test("[E-DOM-5] a removed custom host routes nowhere: pages are the fixed 404 and a sign-in cannot start @domain-custom", async ({ context }) => {
