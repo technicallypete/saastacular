@@ -1049,7 +1049,8 @@ const AUTH_FONT_SHA256: Record<string, string> = {
   "/fonts/barlow-condensed/barlow-condensed-600.ttf": "7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9",
 };
 const AUTH_FONTS = Object.keys(AUTH_FONT_SHA256);
-const UNLISTED_FONTS = ["/fonts/geist-mono/geist-mono-wght.ttf", "/fonts/geist/OFL.txt", "/fonts/oswald/OFL.txt", "/fonts/", "/fonts/geist/geist-wght.ttf/", "/fonts/geist/missing.ttf"];
+// (A trailing-slash path is answered by Next's own 308 before the gate runs, so only the unit test covers those spellings.)
+const UNLISTED_FONTS = ["/fonts/geist-mono/geist-mono-wght.ttf", "/fonts/geist/OFL.txt", "/fonts/oswald/OFL.txt", "/fonts", "/fonts/geist/missing.ttf"];
 
 // An extra page of the context answering an error status (the default page's S-ERRORS check stays on normal pages).
 async function statusAt(context: BrowserContext, url: string): Promise<{ status: number; text: string }> {
