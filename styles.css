@@ -390,11 +390,13 @@ p {
   margin: 1.5rem 0 1rem;
 }
 
-/* On a phone the hero buttons get clear separation from the notes below them; the wide layout is unchanged. */
-@media (max-width: 47.9375rem) {
-  .hero-cta {
-    margin-bottom: 1.5rem;
-  }
+/* A subtle rule separates the hero buttons from the notes below them, with 2rem above and below. Adjacent margins collapse, so the
+   buttons' own bottom margin (1rem) is absorbed by the rule's 2rem on every screen width; the rule stays inside the hero text column. */
+.hero-rule {
+  height: 0;
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
 }
 
 .template-note {
