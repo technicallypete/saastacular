@@ -6,7 +6,12 @@ Project domain: saastacular.dev (reserved; site not yet published).
 
 SaaStacular is a ready-to-run repository template: a Go `core` (facts, authority, policy, MCP), a Next.js `web` surface, an optional internal Python `intelligence` service, PostgreSQL, Redis and S3-compatible object storage, with the migrations, Docker configuration, CI definition and tests that exercise them. Everything runs in Docker. Its value is the reviewed security boundaries it ships and the repeatable checks behind them; see [docs/SECURITY.md](docs/SECURITY.md).
 
-Product name, domains and database name are configuration, not code. They live only in `.env` (created from `.env.example`); `PRODUCT_NAME` defaults to `SaaStacular` in `.env.example` and is yours to change. Changing the product name or domains and restarting renames the stack without a rebuild. A new `DATABASE_NAME` applies only to a fresh database volume (see Reset below).
+- **Multi-tenant by default, single-tenant by configuration:** the Organization is the tenant boundary, and one optional setting serves a single existing Organization at the platform root ([Root host configuration](#root-host-configuration-optional)).
+- **Authorization plus row-level security:** one shared, deny-by-default policy evaluator in `core` decides access, with PostgreSQL row-level security as defense in depth ([Security foundation](#security-foundation)).
+- **See it, then run it:** screenshots of the shipped UI with synthetic data are in [What it looks like](#what-it-looks-like); the [Quick start](#quick-start) needs Docker and bash, with no host Go, Python or Node.
+- **Read the limits first:** [What it is, and what it is not](#what-it-is-and-what-it-is-not) says what has not been executed and is not claimed.
+
+Product name, domains and database name are configuration, not code. They live only in `.env` (created from `.env.example`); `PRODUCT_NAME` defaults to `SaaStacular` in `.env.example` and is yours to change. Changing the product name or domains and restarting renames the stack without a rebuild. A new `DATABASE_NAME` applies only to a fresh database volume (see Reset below). The default product mark (`web/public/brand/mark.png`, shown beside the product name in the default header) and favicon (`web/app/icon.png`) are files, not configuration: replace them with your own or delete them (without the mark the header shows the product name alone), then rebuild `web`, since both ship in its image; an Organization's own branding label or logo replaces the mark on its tenant hosts, and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) states the mark's terms.
 
 ## What it is, and what it is not
 
@@ -20,6 +25,44 @@ Product name, domains and database name are configuration, not code. They live o
 **It is not** a finished product, a hosted service or a compliance attestation. There is no product feature, no production deployment and no SOC 2, ISO 27001 or GDPR claim. The production-readiness evaluator currently reports **blocked** (verified TLS to PostgreSQL and Redis, internal-hop TLS, at-rest evidence and an operator deprovisioning entry point are open; [docs/SECURITY.md](docs/SECURITY.md#7-transport-and-at-rest-readiness)). Application generation is not the adopter workflow: you configure this implementation rather than regenerate authentication, tenancy or authorization.
 
 **Not executed for this repository, and not claimed:** live identity-provider qualification of the signup flow (real WorkOS wildcard, DNS and HTTPS behaviour on tenant hosts) has not been executed; live custom-domain qualification has not been executed; no end-to-end acceptance of the foundation as a whole is claimed; and no hosted CI pipeline or provider deployment has been run for this copy.
+
+## What it looks like
+
+These screenshots show the shipped web UI, unedited, running in the repository's local identity test environment: the WorkOS emulator with seeded synthetic Organizations, people and Groups ([IDENTITY.md](docs/foundation/IDENTITY.md#the-emulator-l2)). Every name in them is test data. They illustrate the interface; they are not security tests.
+
+**Tenant entry (Light, desktop).** A tenant host's signed-out entry: the Organization's brand label, the workspace name, one Sign in action and the appearance control.
+
+![Signed-out entry page of a synthetic tenant workspace in the Light appearance, showing the workspace brand label and a single Sign in button](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/01-tenant-entry-light.png)
+
+**Tenant entry (Dark, phone width).** The same entry in the Dark appearance at a 390-pixel phone width.
+
+![The same tenant entry page in the Dark appearance on a narrow phone-width screen](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/01-tenant-entry-dark-mobile.png)
+
+**Enrollment, open mode.** The join page of a synthetic Organization whose owner selected open enrollment. New Organizations start invite-only; an owner can switch to request-access (a manager approves each request) or open enrollment ([TENANCY.md](docs/foundation/TENANCY.md), [SECURITY.md](docs/SECURITY.md#10-implemented-tenant-domain-and-identity-boundaries)).
+
+![Join page of a synthetic Organization in open enrollment mode, in the Light appearance](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/02-enrollment-open-join.png)
+
+**Invitation landing (Dark).** The workspace invitation page: the code field is empty here; a real invitation link fills it from its URL fragment in the browser, which never reaches the server. Invitations are scoped, expire within 30 days and are consumed once; the token is shown once and only its digest is stored ([TENANCY.md](docs/foundation/TENANCY.md#membership-ownership-and-invitations)).
+
+![Workspace invitation page in the Dark appearance with a Join heading and an empty invitation code field](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/03-invitation-landing.png)
+
+**Group onboarding (Light).** The member who created a Group becomes its owner and completes onboarding by creating a new Business Profile or selecting an existing one they may use ([TENANCY.md](docs/foundation/TENANCY.md#group-onboarding)).
+
+![Group onboarding page in the Light appearance offering to create a new Business Profile or select an existing one](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/04-group-onboarding-profile.png)
+
+**Group metadata, read-only (Dark).** Organization staff without Group management read an incomplete Group's metadata and onboarding state; instead of onboarding controls the page says onboarding is administered by the Group's owners and admins ([WEB-SHELL.md](docs/foundation/WEB-SHELL.md#group-onboarding-pages)).
+
+![Read-only Group page in the Dark appearance showing the Group's onboarding state and a notice that onboarding is administered by its owners and admins](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/05-group-metadata-readonly.png)
+
+**Group members (Light).** The members page as the Group's owner: the last owner is told why they cannot leave yet, above the members table ([TENANCY.md](docs/foundation/TENANCY.md#membership-ownership-and-invitations)).
+
+![Group members page in the Light appearance showing the Group owner's membership notice above the start of the members table](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/06-group-members.png)
+
+**Group-management override (Dark).** Only the Organization owner turns this default-off setting on or off. With it on, Organization owners and admins administer ordinary members, invitations and onboarding of any Group without joining it; it never grants Group content or ownership ([TENANCY.md](docs/foundation/TENANCY.md#explicit-group-authority)).
+
+![Organization Group-management authority settings page in the Dark appearance with an Off and On choice and its scope text](https://raw.githubusercontent.com/technicallypete/saastacular/gh-pages/assets/screenshots/07-organization-group-authority.png)
+
+A GitHub copy of this repository is set up as a repository template, so you can start a repository of your own from it with [Use this template](https://github.com/technicallypete/saastacular/generate) while this GitLab project remains the canonical source.
 
 ## Architecture at a glance
 
