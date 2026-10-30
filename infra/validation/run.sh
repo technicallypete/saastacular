@@ -1014,10 +1014,11 @@ code_lines() {
 }
 # web_sources: web source files (git view; no node_modules, build output or lockfile), NUL-separated. The
 # static assets under web/public (font binaries, licences, the drawing; G048) are not source: B-WEB-DESIGN
-# bounds them by an exact pinned inventory.
+# bounds them by an exact pinned inventory. OS002: so is the favicon web/app/icon.png (a binary asset, pinned in the same
+# inventory), which would otherwise break the text scans over web sources.
 web_sources() {
   (cd "$REPO" && git ls-files -z --cached --others --exclude-standard -- web | while IFS= read -r -d '' f; do
-    [[ -f "$f" && "$f" != web/package-lock.json && "$f" != web/public/* ]] && { vestive_skill_path "$f" || printf '%s\0' "$REPO/$f"; }; done)
+    [[ -f "$f" && "$f" != web/package-lock.json && "$f" != web/public/* && "$f" != web/app/icon.png ]] && { vestive_skill_path "$f" || printf '%s\0' "$REPO/$f"; }; done)
 }
 
 # The brand agent skill is not shipped in this template, so the former skill-path exclusion is a no-op: B-LITERALS and
@@ -1340,11 +1341,11 @@ web_design_check() {
       grep -qiE -- "$lpat" "$f" && ucodes+=("DESIGN_LITERAL $rel")
     fi
   done
-  # web/public: exactly the pinned inventory.
+  # web/public (and the favicon web/app/icon.png, OS002): exactly the pinned inventory.
   for ent in "${WEB_PUBLIC_PINS[@]}"; do pins["${ent%% *}"]="${ent##* }"; done
   for f in "${src[@]}"; do
     rel="${f#"$root"/}"
-    [[ "$rel" == web/public/* ]] || continue
+    [[ "$rel" == web/public/* || "$rel" == web/app/icon.png ]] || continue
     seen[$rel]=1
     if [[ -z "${pins[$rel]:-}" ]]; then ucodes+=("ASSET_EXTRA $rel")
     elif [[ "$(sha_of "$f")" != "${pins[$rel]}" ]]; then ucodes+=("ASSET_HASH $rel"); fi

@@ -1840,7 +1840,8 @@ UI_KIT_DIGEST=597f2aac251987be26050108dc6affe3a39a5594e7bfc7e2744de2fb5829a6ee
 UI_APP_SLOTS=(button)
 # web/public: exactly these files, each with its intake SHA-256 (WEB-SHELL.md records the upstream blob SHA-1s;
 # G067: Geist and Geist Mono from google/fonts 9e25e2ba265e5298f70f6182dd4e8a3ebf1b9123, Roboto removed). OS002: the
-# default product mark, a 192 px raster derivative of the approved master (WEB-SHELL.md "Product mark and favicon").
+# default product mark and the favicon web/app/icon.png (the same bytes), 192 px raster derivatives of the approved master
+# (WEB-SHELL.md "Product mark and favicon").
 WEB_PUBLIC_PINS=(
   "web/public/fonts/oswald/oswald-wght.ttf 5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817"
   "web/public/fonts/oswald/OFL.txt 0fd731a904b729a4e02eaf5e8ebd06783edd9abe400e8882760160230675b652"
@@ -1852,7 +1853,8 @@ WEB_PUBLIC_PINS=(
   "web/public/fonts/geist-mono/geist-mono-wght.ttf d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196"
   "web/public/fonts/geist-mono/OFL.txt 1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f"
   "web/public/blueprint/overview.svg 942a2a242594773f6be7e638d6e07f9f723a0ff6b6c6e8334427702e52f98c65"
-  "web/public/brand/mark.png 8b8238b26a7974148b2ef47db42c4c5200537bfa583de5426ff8acbe9aebcacd")
+  "web/public/brand/mark.png 8b8238b26a7974148b2ef47db42c4c5200537bfa583de5426ff8acbe9aebcacd"
+  "web/app/icon.png 8b8238b26a7974148b2ef47db42c4c5200537bfa583de5426ff8acbe9aebcacd")
 # The url() targets of web CSS, sorted (the five bundled faces and the drawing).
 WEB_CSS_URLS="/blueprint/overview.svg /fonts/barlow-condensed/barlow-condensed-400.ttf /fonts/barlow-condensed/barlow-condensed-600.ttf /fonts/geist-mono/geist-mono-wght.ttf /fonts/geist/geist-wght.ttf /fonts/oswald/oswald-wght.ttf "
 # The drawing's allowed vocabulary (§8.1).
