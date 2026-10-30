@@ -166,6 +166,21 @@ export function productAssetAllows(method: string, pathname: string): boolean {
   return (method === "GET" || method === "HEAD") && PRODUCT_ASSET_PATHS.has(pathname);
 }
 
+// OS002: the auth host's fixed /sign-in page references four of the shell's self-hosted font files (globals.css), which the
+// gate had not served there (a 404 for each, present before OS002). The gate passes exactly a GET or HEAD of exactly those four
+// shipped files on the auth host, after the host has resolved; /fonts/ is no prefix exemption there, so any other font file,
+// spelling or method keeps the fixed 404.
+const AUTH_FONT_PATHS: ReadonlySet<string> = new Set([
+  "/fonts/geist/geist-wght.ttf",
+  "/fonts/oswald/oswald-wght.ttf",
+  "/fonts/barlow-condensed/barlow-condensed-400.ttf",
+  "/fonts/barlow-condensed/barlow-condensed-600.ttf",
+]);
+
+export function authAssetAllows(method: string, pathname: string): boolean {
+  return (method === "GET" || method === "HEAD") && AUTH_FONT_PATHS.has(pathname);
+}
+
 // Whether the path is /signup or below it.
 export function isSignupPath(pathname: string): boolean {
   return pathname === "/signup" || pathname.startsWith("/signup/");

@@ -1040,6 +1040,16 @@ const ROOT = "https://localhost:543";
 // OS002: the default product mark and the favicon (byte-identical files; infra/validation/lib.sh WEB_PUBLIC_PINS).
 const PRODUCT_ASSETS = ["/brand/mark.png", "/icon.png"];
 const PRODUCT_MARK_SHA256 = "8b8238b26a7974148b2ef47db42c4c5200537bfa583de5426ff8acbe9aebcacd";
+// OS002: the four font files the auth host's /sign-in page loads (lib/host.ts authAssetAllows), and shipped files it must not serve.
+// (Their SHA-256 values are the pins of docs/foundation/WEB-SHELL.md.)
+const AUTH_FONT_SHA256: Record<string, string> = {
+  "/fonts/geist/geist-wght.ttf": "73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659",
+  "/fonts/oswald/oswald-wght.ttf": "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817",
+  "/fonts/barlow-condensed/barlow-condensed-400.ttf": "583cec5da3b84bc4dc7c9c72e2a565c94d34e431518b19d7e250b7830ad5f996",
+  "/fonts/barlow-condensed/barlow-condensed-600.ttf": "7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9",
+};
+const AUTH_FONTS = Object.keys(AUTH_FONT_SHA256);
+const UNLISTED_FONTS = ["/fonts/geist-mono/geist-mono-wght.ttf", "/fonts/geist/OFL.txt", "/fonts/oswald/OFL.txt", "/fonts/", "/fonts/geist/geist-wght.ttf/", "/fonts/geist/missing.ttf"];
 
 // An extra page of the context answering an error status (the default page's S-ERRORS check stays on normal pages).
 async function statusAt(context: BrowserContext, url: string): Promise<{ status: number; text: string }> {
@@ -1144,6 +1154,11 @@ test("[E-DOM-3] an unknown platform-shaped or custom host is the fixed 404 and c
       const asset = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: new URL(origin).host }, maxRedirects: 0 });
       expect(asset.status(), `${origin}${path}`).toBe(404);
     }
+    // OS002: and the auth host's font files are no exception either.
+    for (const path of AUTH_FONTS) {
+      const font = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: new URL(origin).host }, maxRedirects: 0 });
+      expect(font.status(), `${origin}${path}`).toBe(404);
+    }
   }
 });
 
@@ -1194,26 +1209,35 @@ test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up t
     const other = await d.get(`${WEB_DIRECT}/brand/other.png`, { headers: { Host: host }, maxRedirects: 0 });
     expect(other.status(), `GET ${host}/brand/other.png`).toBe(404);
   }
+  // OS002: the auth host's sign-in page loads four font files. The gate passes exactly a GET or HEAD of those four shipped files
+  // there (the pinned bytes); another method, any other shipped font file, the /fonts/ prefix or a missing
+  // file stays the fixed 404, and the public entry's own /fonts/ answer is unchanged.
+  for (const path of AUTH_FONTS) {
+    const got = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
+    expect(got.status(), `GET auth${path}`).toBe(200);
+    expect(createHash("sha256").update(await got.body()).digest("hex"), `GET auth${path} bytes`).toBe(AUTH_FONT_SHA256[path]);
+    const head = await d.fetch(`${WEB_DIRECT}${path}`, { method: "HEAD", headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
+    expect(head.status(), `HEAD auth${path}`).toBe(200);
+    const post = await d.fetch(`${WEB_DIRECT}${path}`, { method: "POST", headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
+    expect(post.status(), `POST auth${path}`).toBe(404);
+  }
+  for (const path of UNLISTED_FONTS) {
+    const refused = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
+    expect(refused.status(), `GET auth${path}`).toBe(404);
+  }
+  const entryOnly = await d.get(`${WEB_DIRECT}${UNLISTED_FONTS[0]}`, { headers: { Host: "localhost:543" }, maxRedirects: 0 });
+  expect(entryOnly.status(), "the public entry still serves its /fonts/ files").toBe(200);
   // The header of the root and www landing and of the auth host's sign-in page shows the mark, loaded (S-ERRORS also
-  // holds the root and www page free of a failed image or favicon load).
-  const markLoaded = async (p: Page, url: string) => {
-    expect((await p.goto(url))?.status(), url).toBe(200);
-    const mark = p.getByTestId("product-mark");
+  // holds the default page free of a failed image, favicon or font load, the auth sign-in page's four fonts included).
+  for (const url of [`${ROOT}/`, "https://www.localhost:543/", `${AUTH}/sign-in`]) {
+    tracking.allowed.add(new URL(url).origin);
+    expect((await page.goto(url))?.status(), url).toBe(200);
+    const mark = page.getByTestId("product-mark");
     await expect(mark, url).toHaveCount(1);
     await expect
       .poll(() => mark.evaluate((img) => ((img as HTMLImageElement).complete ? (img as HTMLImageElement).naturalWidth : 0)), { message: `${url}: mark loaded` })
       .toBeGreaterThan(0);
-  };
-  for (const url of [`${ROOT}/`, "https://www.localhost:543/"]) {
-    tracking.allowed.add(new URL(url).origin);
-    await markLoaded(page, url);
   }
-  // The auth host's sign-in page runs on its own page, outside S-ERRORS: that host's gate has never served /fonts/ (a
-  // pre-existing 404 of its four font files, unrelated to this change), so a console-error check would fail on them.
-  tracking.allowed.add(AUTH);
-  const authPage = await context.newPage();
-  await markLoaded(authPage, `${AUTH}/sign-in`);
-  await authPage.close();
 });
 
 test("[E-DOM-5] a removed custom host routes nowhere: pages are the fixed 404 and a sign-in cannot start @domain-custom", async ({ context }) => {

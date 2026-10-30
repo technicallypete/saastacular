@@ -209,6 +209,63 @@ describe("OS002 product mark and favicon paths", () => {
   });
 });
 
+// OS002: the four font files the auth host's /sign-in page loads. authAssetAllows passes exactly a GET or HEAD of those four
+// shipped paths; /fonts/ is no prefix exemption on the auth host.
+describe("OS002 auth host font paths", () => {
+  const FONTS = [
+    "/fonts/geist/geist-wght.ttf",
+    "/fonts/oswald/oswald-wght.ttf",
+    "/fonts/barlow-condensed/barlow-condensed-400.ttf",
+    "/fonts/barlow-condensed/barlow-condensed-600.ttf",
+  ];
+  it("passes GET and HEAD of exactly the four font files", () => {
+    for (const p of FONTS) {
+      assert.equal(host.authAssetAllows("GET", p), true, `GET ${p}`);
+      assert.equal(host.authAssetAllows("HEAD", p), true, `HEAD ${p}`);
+    }
+  });
+  it("refuses every other method, including a lower-case get", () => {
+    for (const p of FONTS) {
+      for (const m of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "get", "head", "Get", ""]) {
+        assert.equal(host.authAssetAllows(m, p), false, `${m} ${p}`);
+      }
+    }
+  });
+  it("refuses every other path and spelling: the unused shipped font, licences, the prefix, other types and traversal", () => {
+    const others = [
+      "/fonts/geist-mono/geist-mono-wght.ttf",
+      "/fonts/geist/OFL.txt",
+      "/fonts/oswald/OFL.txt",
+      "/fonts/",
+      "/fonts",
+      "/fonts/geist/",
+      "/fonts/geist/geist-wght.ttf/",
+      "/fonts/geist/geist-wght.TTF",
+      "/fonts/Geist/geist-wght.ttf",
+      "/fonts/geist/geist-wght.ttf.bak",
+      "/fonts/geist/geist-wght.woff2",
+      "/fonts/barlow-condensed/barlow-condensed-500.ttf",
+      "/fonts/barlow-condensed/barlow-condensed-400.ttf/x",
+      "/fonts//geist/geist-wght.ttf",
+      "/fonts/geist/../oswald/oswald-wght.ttf",
+      "/fonts/geist/geist-wght.ttf?x",
+      "/blueprint/",
+      "/",
+      "",
+    ];
+    for (const p of others) {
+      assert.equal(host.authAssetAllows("GET", p), false, `GET ${p}`);
+      assert.equal(host.authAssetAllows("HEAD", p), false, `HEAD ${p}`);
+    }
+  });
+  it("leaves publicEntryAllows and productAssetAllows unchanged (the browser check proves the files ship)", () => {
+    for (const p of FONTS) {
+      assert.equal(host.productAssetAllows("GET", p), false, p);
+      assert.equal(host.publicEntryAllows(p, false), true, `${p}: the public entry already serves /fonts/`);
+    }
+  });
+});
+
 // G071 (Plan r4 S5, S6, §4; §5.1 U5): core answers the exact platform root aliased to its configured default tenant as
 // {kind: "platform", organization_id, root_alias: true}; the member is absent from every other answer.
 describe("G071 aliased platform root", () => {

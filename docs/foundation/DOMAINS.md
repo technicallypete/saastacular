@@ -15,7 +15,7 @@ literals, userinfo, paths, non-ASCII and `xn--` labels refused, no IDNA in v0). 
 | Host | Meaning | Answer |
 |---|---|---|
 | `B`, `www.B` | public entry | web serves the platform landing on `/` (on `B` per `PLATFORM_ROOT_PAGE`, and `B` is a platform host while the default-tenant alias is active, below); `B` alone also serves the root signup surface and its own `/auth/callback`; everything else is the fixed 404 (`/api/health`, `/api/ready` exempt) |
-| `A`, `<reserved>.B`, the CNAME target | reserved | 404 (A serves only the callback relay, its fixed `/sign-in` page and the product mark and favicon files) |
+| `A`, `<reserved>.B`, the CNAME target | reserved | 404 (A serves only the callback relay, its fixed `/sign-in` page, the product mark and favicon files, and a GET or HEAD of exactly the four font files that page loads: `/fonts/geist/geist-wght.ttf`, `/fonts/oswald/oswald-wght.ttf` and `/fonts/barlow-condensed/barlow-condensed-400.ttf` and `-600.ttf`; `/fonts/` is no prefix exemption there) |
 | `<label>.B` | platform host of the Organization whose generated `platform_label` is that label (the friendly slug never routes) | routes while the label is set |
 | anything else | custom host | routes only while its live domain row is routing-ready (below) |
 
