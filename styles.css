@@ -373,7 +373,7 @@ p {
 .hero-inner {
   display: grid;
   gap: 2rem;
-  align-items: center;
+  align-items: start;
 }
 
 .hero-text {
@@ -413,10 +413,13 @@ p {
     display: block;
   }
 
+  /* The mark's file has a transparent margin of 52 of 512 pixels above the visible shape; the negative margin puts the
+     visible top level with the top of the hero text. */
   .hero-art img {
     display: block;
     width: 18rem;
     height: auto;
+    margin-top: calc(-18rem * 52 / 512);
   }
 }
 
