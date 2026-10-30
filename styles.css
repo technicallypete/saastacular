@@ -264,6 +264,13 @@ p {
   grid-area: nav;
 }
 
+/* On a phone the nav is its own row under the buttons: 0.5rem more room above it. The wider layouts keep their spacing. */
+@media (max-width: 39.9375rem) {
+  .site-nav {
+    margin-top: 0.5rem;
+  }
+}
+
 .site-nav ul {
   display: flex;
   flex-wrap: wrap;
