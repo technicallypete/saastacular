@@ -773,30 +773,45 @@ p {
   --primary-fg: var(--on-lime);
 }
 
+/* The portrait sits beside the name, title and button, with its top level with the top of the name. The Author label
+   stays above the name in the text column. */
 .author-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.5rem 2rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
+  column-gap: 2rem;
 }
 
 .author-photo {
   display: block;
-  flex: none;
+  grid-column: 1;
+  grid-row: 2 / 6;
+  align-self: start;
   width: 10rem;
   height: auto;
   border-radius: 50%;
 }
 
 .author-text {
-  min-width: 0;
+  display: contents;
+}
+
+.author-text .kicker {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .author-text h2 {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 0;
   margin-bottom: 0.25rem;
+  line-height: 1;
 }
 
 .author-role {
+  grid-column: 2;
+  grid-row: 3;
   margin-bottom: 1rem;
   color: var(--muted);
   font-size: 1.0625rem;
@@ -807,23 +822,19 @@ p {
 }
 
 .author-text p:last-child {
+  grid-column: 2;
+  grid-row: 4;
   margin-bottom: 0;
 }
 
-/* On a phone the portrait shrinks and stays beside the text instead of wrapping above it. */
+/* On a phone the portrait shrinks so it stays beside the text instead of wrapping above it. */
 @media (max-width: 30rem) {
   .author-inner {
-    flex-wrap: nowrap;
-    align-items: flex-start;
-    gap: 1rem;
+    column-gap: 1rem;
   }
 
   .author-photo {
     width: 5rem;
-  }
-
-  .author-text {
-    flex: 1 1 0;
   }
 }
 
