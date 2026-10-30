@@ -1019,7 +1019,8 @@ p {
   font-size: 1.0625rem;
 }
 
-.workflow-note {
+.workflow-note,
+.workflow-case {
   max-width: 52rem;
 }
 
