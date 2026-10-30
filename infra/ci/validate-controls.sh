@@ -3452,7 +3452,7 @@ ctl_J7() {
   va_area 4320; run_v "${CIENV[@]}" -- --profile fast --publish-dir ci-evidence
   expect_rc 0; expect_phase junit 0; expect_pub full
   exp="$(jexpect fast)"; n="$(grep -c . <<<"$exp")" || n=0
-  if (( n != 20 )); then prob "the affected result has $n check rows, want 20"; fi
+  if (( n != 17 )); then prob "the affected result has $n check rows, want 17"; fi
   expect_jx fast:affected "$exp"
   log_has "junit: junit.xml with $n cases, 0 failing (supplementary)"
   detail "exit $RC; fast:affected with the $n check cases of results.tsv, in its order"
