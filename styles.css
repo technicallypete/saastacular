@@ -387,7 +387,7 @@ p {
 }
 
 .hero-cta {
-  margin: 1.5rem 0 1rem;
+  margin: 2rem 0 1rem;
 }
 
 /* A subtle rule separates the hero buttons from the notes below them, with 2rem above and below. Adjacent margins collapse, so the
@@ -778,7 +778,7 @@ p {
 .diagram-dialog-title {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -1031,6 +1031,12 @@ p {
 .workflow-note,
 .workflow-case {
   max-width: 52rem;
+}
+
+/* The standalone handbook callout: 1.5rem above and below it (adjacent margins collapse, so this is also its clear distance from the
+   case study and from the source links). */
+.workflow-handbook {
+  margin: 1.5rem 0;
 }
 
 .author-text p:last-child {
