@@ -157,6 +157,58 @@ describe("G062 public entry and signup paths", () => {
   });
 });
 
+// OS002: the default product mark and the favicon on the public entry and auth hosts. productAssetAllows is separate from
+// publicEntryAllows (whose path set is unchanged) and passes exactly a GET or HEAD of the two exact paths.
+describe("OS002 product mark and favicon paths", () => {
+  const ASSETS = ["/brand/mark.png", "/icon.png"];
+  it("passes GET and HEAD of exactly /brand/mark.png and /icon.png", () => {
+    for (const p of ASSETS) {
+      assert.equal(host.productAssetAllows("GET", p), true, `GET ${p}`);
+      assert.equal(host.productAssetAllows("HEAD", p), true, `HEAD ${p}`);
+    }
+  });
+  it("refuses every other method, including a lower-case get", () => {
+    for (const p of ASSETS) {
+      for (const m of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "get", "head", "Get", ""]) {
+        assert.equal(host.productAssetAllows(m, p), false, `${m} ${p}`);
+      }
+    }
+  });
+  it("refuses every other path and spelling (no prefix, case folding, trailing slash or normalization)", () => {
+    const others = [
+      "/brand/",
+      "/brand",
+      "/brand/mark.png/",
+      "/brand/mark.PNG",
+      "/Brand/mark.png",
+      "/brand/other.png",
+      "/brand/mark.png.bak",
+      "/brand//mark.png",
+      "/icon.png/x",
+      "/icon.png/",
+      "/icon.ico",
+      "/ICON.png",
+      "//icon.png",
+      "/x/../icon.png",
+      "/brand/../icon.png",
+      "/icon.png?x",
+      "icon.png",
+      "/",
+      "",
+    ];
+    for (const p of others) {
+      assert.equal(host.productAssetAllows("GET", p), false, `GET ${p}`);
+      assert.equal(host.productAssetAllows("HEAD", p), false, `HEAD ${p}`);
+    }
+  });
+  it("leaves the public entry path set unchanged: the two files are not publicEntryAllows paths", () => {
+    for (const p of ASSETS) {
+      assert.equal(host.publicEntryAllows(p, true), false, p);
+      assert.equal(host.publicEntryAllows(p, false), false, p);
+    }
+  });
+});
+
 // G071 (Plan r4 S5, S6, §4; §5.1 U5): core answers the exact platform root aliased to its configured default tenant as
 // {kind: "platform", organization_id, root_alias: true}; the member is absent from every other answer.
 describe("G071 aliased platform root", () => {

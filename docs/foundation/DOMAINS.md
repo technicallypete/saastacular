@@ -15,7 +15,7 @@ literals, userinfo, paths, non-ASCII and `xn--` labels refused, no IDNA in v0). 
 | Host | Meaning | Answer |
 |---|---|---|
 | `B`, `www.B` | public entry | web serves the platform landing on `/` (on `B` per `PLATFORM_ROOT_PAGE`, and `B` is a platform host while the default-tenant alias is active, below); `B` alone also serves the root signup surface and its own `/auth/callback`; everything else is the fixed 404 (`/api/health`, `/api/ready` exempt) |
-| `A`, `<reserved>.B`, the CNAME target | reserved | 404 (A serves only the callback relay and its fixed `/sign-in` page) |
+| `A`, `<reserved>.B`, the CNAME target | reserved | 404 (A serves only the callback relay, its fixed `/sign-in` page and the product mark and favicon files) |
 | `<label>.B` | platform host of the Organization whose generated `platform_label` is that label (the friendly slug never routes) | routes while the label is set |
 | anything else | custom host | routes only while its live domain row is routing-ready (below) |
 
@@ -32,7 +32,8 @@ entry instead of redirecting it. The root (the request's own origin equals `sign
 `/signup/details` and the root routes `/signup/start`, `/signup/create`, `/signup/abandon` and `/signup/prove`; its
 `/auth/callback` is the root signup callback (on `www.B` that route is the fixed 404). `www.B` serves `/` only, and its
 single Sign Up action links to `${signup_origin}/signup`, so signup always runs on `B`. Both also serve the shell's
-static `/fonts/` and `/blueprint/` files. The landing has no sign-in, picker, directory or lookup. On a
+static `/fonts/` and `/blueprint/` files, and a GET or HEAD of exactly the product mark `/brand/mark.png` and the
+favicon `/icon.png` (as does `A`). The landing has no sign-in, picker, directory or lookup. On a
 platform tenant host `/signup/*` is the fixed 404 except the two continuation hops `/signup/continue` and
 `/signup/complete`; on a custom host every `/signup/*` path is the fixed 404. The flow is in
 [IDENTITY.md](IDENTITY.md#platform-root-signup). Under `loopback-http` the gate is skipped and `/` keeps the

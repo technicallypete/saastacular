@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { isGateExempt, isSignupPath, lookupContext, publicEntryAllows, resolveHost, rootRedirects, rootSignupRedirect, tenantAllowsSignup } from "@/lib/host";
+import { isGateExempt, isSignupPath, lookupContext, productAssetAllows, publicEntryAllows, resolveHost, rootRedirects, rootSignupRedirect, tenantAllowsSignup } from "@/lib/host";
 import { deriveContext } from "@/lib/request-context";
 import { cookieProfile, jsonResponse, ownOrigin, statusPage } from "@/lib/session";
 
@@ -25,6 +25,10 @@ import { cookieProfile, jsonResponse, ownOrigin, statusPage } from "@/lib/sessio
 // same-origin Location <signup_origin>/signup (core's own answer, not the request's URL) and Cache-Control: no-store when core's root presentation is signup_redirect; the query is
 // never read or forwarded, and no cookie, core call or sign-in is involved (the host lookup above is the only call and
 // carries no credential). The landing presentation, www, /signup itself, other paths and other methods are unchanged.
+//
+// OS002: once the host has resolved as a public entry (root or www) or the auth host, a GET or HEAD of exactly the default
+// product mark /brand/mark.png or the favicon /icon.png also passes (lib/host.ts productAssetAllows); unknown and reserved
+// hosts, other methods and every other path keep their existing answers.
 
 export async function proxy(request: NextRequest): Promise<Response> {
   const pathname = request.nextUrl.pathname;
@@ -49,11 +53,11 @@ export async function proxy(request: NextRequest): Promise<Response> {
       return !isSignupPath(pathname) || tenantAllowsSignup(pathname, host.value.kind, rootAlias) ? NextResponse.next() : notFound(api);
     }
     case "auth":
-      return pathname === "/sign-in" ? NextResponse.next() : notFound(api);
+      return pathname === "/sign-in" || productAssetAllows(request.method, pathname) ? NextResponse.next() : notFound(api);
     case "public_entry": {
       const root = origin === host.value.signupOrigin;
       if (rootRedirects(request.method, pathname, root, host.value.rootPage)) return rootSignupRedirect(host.value.signupOrigin);
-      return publicEntryAllows(pathname, root) ? NextResponse.next() : notFound(api);
+      return publicEntryAllows(pathname, root) || productAssetAllows(request.method, pathname) ? NextResponse.next() : notFound(api);
     }
     default:
       return notFound(api);

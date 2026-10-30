@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -1037,6 +1037,9 @@ const ORIGIN_C = "https://org-c.localhost:543";
 const PORTAL = "https://portal.acme.test:543";
 const AUTH = "https://auth.localhost:543";
 const ROOT = "https://localhost:543";
+// OS002: the default product mark and the favicon (byte-identical files; infra/validation/lib.sh WEB_PUBLIC_PINS).
+const PRODUCT_ASSETS = ["/brand/mark.png", "/icon.png"];
+const PRODUCT_MARK_SHA256 = "8b8238b26a7974148b2ef47db42c4c5200537bfa583de5426ff8acbe9aebcacd";
 
 // An extra page of the context answering an error status (the default page's S-ERRORS check stays on normal pages).
 async function statusAt(context: BrowserContext, url: string): Promise<{ status: number; text: string }> {
@@ -1127,6 +1130,7 @@ test("[E-DOM-2] a custom host signs in through the shared callback relay; host-o
 });
 
 test("[E-DOM-3] an unknown platform-shaped or custom host is the fixed 404 and cannot start a sign-in @domain-platform", async ({ context }) => {
+  const d = await driver();
   for (const origin of ["https://org-z.localhost:543", "https://unknown.acme.test:543"]) {
     tracking.allowed.add(origin);
     for (const path of ["/", "/sign-in", "/account", "/connections/mcp"]) {
@@ -1135,10 +1139,15 @@ test("[E-DOM-3] an unknown platform-shaped or custom host is the fixed 404 and c
       expect(r.text).toContain("There is nothing at this address.");
     }
     expect(await loginStart(new URL(origin).host)).toEqual({ status: 403, location: "" });
+    // OS002: the default product mark and the favicon are no exception on an unknown host.
+    for (const path of PRODUCT_ASSETS) {
+      const asset = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: new URL(origin).host }, maxRedirects: 0 });
+      expect(asset.status(), `${origin}${path}`).toBe(404);
+    }
   }
 });
 
-test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up to the root, no marketing hop; protocol paths stay exempt @domain-platform", async ({ context }) => {
+test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up to the root, no marketing hop; protocol paths stay exempt @domain-platform", async ({ page, context }) => {
   for (const origin of [ROOT, "https://www.localhost:543"]) {
     tracking.allowed.add(origin);
     const p = await context.newPage();
@@ -1167,6 +1176,35 @@ test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up t
   // The signup surface exists only on the root itself; www has no /signup.
   expect((await statusAt(context, `${ROOT}/signup`)).status).toBe(200);
   expect((await statusAt(context, "https://www.localhost:543/signup")).status).toBe(404);
+  // OS002: on the root, www and the shared auth host the gate passes exactly a GET or HEAD of the default product mark and
+  // the favicon (the pinned bytes, image/png); another method or another /brand/ file stays the fixed 404 there.
+  const d = await driver();
+  for (const host of ["localhost:543", "www.localhost:543", "auth.localhost:543"]) {
+    for (const path of PRODUCT_ASSETS) {
+      const got = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: host }, maxRedirects: 0 });
+      expect(got.status(), `GET ${host}${path}`).toBe(200);
+      expect(got.headers()["content-type"], `GET ${host}${path}`).toMatch(/^image\/png(;|$)/);
+      expect(createHash("sha256").update(await got.body()).digest("hex"), `GET ${host}${path} bytes`).toBe(PRODUCT_MARK_SHA256);
+      const head = await d.fetch(`${WEB_DIRECT}${path}`, { method: "HEAD", headers: { Host: host }, maxRedirects: 0 });
+      expect(head.status(), `HEAD ${host}${path}`).toBe(200);
+      expect(head.headers()["content-type"], `HEAD ${host}${path}`).toMatch(/^image\/png(;|$)/);
+      const post = await d.fetch(`${WEB_DIRECT}${path}`, { method: "POST", headers: { Host: host }, maxRedirects: 0 });
+      expect(post.status(), `POST ${host}${path}`).toBe(404);
+    }
+    const other = await d.get(`${WEB_DIRECT}/brand/other.png`, { headers: { Host: host }, maxRedirects: 0 });
+    expect(other.status(), `GET ${host}/brand/other.png`).toBe(404);
+  }
+  // The header of the root and www landing and of the auth host's sign-in page shows the mark, loaded (S-ERRORS also
+  // holds the default page free of a failed image or favicon load).
+  for (const url of [`${ROOT}/`, "https://www.localhost:543/", `${AUTH}/sign-in`]) {
+    tracking.allowed.add(new URL(url).origin);
+    expect((await page.goto(url))?.status(), url).toBe(200);
+    const mark = page.getByTestId("product-mark");
+    await expect(mark, url).toHaveCount(1);
+    await expect
+      .poll(() => mark.evaluate((img) => ((img as HTMLImageElement).complete ? (img as HTMLImageElement).naturalWidth : 0)), { message: `${url}: mark loaded` })
+      .toBeGreaterThan(0);
+  }
 });
 
 test("[E-DOM-5] a removed custom host routes nowhere: pages are the fixed 404 and a sign-in cannot start @domain-custom", async ({ context }) => {
@@ -1339,6 +1377,12 @@ test("[E-BRD-2] an unbranded platform host falls back to the product name and pl
   // No saved palette: the tenant stylesheet is empty, so the kit's defaults apply.
   expect(await tenantStylesheet(page), "no tenant values").toBe("");
   expect(await tenantColour(page, "primary")).toBe(PLATFORM_PRIMARY[schemeOf(testInfo)]);
+  // OS002: the unbranded frame shows the default product mark before the product name; a tenant with a saved label
+  // (Organization A) shows its label alone, without the mark.
+  await expect(page.getByTestId("brand-label").getByTestId("product-mark")).toHaveCount(1);
+  expect((await page.goto(`${ORIGIN_A}/`))?.status()).toBe(200);
+  await expect(page.getByTestId("brand-label")).toHaveText(SEED_LABEL);
+  await expect(page.getByTestId("product-mark")).toHaveCount(0);
 });
 
 test("[E-BRD-3] unknown hosts stay the fixed 404 for the branding routes; a stale logo version is a no-store 404 @domain-platform", async ({ context }) => {
@@ -1405,6 +1449,8 @@ test("[E-BRD-5] the owner manages the logo: PNG accepted, SVG refused, replaceme
     await page.goto(`${ORIGIN_A}/`);
     expect(await page.getByTestId("brand-logo").getAttribute("src")).toBe(`/branding/logo?v=${v1}`);
     expect(await page.getByTestId("brand-logo").getAttribute("alt")).toBe(SEED_LABEL);
+    // OS002: a tenant logo replaces the default product mark.
+    await expect(page.getByTestId("product-mark")).toHaveCount(0);
     // A replacement changes v; the old v is refused at the origin (no-store) and the old object is listed as an upload.
     await page.goto(`${ORIGIN_A}${BRANDING_PAGE}`);
     await page.locator("#logo-file").setInputFiles("tests/fixtures/branding/logo-amber.png");

@@ -156,6 +156,16 @@ export function publicEntryAllows(pathname: string, root: boolean): boolean {
   return root && ROOT_SIGNUP_PATHS.has(pathname);
 }
 
+// OS002: the default product mark (the header's /brand/mark.png) and the favicon (/icon.png, web/app/icon.png) are fixed
+// same-origin static files that the root, www and auth host pages reference; nothing a request carries selects the file.
+// The gate passes exactly a GET or HEAD of exactly those two paths on the public entry and auth hosts, after the host has
+// resolved; any other method, path, spelling or file (the rest of /brand/ included) keeps the fixed 404 there.
+const PRODUCT_ASSET_PATHS: ReadonlySet<string> = new Set(["/brand/mark.png", "/icon.png"]);
+
+export function productAssetAllows(method: string, pathname: string): boolean {
+  return (method === "GET" || method === "HEAD") && PRODUCT_ASSET_PATHS.has(pathname);
+}
+
 // Whether the path is /signup or below it.
 export function isSignupPath(pathname: string): boolean {
   return pathname === "/signup" || pathname.startsWith("/signup/");

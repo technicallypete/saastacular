@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { ButtonLink } from "@/components/controls/button-link";
-import { PLATFORM_ENTRY } from "@/components/signup/landing";
 import { Container } from "@/components/vestive/layout";
 import { Text, TextLink } from "@/components/vestive/typography";
 import type { Indicator } from "@/lib/branding";
@@ -57,13 +56,14 @@ const FOCUS_OUTLINE = "focus-visible:outline-2 focus-visible:outline-offset-2 fo
 // SiteHeader is a sticky marketing bar with a logo URL and default links). It is not sticky, so it never covers
 // focused content.
 // OS002 (Plan r1 S6, F4): the default product mark sits before the identity text only where that text is the configured
-// product name: the generic frame and a tenant frame whose label and logo are both null. A tenant frame with a label or
-// a logo renders exactly as before. The public entry frame (PLATFORM_ENTRY: the platform root and www.<domain>) keeps
-// text only, because the host gate serves no /brand/ file on those hosts (lib/host.ts PUBLIC_ASSET_PREFIXES). The mark
-// shows only while its file exists (lib/product-mark.ts); deleting it returns every frame to text only. The img sits
-// inside the identity paragraph, so that paragraph (and its text) stays the container's direct child.
+// product name: the generic frame (the shared auth host's sign-in page among others) and a frame whose label and logo
+// are both null (a tenant without saved branding, and the public entry frame PLATFORM_ENTRY of the platform root and
+// www.<domain>). A tenant frame with a label or a logo renders exactly as before. The host gate serves the mark file on
+// the root, www and auth hosts (lib/host.ts productAssetAllows). The mark shows only while its file exists
+// (lib/product-mark.ts); deleting it returns every frame to text only. The img sits inside the identity paragraph, so
+// that paragraph (and its text) stays the container's direct child.
 function markFor(brand: ShellBrand | undefined): string | null {
-  const productIdentity = brand === undefined || (brand !== PLATFORM_ENTRY && brand.label === null && brand.logo === null);
+  const productIdentity = brand === undefined || (brand.label === null && brand.logo === null);
   return productIdentity ? productMark() : null;
 }
 
