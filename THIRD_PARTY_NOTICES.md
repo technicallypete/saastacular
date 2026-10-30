@@ -49,12 +49,15 @@ keep their MIT notice. The kit is built on shadcn/ui and Base UI. Its eight
 composition modules under `web/src/components/` (outside `ui/`) and the other
 stylesheets under `web/src/styles/` are company-authored.
 
-**No branded image, logo or mark file is shipped.** The kit's internal component
-names remain in file paths, import paths, code comments and CSS names, along with
-the attribution above. One kit header component that the application does not use
-keeps a default wordmark text value. That default prop does not mean the
-application displays a brand mark: the application header shows the configured
-product name or the tenant's own label. None of these internal names grants
+**No branded image, logo or mark file of the kit is shipped.** (The template's
+own default product mark is a separate file; see "Default product mark" below.)
+The kit's internal component names remain in file paths, import paths, code
+comments and CSS names, along with the attribution above. One kit header
+component that the application does not use keeps a default wordmark text value.
+That default prop does not mean the application displays a kit brand mark: the
+application header shows the configured product name (with the default product
+mark beside it while that file is present) or the tenant's own label or logo.
+None of these internal names grants
 trademark rights. Apache License 2.0, section 6, grants no permission to use trade
 names, trademarks, service marks or product names.
 
@@ -78,6 +81,18 @@ are not covered by the Apache License 2.0.
 `web/public/blueprint/overview.svg` is original, project-authored geometry
 (first-party, Apache-2.0). The test-only images under `web/tests/fixtures/` are
 synthetic, project-authored inputs (first-party, Apache-2.0).
+
+### Default product mark (first-party mark)
+
+`web/public/brand/mark.png` (the header mark) and `web/app/icon.png` (the
+favicon) are byte-identical 192 px PNG rasters of the SaaStacular "S!" mark, a
+first-party mark of Vitruvian Technology, Corp., shipped as this template's
+default product mark. Apache License 2.0, section 6, grants no permission to use
+trade names, trademarks, service marks or product names, so the licence gives you
+no right to use this mark for your own product. *Adopter review:* when you rename
+the product, replace or delete both files (`docs/foundation/WEB-SHELL.md`,
+"Product mark and favicon"); the header falls back to the configured product name
+as text when `web/public/brand/mark.png` is absent.
 
 ### Company material under its own MIT licence
 

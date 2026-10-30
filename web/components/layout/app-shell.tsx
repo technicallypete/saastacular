@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 
 import { ButtonLink } from "@/components/controls/button-link";
+import { PLATFORM_ENTRY } from "@/components/signup/landing";
 import { Container } from "@/components/vestive/layout";
 import { Text, TextLink } from "@/components/vestive/typography";
 import type { Indicator } from "@/lib/branding";
+import { productMark } from "@/lib/product-mark";
 
 import { AppearanceControl } from "./appearance-control";
-import { BrandMark } from "./brand-mark";
+import { BrandMark, ProductMarkImage } from "./brand-mark";
 import { ContextIndicator } from "./context-indicator";
 import { ShellHelpDialog } from "./shell-help-dialog";
 
@@ -54,8 +56,20 @@ const FOCUS_OUTLINE = "focus-visible:outline-2 focus-visible:outline-offset-2 fo
 // G069 (Plan r1 S13): the header is the app's own composition on the kit's Container, Button and typography (the kit's
 // SiteHeader is a sticky marketing bar with a logo URL and default links). It is not sticky, so it never covers
 // focused content.
+// OS002 (Plan r1 S6, F4): the default product mark sits before the identity text only where that text is the configured
+// product name: the generic frame and a tenant frame whose label and logo are both null. A tenant frame with a label or
+// a logo renders exactly as before. The public entry frame (PLATFORM_ENTRY: the platform root and www.<domain>) keeps
+// text only, because the host gate serves no /brand/ file on those hosts (lib/host.ts PUBLIC_ASSET_PREFIXES). The mark
+// shows only while its file exists (lib/product-mark.ts); deleting it returns every frame to text only. The img sits
+// inside the identity paragraph, so that paragraph (and its text) stays the container's direct child.
+function markFor(brand: ShellBrand | undefined): string | null {
+  const productIdentity = brand === undefined || (brand !== PLATFORM_ENTRY && brand.label === null && brand.logo === null);
+  return productIdentity ? productMark() : null;
+}
+
 export function AppShell({ productName, platformBaseDomain, nav, brand, area, children }: AppShellProps) {
   const name = brand?.label ?? productName;
+  const mark = markFor(brand);
   return (
     <div className="flex min-h-screen flex-col">
       <TextLink
@@ -67,9 +81,12 @@ export function AppShell({ productName, platformBaseDomain, nav, brand, area, ch
       <header data-slot="site-header" className="relative border-b border-border bg-background">
         <Container className="flex min-h-[72px] flex-wrap items-center justify-between gap-x-10 gap-y-4 py-3">
           {brand === undefined ? (
-            <p className="max-w-full min-w-0 font-heading text-lg font-semibold tracking-[1.2px] uppercase [overflow-wrap:anywhere]">{productName}</p>
+            <p className="max-w-full min-w-0 font-heading text-lg font-semibold tracking-[1.2px] uppercase [overflow-wrap:anywhere]">
+              {mark === null ? null : <ProductMarkImage src={mark} />}
+              {productName}
+            </p>
           ) : (
-            <BrandMark name={name} logoVersion={brand.logo?.version ?? null} />
+            <BrandMark name={name} logoVersion={brand.logo?.version ?? null} mark={mark} />
           )}
           <nav aria-label="Primary" className="flex flex-wrap gap-x-8 gap-y-2 font-sans text-sm font-medium">
             {nav.map((l) => (
