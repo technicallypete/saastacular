@@ -614,8 +614,7 @@ p {
   margin-inline: auto;
 }
 
-.diagram-get,
-.diagram-text-title {
+.diagram-get {
   margin: 1rem 0 0.5rem;
   font-size: 0.9375rem;
 }
