@@ -669,6 +669,7 @@ p {
 .diagram-tools {
   margin: 1rem 0 2rem;
   font-size: 0.9375rem;
+  text-align: right;
 }
 
 .diagram-open {
