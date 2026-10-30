@@ -317,7 +317,7 @@
   <section id="harness" class="section band" aria-labelledby="harness-title">
     <div class="container">
       <p class="kicker">Included test harness</p>
-      <h2 id="harness-title">Docker tests that account for what they create</h2>
+      <h2 id="harness-title">Docker tests that account for what they create.</h2>
       <p class="section-lead">The repository ships its own Docker integration-test and resource-lifecycle harness. <code>infra/ci/validate.sh</code> is the single validation entry point, locally and in CI: it runs a chosen profile with evidence scanning and owned-resource cleanup, and fails closed when the host does not meet that profile's capacity.</p>
       <ul class="facts">
         <li>Every Docker allocation of a run with a resource registry is counted by exact ID against a finite, source-derived ceiling. A crossing or a failed Docker query refuses the allocation, creates nothing and holds the scope.</li>
