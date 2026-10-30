@@ -28,8 +28,8 @@
     </a>
     <nav class="site-nav" aria-label="Primary">
       <ul>
-        <li><a href="#architecture">Architecture</a></li>
         <li><a href="#security">Security</a></li>
+        <li><a href="#architecture">Architecture</a></li>
         <li><a href="#screenshots">Screenshots</a></li>
         <li><a href="#get-started">Get started</a></li>
         <li><a href="#source">Source</a></li>
@@ -62,6 +62,65 @@
       <div class="hero-art">
         <img src="assets/brand/mark-512.png" alt="" width="512" height="512" decoding="async">
       </div>
+    </div>
+  </section>
+
+  <section id="security" class="section" aria-labelledby="security-title">
+    <div class="container">
+      <p class="kicker">What ships</p>
+      <h2 id="security-title">Security boundaries you start with</h2>
+      <p class="section-lead">Each card summarizes a mechanism described in the public documentation. Security statements are scoped to the tested configuration and the checks the guides name.</p>
+      <ol class="cards">
+        <li class="card">
+          <span class="card-index" aria-hidden="true">01</span>
+          <h3>Tenant boundary with row-level security beneath it</h3>
+          <p>The Organization is the tenant boundary, resolved on the server from the authenticated session and the request host, never from client- or model-supplied identifiers. One RoleBinding store feeds a closed, deny-by-default policy evaluator.</p>
+          <p>PostgreSQL row-level security sits beneath core's authorization, so an omitted application predicate cannot expose another Organization or an unauthorized Group.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DATABASE-ISOLATION.md">Database isolation</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/AUTHORIZATION.md">Authorization</a></p>
+        </li>
+        <li class="card">
+          <span class="card-index" aria-hidden="true">02</span>
+          <h3>Explicit Group authority</h3>
+          <p>Group content requires an explicit Group role. Organization owners and admins see Group metadata only; ordinary Group management by them needs the Organization owner's override, which is off by default, changed only by an owner and audited when changed or used.</p>
+          <p>The override grants no Group content, no ownership powers and no self-join.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TENANCY.md#explicit-group-authority">Explicit Group authority</a></p>
+        </li>
+        <li class="card">
+          <span class="card-index" aria-hidden="true">03</span>
+          <h3>Ownership continuity, invitations and enrollment</h3>
+          <p>A database authority guard keeps at least one owner on every Organization and Group, and ordinary admin authority cannot grant ownership to itself.</p>
+          <p>Invitations are scoped, expire within 30 days, are revocable and are consumed once; delivery e-mail or token possession alone is not authority. New Organizations start invite-only; owners can switch to request-access or open enrollment.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TENANCY.md#membership-ownership-and-invitations">Membership, ownership and invitations</a></p>
+        </li>
+        <li class="card">
+          <span class="card-index" aria-hidden="true">04</span>
+          <h3>Host-bound sessions and revocation</h3>
+          <p>WorkOS AuthKit authenticates people; core owns the sessions. The session credential is an opaque 256-bit value of which only the SHA-256 is stored, with a 30-minute idle and 8-hour absolute lifetime by default.</p>
+          <p>A browser session is bound to the exact origin and Organization of its sign-in and resolves nowhere else. Signing out everywhere revokes every session of the user.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/IDENTITY.md#tenant-hosts-and-the-callback-relay">Tenant hosts and sessions</a></p>
+        </li>
+        <li class="card">
+          <span class="card-index" aria-hidden="true">05</span>
+          <h3>Tenant-scoped object storage and signed URLs</h3>
+          <p>Core derives every object key from the Organization and object identifiers and authorizes each read, upload and delete against the object's recorded scope before any provider call; row-level security enforces the same table independently.</p>
+          <p>Signed download URLs are GET-only, expire after at most 300 seconds and are never logged. The guide also states what is not proven, and the storage layer is core-internal: no route wires it in yet.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/OBJECT-STORAGE.md#signed-urls-and-endpoint-identity">Object storage</a></p>
+        </li>
+        <li class="card">
+          <span class="card-index" aria-hidden="true">06</span>
+          <h3>Durable audit, guarded recovery and retention</h3>
+          <p>An append-only audit relation records foundation-level changes, security denials and storage outcomes; database triggers capture row changes in the same transaction. The audit record is core-internal, with no HTTP surface or export.</p>
+          <p>The recovery tool provides a fenced backup, restore into a fresh closed target, session invalidation before reopening, bounded retention maintenance and backup expiry, with a synthetic drill. A successful local drill is not production backup qualification.</p>
+          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/AUDIT.md">Audit</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/RECOVERY.md">Recovery</a></p>
+        </li>
+      </ol>
+
+      <aside class="callout" aria-labelledby="tenancy-title">
+        <h3 id="tenancy-title">One Organization or many</h3>
+        <p>By default each Organization is served on its own generated platform host, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
+        <p>The setting creates and converts nothing: the multi-tenant data model and every other host stay as they are, and removing it restores multi-tenant operation. <code>PLATFORM_ROOT_PAGE</code> selects what the multi-tenant root shows.</p>
+        <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DOMAINS.md#default-tenant-root-alias-and-root-presentation">Default-tenant root alias and root presentation</a></p>
+      </aside>
     </div>
   </section>
 
@@ -126,7 +185,7 @@
               <ul class="org-parts">
                 <li class="node"><h4>Organization roles</h4><p><code>org_owner</code>, <code>org_admin</code>, <code>org_member</code>. No role is global.</p></li>
                 <li class="node"><h4>Groups</h4><p>Collaboration scopes. Each belongs to exactly one Organization for life. Roles: <code>group_owner</code>, <code>group_admin</code>, <code>group_member</code>.</p></li>
-                <li class="node"><h4>Business Profiles</h4><p>Reusable business context owned by one Organization. A Group links to at most one profile of its own Organization.</p></li>
+                <li class="node"><h4>Business Profiles</h4><p>Reusable business context owned by one Organization. A Group links to at most one profile of its own Organization; one profile can be shared by several Groups.</p></li>
               </ul>
             </div>
             <p class="edge"><span class="edge-label"><strong>Authority inside the Organization</strong> has three separate boundaries.</span></p>
@@ -158,65 +217,6 @@
           </ul>
         </details>
       </figure>
-    </div>
-  </section>
-
-  <section id="security" class="section" aria-labelledby="security-title">
-    <div class="container">
-      <p class="kicker">What ships</p>
-      <h2 id="security-title">Security boundaries you start with</h2>
-      <p class="section-lead">Each card summarizes a mechanism described in the public documentation. Security statements are scoped to the tested configuration and the checks the guides name.</p>
-      <ol class="cards">
-        <li class="card">
-          <span class="card-index" aria-hidden="true">01</span>
-          <h3>Tenant boundary with row-level security beneath it</h3>
-          <p>The Organization is the tenant boundary, resolved on the server from the authenticated session and the request host, never from client- or model-supplied identifiers. One RoleBinding store feeds a closed, deny-by-default policy evaluator.</p>
-          <p>PostgreSQL row-level security sits beneath core's authorization, so an omitted application predicate cannot expose another Organization or an unauthorized Group.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DATABASE-ISOLATION.md">Database isolation</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/AUTHORIZATION.md">Authorization</a></p>
-        </li>
-        <li class="card">
-          <span class="card-index" aria-hidden="true">02</span>
-          <h3>Explicit Group authority</h3>
-          <p>Group content requires an explicit Group role. Organization owners and admins see Group metadata only; ordinary Group management by them needs the Organization owner's override, which is off by default, changed only by an owner and audited when changed or used.</p>
-          <p>The override grants no Group content, no ownership powers and no self-join.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TENANCY.md#explicit-group-authority">Explicit Group authority</a></p>
-        </li>
-        <li class="card">
-          <span class="card-index" aria-hidden="true">03</span>
-          <h3>Ownership continuity, invitations and enrollment</h3>
-          <p>A database authority guard keeps at least one owner on every Organization and Group, and ordinary admin authority cannot grant ownership to itself.</p>
-          <p>Invitations are scoped, expire within 30 days, are revocable and are consumed once; delivery e-mail or token possession alone is not authority. New Organizations start invite-only; owners can switch to request-access or open enrollment.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TENANCY.md#membership-ownership-and-invitations">Membership, ownership and invitations</a></p>
-        </li>
-        <li class="card">
-          <span class="card-index" aria-hidden="true">04</span>
-          <h3>Host-bound sessions and revocation</h3>
-          <p>WorkOS AuthKit authenticates people; core owns the sessions. The session credential is an opaque 256-bit value of which only the SHA-256 is stored, with a 30-minute idle and 8-hour absolute lifetime by default.</p>
-          <p>A browser session is bound to the exact origin and Organization of its sign-in and resolves nowhere else. Signing out everywhere revokes every session of the user.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/IDENTITY.md#tenant-hosts-and-the-callback-relay">Tenant hosts and sessions</a></p>
-        </li>
-        <li class="card">
-          <span class="card-index" aria-hidden="true">05</span>
-          <h3>Tenant-scoped object storage and signed URLs</h3>
-          <p>Core derives every object key from the Organization and object identifiers and authorizes each read, upload and delete against the object's recorded scope before any provider call; row-level security enforces the same table independently.</p>
-          <p>Signed download URLs are GET-only, expire after at most 300 seconds and are never logged. The guide also states what is not proven, and the storage layer is core-internal: no route wires it in yet.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/OBJECT-STORAGE.md#signed-urls-and-endpoint-identity">Object storage</a></p>
-        </li>
-        <li class="card">
-          <span class="card-index" aria-hidden="true">06</span>
-          <h3>Durable audit, guarded recovery and retention</h3>
-          <p>An append-only audit relation records foundation-level changes, security denials and storage outcomes; database triggers capture row changes in the same transaction. The audit record is core-internal, with no HTTP surface or export.</p>
-          <p>The recovery tool provides a fenced backup, restore into a fresh closed target, session invalidation before reopening, bounded retention maintenance and backup expiry, with a synthetic drill. A successful local drill is not production backup qualification.</p>
-          <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/AUDIT.md">Audit</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/RECOVERY.md">Recovery</a></p>
-        </li>
-      </ol>
-
-      <aside class="callout" aria-labelledby="tenancy-title">
-        <h3 id="tenancy-title">One Organization or many</h3>
-        <p>By default each Organization is served on its own generated platform host, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
-        <p>The setting creates and converts nothing: the multi-tenant data model and every other host stay as they are, and removing it restores multi-tenant operation. <code>PLATFORM_ROOT_PAGE</code> selects what the multi-tenant root shows.</p>
-        <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DOMAINS.md#default-tenant-root-alias-and-root-presentation">Default-tenant root alias and root presentation</a></p>
-      </aside>
     </div>
   </section>
 
