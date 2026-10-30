@@ -29,10 +29,11 @@
     <nav class="site-nav" aria-label="Primary">
       <ul>
         <li><a href="#security">Security</a></li>
+        <li><a href="#workflow">Restruct SDLC</a></li>
         <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#screenshots">Screenshots</a></li>
+        <li><a href="#harness">Docker tests</a></li>
         <li><a href="#get-started">Get started</a></li>
-        <li><a href="#source">Source</a></li>
+        <li><a href="#author">Contact</a></li>
       </ul>
     </nav>
     <div class="cta-group header-cta">
@@ -55,8 +56,10 @@
         <div class="cta-group hero-cta">
           <a class="button button-primary" href="https://github.com/technicallypete/saastacular/generate">Use this template</a>
           <a class="button button-secondary" href="https://github.com/technicallypete/saastacular">View source</a>
+          <a class="button button-secondary" href="https://github.com/technicallypete/saastacular/issues/new?title=Request%20a%20live%20demo&amp;body=I%27d%20like%20a%20live%20demo%20of%20SaaStacular.%0A%0ADemo%20environment%20%28started%20by%20hand%20on%20request%29%3A%20https%3A%2F%2Fstaging.beginify.net%0A%0APreferred%20days%20and%20times%2C%20with%20my%20time%20zone%3A%0A%0AWhat%20I%20most%20want%20to%20see%3A%0A%0AThis%20issue%20is%20public.%20Please%20do%20not%20post%20secrets%20or%20personal%20data.%0A">Request a live demo</a>
         </div>
         <p class="template-note">The repository is a GitHub repository template: GitHub copies its files into a new repository of yours.</p>
+        <p class="template-note" id="demo-note"><strong>Live demo.</strong> The button opens a prefilled GitHub issue that shows the demo address, <code>https://staging.beginify.net</code>, before you submit it; nothing is sent until you do. Demos are started by hand: Peter replies on the issue with availability, and a session usually lasts about two hours. The demo is not automatic and not always live.</p>
         <p><a class="text-link" href="#get-started">Get started</a></p>
       </div>
       <div class="hero-art">
@@ -124,6 +127,23 @@
     </div>
   </section>
 
+  <section id="workflow" class="section band" aria-labelledby="workflow-title">
+    <div class="container workflow-inner">
+      <div class="workflow-text">
+      <p class="kicker">Included development workflow</p>
+      <h2 id="workflow-title">Restruct SDLC for agent-driven work</h2>
+      <p class="section-lead">SaaStacular includes Restruct SDLC, a development workflow for working with AI coding agents and human decision-makers. It is pinned as an unaltered submodule at <code>.agents/skills/restruct-sdlc/</code> and keeps its own MIT license.</p>
+      <ul class="facts">
+        <li>It covers the delivery steps in order: Goal, Spec, Plan, implementation, review and validation, and a Result record, with budgets, parallel scheduling, evidence and cleanup.</li>
+        <li>You record who decides and which roles agents play, then adapt or replace those rules. Three child skills cover adopting the workflow, supervising and reviewing, and handing work between local agent sessions.</li>
+        <li>It is optional. The application's build, tests, migrations and runtime do not depend on it, installing it starts no agent and creates no records, and the application's CI and local checks do not run Restruct's tests.</li>
+      </ul>
+      <p class="card-links"><a href="https://github.com/technicallypete/restruct-sdlc">Restruct SDLC on GitHub</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/DEVELOPMENT-WORKFLOW.md">Development workflow in this repository</a></p>
+      </div>
+      <img class="workflow-badge" src="assets/restruct/restruct-badge.png" alt="Restruct shield badge: AI-first operating methodology for modern software organizations" width="480" height="540" loading="lazy" decoding="async">
+    </div>
+  </section>
+
   <section id="architecture" class="section" aria-labelledby="architecture-title">
     <div class="container">
       <p class="kicker">Architecture</p>
@@ -132,34 +152,34 @@
 
       <figure class="diagram" id="diagram-services" aria-labelledby="diagram-services-title">
         <figcaption id="diagram-services-title"><span class="diagram-no">Diagram 1</span> Requests, services and data access</figcaption>
-        <div class="flow">
-          <div class="flow-browser">
-            <div class="node"><h3>Browser</h3><p>People using the web app.</p></div>
-            <p class="edge"><span class="edge-label"><strong>Browser → web:</strong> HTTPS through a TLS edge you provide; plain HTTP on loopback for local use only.</span></p>
-          </div>
-          <div class="flow-web">
-            <div class="node"><h3><code>web</code></h3><p>Next.js surface and thin server-side bridge. No authority, policy or domain rules; no datastore, WorkOS or gateway credentials.</p></div>
-            <p class="edge"><span class="edge-label"><strong>web → core:</strong> server-side requests to an internal URL.</span></p>
-          </div>
-          <div class="flow-ai">
-            <div class="node node-quiet"><h3>AI client</h3><p>An external MCP client a member connected.</p></div>
-            <p class="edge edge-tall"><span class="edge-label"><strong>AI client → core:</strong> MCP over a per-connection URL bound to one Organization, one user and one client. It passes beside web, and each call is reauthorized.</span></p>
-          </div>
-          <div class="flow-core">
-            <div class="node node-core"><h3><code>core</code> (Go)</h3><p>Owns facts, identity and sessions, tenancy, the authorization decision, audit, storage, domains and MCP. Resolves the Organization on the server.</p></div>
-            <p class="edge edge-fan"><span class="edge-label"><strong>core →</strong> each of the following.</span></p>
-          </div>
-          <ul class="flow-stores" aria-label="Services core reaches">
-            <li class="node"><h3>PostgreSQL</h3><p><strong>core → PostgreSQL:</strong> durable state, through a least-privilege runtime role under forced row-level security.</p></li>
-            <li class="node"><h3>Object storage</h3><p><strong>core → object storage:</strong> S3-compatible API (MinIO locally) with a bucket-scoped user. Core-internal today: no route exposes it yet.</p></li>
-            <li class="node"><h3>WorkOS AuthKit</h3><p><strong>core → WorkOS:</strong> HTTPS to the hosted sign-in provider. Its API key lives in core only.</p></li>
-            <li class="node node-quiet"><h3>Redis</h3><p><strong>core → Redis:</strong> readiness check only today. It is ephemeral.</p></li>
-          </ul>
-          <div class="flow-ai-service">
-            <p class="edge edge-fan"><span class="edge-label"><strong>core → intelligence:</strong> a readiness probe only today.</span></p>
-            <div class="node node-optional"><h3><code>intelligence</code> (Python), optional</h3><p>Internal AI execution. Not reachable from a browser and no data-store access. <strong>intelligence → model gateway:</strong> HTTPS to OpenRouter, only when enabled; its key lives here only.</p></div>
-          </div>
+        <div class="diagram-scroll" role="region" aria-label="Diagram 1 image; scrolls sideways on narrow screens" tabindex="0">
+<svg class="a-svg" viewBox="0 0 760 790" role="img" aria-labelledby="svc-t svc-d"><title id="svc-t">Requests, services and data access</title><desc id="svc-d">Browsers reach web, which calls core. An AI client reaches core over MCP. Core reaches PostgreSQL, object storage, WorkOS AuthKit and Redis, and probes the optional intelligence service, which can call a model gateway. The text equivalent follows the image.</desc><style>svg.a-svg{--a-bg:#ffffff;--a-node:#ffffff;--a-stroke:#7c6d67;--a-text:#0c0a09;--a-muted:#5f524d;--a-accent:#253b55}
+@media (prefers-color-scheme: dark){svg.a-svg{--a-bg:#1d1816;--a-node:#0c0a09;--a-stroke:#8a8583;--a-text:#fbfaf9;--a-muted:#aba09c;--a-accent:#c9d839}}
+.a-bg{fill:var(--a-bg)}
+.a-node rect{fill:var(--a-node);stroke:var(--a-stroke);stroke-width:1.5}
+.a-core rect{stroke:var(--a-accent);stroke-width:3}
+.a-opt rect{stroke-dasharray:7 5}
+.a-org>rect{fill:none;stroke:var(--a-accent);stroke-width:3}
+.a-title{font-family:Oswald,"Arial Narrow",Arial,sans-serif;font-weight:500;font-size:19px;fill:var(--a-text)}
+.a-body,.a-label{font-family:Geist,"Helvetica Neue",Arial,sans-serif;font-size:15px;fill:var(--a-text)}
+.a-label{font-size:14.5px}
+.a-line{stroke:var(--a-accent);stroke-width:2.5;fill:none}
+.a-head{fill:var(--a-accent)}
+.a-lg rect{fill:var(--a-node);stroke:var(--a-stroke);stroke-width:1.5}</style><rect class="a-bg" width="760" height="790"/><g class="a-node" data-node="browser"><rect x="20" y="20" width="210" height="82" rx="9"/><text class="a-title" x="32" y="47">Browser</text><text class="a-body" x="32" y="47"><tspan x="32" y="73">People using the web app.</tspan></text></g><g class="a-node" data-node="ai"><rect x="250" y="20" width="210" height="82" rx="9"/><text class="a-title" x="262" y="47">AI client</text><text class="a-body" x="262" y="47"><tspan x="262" y="73">An external MCP client</tspan><tspan x="262" y="92">a member connected.</tspan></text></g><g class="a-node a-opt" data-node="gateway"><rect x="500" y="20" width="240" height="82" rx="9"/><text class="a-title" x="512" y="47">Model gateway</text><text class="a-body" x="512" y="47"><tspan x="512" y="73">OpenRouter, only when</tspan><tspan x="512" y="92">enabled.</tspan></text></g><g class="a-node" data-node="web"><rect x="20" y="170" width="210" height="120" rx="9"/><text class="a-title" x="32" y="197">web</text><text class="a-body" x="32" y="197"><tspan x="32" y="223">Thin server-side bridge.</tspan><tspan x="32" y="242">No authority or policy;</tspan><tspan x="32" y="261">no datastore, WorkOS or</tspan><tspan x="32" y="280">gateway credentials.</tspan></text></g><g class="a-node a-opt" data-node="intelligence"><rect x="500" y="170" width="240" height="120" rx="9"/><text class="a-title" x="512" y="197">intelligence</text><text class="a-body" x="512" y="197"><tspan x="512" y="223">Optional internal AI</tspan><tspan x="512" y="242">execution. Not reachable</tspan><tspan x="512" y="261">from a browser; no</tspan><tspan x="512" y="280">data-store access.</tspan></text></g><g class="a-node a-core" data-node="core"><rect x="20" y="370" width="720" height="82" rx="9"/><text class="a-title" x="32" y="397">core</text><text class="a-body" x="32" y="397"><tspan x="32" y="423">Owns identity and sessions, tenancy, the authorization decision, audit, storage, domains and MCP.</tspan><tspan x="32" y="442">Resolves the Organization on the server.</tspan></text></g><g class="a-node" data-node="postgres"><rect x="20" y="540" width="165" height="139" rx="9"/><text class="a-title" x="32" y="567">PostgreSQL</text><text class="a-body" x="32" y="567"><tspan x="32" y="593">Durable state.</tspan><tspan x="32" y="612">Least-privilege</tspan><tspan x="32" y="631">runtime role under</tspan><tspan x="32" y="650">forced row-level</tspan><tspan x="32" y="669">security.</tspan></text></g><g class="a-node" data-node="storage"><rect x="205" y="540" width="165" height="139" rx="9"/><text class="a-title" x="217" y="567">Object storage</text><text class="a-body" x="217" y="567"><tspan x="217" y="593">S3-compatible API</tspan><tspan x="217" y="612">(MinIO locally).</tspan><tspan x="217" y="631">Bucket-scoped user.</tspan><tspan x="217" y="650">Core-internal: no</tspan><tspan x="217" y="669">route exposes it.</tspan></text></g><g class="a-node" data-node="workos"><rect x="390" y="540" width="165" height="139" rx="9"/><text class="a-title" x="402" y="567">WorkOS AuthKit</text><text class="a-body" x="402" y="567"><tspan x="402" y="593">Hosted sign-in</tspan><tspan x="402" y="612">provider.</tspan><tspan x="402" y="631">API key lives in</tspan><tspan x="402" y="650">core only.</tspan></text></g><g class="a-node" data-node="redis"><rect x="575" y="540" width="165" height="139" rx="9"/><text class="a-title" x="587" y="567">Redis</text><text class="a-body" x="587" y="567"><tspan x="587" y="593">Ephemeral.</tspan><tspan x="587" y="612">Readiness check</tspan><tspan x="587" y="631">only today.</tspan></text></g><g class="a-edge" data-edge="browser>web"><line class="a-line" x1="125" y1="102" x2="125" y2="161"/><polygon class="a-head" points="125,170 119,160 131,160"/></g><text class="a-label" data-for="browser>web"><tspan x="137" y="140">HTTPS via your TLS edge</tspan></text><g class="a-edge" data-edge="web>core"><line class="a-line" x1="125" y1="290" x2="125" y2="361"/><polygon class="a-head" points="125,370 119,360 131,360"/></g><text class="a-label" data-for="web>core"><tspan x="137" y="335">internal URL, server-side</tspan></text><g class="a-edge" data-edge="ai>core"><line class="a-line" x1="355" y1="102" x2="355" y2="361"/><polygon class="a-head" points="355,370 349,360 361,360"/></g><text class="a-label" data-for="ai>core"><tspan x="367" y="140">MCP, one URL</tspan><tspan x="367" y="158">per connection;</tspan><tspan x="367" y="176">each call is</tspan><tspan x="367" y="194">reauthorized</tspan></text><g class="a-edge" data-edge="intelligence>gateway"><line class="a-line" x1="620" y1="170" x2="620" y2="111"/><polygon class="a-head" points="620,102 614,112 626,112"/></g><text class="a-label" data-for="intelligence>gateway"><tspan x="632" y="134">HTTPS, only</tspan><tspan x="632" y="152">when enabled</tspan></text><g class="a-edge" data-edge="core>intelligence"><line class="a-line" x1="620" y1="370" x2="620" y2="299"/><polygon class="a-head" points="620,290 614,300 626,300"/></g><text class="a-label" data-for="core>intelligence"><tspan x="632" y="325">readiness</tspan><tspan x="632" y="343">probe only</tspan></text><g class="a-edge" data-edge="core>postgres"><line class="a-line" x1="102" y1="452" x2="102" y2="531"/><polygon class="a-head" points="102,540 96,530 108,530"/></g><text class="a-label" data-for="core>postgres"><tspan x="112" y="500">durable state</tspan></text><g class="a-edge" data-edge="core>storage"><line class="a-line" x1="287" y1="452" x2="287" y2="531"/><polygon class="a-head" points="287,540 281,530 293,530"/></g><text class="a-label" data-for="core>storage"><tspan x="297" y="500">S3-compatible API</tspan></text><g class="a-edge" data-edge="core>workos"><line class="a-line" x1="472" y1="452" x2="472" y2="531"/><polygon class="a-head" points="472,540 466,530 478,530"/></g><text class="a-label" data-for="core>workos"><tspan x="482" y="500">HTTPS API</tspan></text><g class="a-edge" data-edge="core>redis"><line class="a-line" x1="657" y1="452" x2="657" y2="531"/><polygon class="a-head" points="657,540 651,530 663,530"/></g><text class="a-label" data-for="core>redis"><tspan x="667" y="494">readiness</tspan><tspan x="667" y="512">only</tspan></text><g class="a-lg" data-legend="1"><line class="a-line" x1="20" y1="730" x2="54" y2="730"/><polygon class="a-head" points="64,730 54,724 54,736"/></g><text class="a-label"><tspan x="76" y="735">arrow: a call from source to target</tspan></text><g class="a-lg a-core" data-legend="1"><rect x="330" y="721" width="26" height="18" rx="4" style="stroke:var(--a-accent);stroke-width:3"/></g><text class="a-label"><tspan x="366" y="735">accent border: authority</tspan></text><g class="a-lg" data-legend="1"><rect x="560" y="721" width="26" height="18" rx="4" style="stroke-dasharray:5 3"/></g><text class="a-label"><tspan x="596" y="735">dashed: optional</tspan></text></svg>
         </div>
+        <p class="diagram-get">On a narrow screen, scroll the image sideways or open a file. Image files: <a href="assets/architecture/services.svg">SVG</a> · <a href="assets/architecture/services-light.png">PNG, light</a> · <a href="assets/architecture/services-dark.png">PNG, dark</a></p>
+        <p class="diagram-text-title"><strong>The same diagram in text</strong></p>
+        <ul class="diagram-text">
+          <li><strong>Browser → web:</strong> HTTPS through a TLS edge you provide; plain HTTP on loopback for local use only.</li>
+          <li><strong>web → core:</strong> server-side requests to an internal URL. web has no authority, policy or domain rules, and no datastore, WorkOS or gateway credentials.</li>
+          <li><strong>AI client → core:</strong> MCP over a per-connection URL bound to one Organization, one user and one client; each call is reauthorized. It does not pass through web.</li>
+          <li><strong>core → PostgreSQL:</strong> durable state, through a least-privilege runtime role under forced row-level security.</li>
+          <li><strong>core → object storage:</strong> S3-compatible API (MinIO locally) with a bucket-scoped user. Core-internal today: no route exposes it yet.</li>
+          <li><strong>core → WorkOS AuthKit:</strong> HTTPS to the hosted sign-in provider; its API key lives in core only.</li>
+          <li><strong>core → Redis:</strong> a readiness check only today. Redis is ephemeral.</li>
+          <li><strong>core → intelligence (optional):</strong> a readiness probe only today. intelligence is not reachable from a browser and has no data-store access.</li>
+          <li><strong>intelligence → model gateway (optional):</strong> HTTPS to OpenRouter, only when enabled; the key lives in intelligence only.</li>
+        </ul>
         <p class="diagram-note"><strong>What has no arrow:</strong> in the shipped template the browser, web, AI clients and intelligence do not connect to PostgreSQL, Redis or object storage. Signed download URLs (GET-only, at most 300 seconds) exist in the storage layer, but no route issues them yet.</p>
         <details class="diagram-sources">
           <summary>Where each arrow comes from</summary>
@@ -174,38 +194,30 @@
 
       <figure class="diagram" id="diagram-authority" aria-labelledby="diagram-authority-title">
         <figcaption id="diagram-authority-title"><span class="diagram-no">Diagram 2</span> Organization, Group and tenant authority</figcaption>
-        <ol class="authority">
-          <li class="stage">
-            <div class="node"><h3>Authenticated person</h3><p>Identity is global: WorkOS AuthKit authenticates, core owns the session.</p></div>
-            <p class="edge"><span class="edge-label"><strong>Then, on the server:</strong> core resolves the Organization from the authenticated session and the request host, never from a client-supplied or model-supplied identifier. An unknown or foreign Organization gets the same denial as no membership.</span></p>
-          </li>
-          <li class="stage">
-            <div class="org" role="group" aria-labelledby="org-title">
-              <h3 id="org-title">Organization: the tenant boundary</h3>
-              <ul class="org-parts">
-                <li class="node"><h4>Organization roles</h4><p><code>org_owner</code>, <code>org_admin</code>, <code>org_member</code>. No role is global.</p></li>
-                <li class="node"><h4>Groups</h4><p>Collaboration scopes. Each belongs to exactly one Organization for life. Roles: <code>group_owner</code>, <code>group_admin</code>, <code>group_member</code>.</p></li>
-                <li class="node"><h4>Business Profiles</h4><p>Reusable business context owned by one Organization. A Group links to at most one profile of its own Organization; one profile can be shared by several Groups.</p></li>
-              </ul>
-            </div>
-            <p class="edge"><span class="edge-label"><strong>Authority inside the Organization</strong> has three separate boundaries.</span></p>
-          </li>
-          <li class="stage">
-            <ol class="steps-3" aria-label="Three authority boundaries">
-              <li class="node"><h4>1. Read Group metadata</h4><p>Organization owners and admins read names, slugs, onboarding state and profile fields of every Group. Never rosters, invitations, tokens or objects.</p></li>
-              <li class="node"><h4>2. Manage a Group</h4><p>Needs an explicit Group owner or admin role, or the Organization's management override: off by default, changed only by an Organization owner and audited. It grants no ownership powers and no self-join.</p></li>
-              <li class="node"><h4>3. Group content</h4><p>Needs an explicit Group role, with the override on or off.</p></li>
-            </ol>
-            <p class="edge"><span class="edge-label"><strong>Enforced in two layers:</strong> core decides, and PostgreSQL checks again.</span></p>
-          </li>
-          <li class="stage">
-            <ol class="enforce" aria-label="Enforcement layers">
-              <li class="node"><h4>RoleBinding store</h4><p>The only place a role is written. Memberships are read-only projections of it.</p></li>
-              <li class="node node-core"><h4>Policy evaluator in <code>core</code></h4><p>One closed, deny-by-default policy. Every operation rechecks the session, the user and the facts.</p></li>
-              <li class="node"><h4>PostgreSQL row-level security</h4><p>Core sets the user, Organization and Group as transaction-local context first. It is designed so that an omitted application predicate cannot expose another Organization.</p></li>
-            </ol>
-          </li>
-        </ol>
+        <div class="diagram-scroll" role="region" aria-label="Diagram 2 image; scrolls sideways on narrow screens" tabindex="0">
+<svg class="a-svg" viewBox="0 0 760 990" role="img" aria-labelledby="auth-t auth-d"><title id="auth-t">Organization, Group and tenant authority</title><desc id="auth-d">An authenticated person is resolved on the server to an Organization, the tenant boundary, which contains Organization roles, Groups and Business Profiles. Three separate authority boundaries apply inside it, enforced by the RoleBinding store, core's deny-by-default policy and PostgreSQL row-level security. The text equivalent follows the image.</desc><style>svg.a-svg{--a-bg:#ffffff;--a-node:#ffffff;--a-stroke:#7c6d67;--a-text:#0c0a09;--a-muted:#5f524d;--a-accent:#253b55}
+@media (prefers-color-scheme: dark){svg.a-svg{--a-bg:#1d1816;--a-node:#0c0a09;--a-stroke:#8a8583;--a-text:#fbfaf9;--a-muted:#aba09c;--a-accent:#c9d839}}
+.a-bg{fill:var(--a-bg)}
+.a-node rect{fill:var(--a-node);stroke:var(--a-stroke);stroke-width:1.5}
+.a-core rect{stroke:var(--a-accent);stroke-width:3}
+.a-opt rect{stroke-dasharray:7 5}
+.a-org>rect{fill:none;stroke:var(--a-accent);stroke-width:3}
+.a-title{font-family:Oswald,"Arial Narrow",Arial,sans-serif;font-weight:500;font-size:19px;fill:var(--a-text)}
+.a-body,.a-label{font-family:Geist,"Helvetica Neue",Arial,sans-serif;font-size:15px;fill:var(--a-text)}
+.a-label{font-size:14.5px}
+.a-line{stroke:var(--a-accent);stroke-width:2.5;fill:none}
+.a-head{fill:var(--a-accent)}
+.a-lg rect{fill:var(--a-node);stroke:var(--a-stroke);stroke-width:1.5}</style><rect class="a-bg" width="760" height="990"/><g class="a-node" data-node="person"><rect x="20" y="20" width="300" height="120" rx="9"/><text class="a-title" x="32" y="47">Authenticated person</text><text class="a-body" x="32" y="47"><tspan x="32" y="73">Identity is global:</tspan><tspan x="32" y="92">WorkOS AuthKit authenticates,</tspan><tspan x="32" y="111">core owns the session.</tspan></text></g><g class="a-node" data-node="resolve"><rect x="380" y="20" width="360" height="120" rx="9"/><text class="a-title" x="392" y="47">Resolved on the server</text><text class="a-body" x="392" y="47"><tspan x="392" y="73">The Organization comes from the</tspan><tspan x="392" y="92">authenticated session and the</tspan><tspan x="392" y="111">request host, never from a client-</tspan><tspan x="392" y="130">or model-supplied identifier.</tspan></text></g><g class="a-edge" data-edge="person>resolve"><line class="a-line" x1="320" y1="80" x2="371" y2="80"/><polygon class="a-head" points="380,80 370,74 370,86"/></g><g class="a-edge" data-edge="resolve>organization"><line class="a-line" x1="560" y1="140" x2="560" y2="181"/><polygon class="a-head" points="560,190 554,180 566,180"/></g><text class="a-label" data-for="resolve>organization"><tspan x="572" y="170">selects the tenant</tspan></text><g class="a-org" data-node="organization"><rect x="20" y="190" width="720" height="250" rx="12"/><text class="a-title" x="36" y="222">Organization: the tenant boundary</text></g><g class="a-node" data-node="orgroles"><rect x="36" y="240" width="222" height="180" rx="9"/><text class="a-title" x="48" y="267">Organization roles</text><text class="a-body" x="48" y="267"><tspan x="48" y="293">org_owner, org_admin,</tspan><tspan x="48" y="312">org_member.</tspan><tspan x="48" y="331">No role is global.</tspan></text></g><g class="a-node" data-node="groups"><rect x="269" y="240" width="222" height="180" rx="9"/><text class="a-title" x="281" y="267">Groups</text><text class="a-body" x="281" y="267"><tspan x="281" y="293">Collaboration scopes.</tspan><tspan x="281" y="312">Each is in exactly one</tspan><tspan x="281" y="331">Organization for life.</tspan><tspan x="281" y="350">Roles: group_owner,</tspan><tspan x="281" y="369">group_admin,</tspan><tspan x="281" y="388">group_member.</tspan></text></g><g class="a-node" data-node="profiles"><rect x="502" y="240" width="222" height="180" rx="9"/><text class="a-title" x="514" y="267">Business Profiles</text><text class="a-body" x="514" y="267"><tspan x="514" y="293">Reusable context owned</tspan><tspan x="514" y="312">by one Organization. A</tspan><tspan x="514" y="331">Group links to at most</tspan><tspan x="514" y="350">one profile of its own</tspan><tspan x="514" y="369">Organization; one profile</tspan><tspan x="514" y="388">can be shared by</tspan><tspan x="514" y="407">several Groups.</tspan></text></g><g class="a-edge" data-edge="organization>boundaries"><line class="a-line" x1="380" y1="440" x2="380" y2="491"/><polygon class="a-head" points="380,500 374,490 386,490"/></g><text class="a-label" data-for="organization>boundaries"><tspan x="392" y="476">three authority boundaries</tspan></text><g class="a-node" data-node="b1"><rect x="20" y="500" width="230" height="177" rx="9"/><text class="a-title" x="32" y="527">1. Read Group metadata</text><text class="a-body" x="32" y="527"><tspan x="32" y="553">Organization owners and</tspan><tspan x="32" y="572">admins read names, slugs,</tspan><tspan x="32" y="591">onboarding state and</tspan><tspan x="32" y="610">profile fields of every</tspan><tspan x="32" y="629">Group. Never rosters,</tspan><tspan x="32" y="648">invitations, tokens or</tspan><tspan x="32" y="667">objects.</tspan></text></g><g class="a-node" data-node="b2"><rect x="265" y="500" width="230" height="177" rx="9"/><text class="a-title" x="277" y="527">2. Manage a Group</text><text class="a-body" x="277" y="527"><tspan x="277" y="553">Needs an explicit Group</tspan><tspan x="277" y="572">owner or admin role, or</tspan><tspan x="277" y="591">the owner-controlled</tspan><tspan x="277" y="610">override: off by default,</tspan><tspan x="277" y="629">audited; no ownership</tspan><tspan x="277" y="648">powers and no self-join.</tspan></text></g><g class="a-node" data-node="b3"><rect x="510" y="500" width="230" height="177" rx="9"/><text class="a-title" x="522" y="527">3. Group content</text><text class="a-body" x="522" y="527"><tspan x="522" y="553">Needs an explicit Group</tspan><tspan x="522" y="572">role, whether the</tspan><tspan x="522" y="591">override is on or off.</tspan></text></g><g class="a-edge" data-edge="boundaries>enforcement"><line class="a-line" x1="380" y1="677" x2="380" y2="728"/><polygon class="a-head" points="380,737 374,727 386,727"/></g><text class="a-label" data-for="boundaries>enforcement"><tspan x="392" y="713">enforced in two layers</tspan></text><g class="a-node" data-node="bindings"><rect x="20" y="737" width="220" height="177" rx="9"/><text class="a-title" x="32" y="764">RoleBinding store</text><text class="a-body" x="32" y="764"><tspan x="32" y="790">The only place a role</tspan><tspan x="32" y="809">is written. Memberships</tspan><tspan x="32" y="828">are read-only views.</tspan></text></g><g class="a-node a-core" data-node="policy"><rect x="270" y="737" width="220" height="177" rx="9"/><text class="a-title" x="282" y="764">Policy in core</text><text class="a-body" x="282" y="764"><tspan x="282" y="790">One closed, deny-by-</tspan><tspan x="282" y="809">default policy. Every</tspan><tspan x="282" y="828">operation rechecks the</tspan><tspan x="282" y="847">session, user and facts.</tspan></text></g><g class="a-node" data-node="rls"><rect x="520" y="737" width="220" height="177" rx="9"/><text class="a-title" x="532" y="764">Row-level security</text><text class="a-body" x="532" y="764"><tspan x="532" y="790">In PostgreSQL. Core sets</tspan><tspan x="532" y="809">user, Organization and</tspan><tspan x="532" y="828">Group as transaction</tspan><tspan x="532" y="847">context first. Designed</tspan><tspan x="532" y="866">so an omitted predicate</tspan><tspan x="532" y="885">cannot expose another</tspan><tspan x="532" y="904">Organization.</tspan></text></g><g class="a-edge" data-edge="bindings>policy"><line class="a-line" x1="240" y1="825" x2="261" y2="825"/><polygon class="a-head" points="270,825 260,819 260,831"/></g><g class="a-edge" data-edge="policy>rls"><line class="a-line" x1="490" y1="825" x2="511" y2="825"/><polygon class="a-head" points="520,825 510,819 510,831"/></g><g class="a-lg" data-legend="1"><line class="a-line" x1="20" y1="955" x2="54" y2="955"/><polygon class="a-head" points="64,955 54,949 54,961"/></g><text class="a-label"><tspan x="76" y="960">arrow: leads to the next step</tspan></text><g class="a-lg a-core" data-legend="1"><rect x="330" y="946" width="26" height="18" rx="4" style="stroke:var(--a-accent);stroke-width:3"/></g><text class="a-label"><tspan x="366" y="960">accent border: authority</tspan></text></svg>
+        </div>
+        <p class="diagram-get">On a narrow screen, scroll the image sideways or open a file. Image files: <a href="assets/architecture/authority.svg">SVG</a> · <a href="assets/architecture/authority-light.png">PNG, light</a> · <a href="assets/architecture/authority-dark.png">PNG, dark</a></p>
+        <p class="diagram-text-title"><strong>The same diagram in text</strong></p>
+        <ul class="diagram-text">
+          <li><strong>Authenticated person:</strong> identity is global; WorkOS AuthKit authenticates and core owns the session.</li>
+          <li><strong>Resolved on the server:</strong> core resolves the Organization from the authenticated session and the request host, never from a client-supplied or model-supplied identifier. An unknown or foreign Organization gets the same denial as no membership.</li>
+          <li><strong>Organization, the tenant boundary, contains</strong> its roles (<code>org_owner</code>, <code>org_admin</code>, <code>org_member</code>; no role is global), its Groups (each in exactly one Organization for life; <code>group_owner</code>, <code>group_admin</code>, <code>group_member</code>) and its Business Profiles (owned by one Organization; a Group links to at most one profile of its own Organization; one profile can be shared by several Groups).</li>
+          <li><strong>Three authority boundaries:</strong> (1) Organization owners and admins read Group metadata, never rosters, invitations, tokens or objects; (2) managing a Group needs an explicit Group owner or admin role, or the owner-controlled override, off by default and audited, with no ownership powers and no self-join; (3) Group content needs an explicit Group role, whether the override is on or off.</li>
+          <li><strong>Enforced in two layers:</strong> the RoleBinding store (the only place a role is written), core's closed deny-by-default policy, and PostgreSQL row-level security beneath it.</li>
+        </ul>
         <p class="diagram-note"><strong>What it does not show:</strong> a separate database per tenant, a browser reaching the database, or authority taken from names, slugs or model output. The template has none of these.</p>
         <details class="diagram-sources">
           <summary>Where each element comes from</summary>
@@ -317,10 +329,23 @@ bash infra/security/secret-scan.sh --env-file .env secret-scan</code></pre>
     </div>
   </section>
 
-  <section id="source" class="section section-muted" aria-labelledby="source-title">
-    <div class="container">
-      <p class="kicker">Limits and provenance</p>
-      <h2 id="source-title">What is not claimed</h2>
+  <section id="author" class="section band" aria-labelledby="author-title">
+    <div class="container author-inner">
+      <img class="author-photo" src="assets/author/peter-romano.png" alt="Portrait of Peter Romano" width="400" height="400" loading="lazy" decoding="async">
+      <div class="author-text">
+        <p class="kicker">Author</p>
+        <h2 id="author-title">Peter Romano</h2>
+        <p><a class="button button-primary" href="https://peteromano.com">Contact Peter</a></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container limits-wrap">
+    <details class="limits-disclosure" id="limits" open>
+      <summary>Limits and provenance: what is not claimed</summary>
       <ul class="facts">
         <li>SaaStacular is not a finished product, a hosted service or a compliance attestation. There is no SOC 2, ISO 27001 or GDPR claim.</li>
         <li>The production-readiness evaluator currently reports <strong>blocked</strong>: verified TLS to PostgreSQL and Redis, internal-hop TLS, at-rest evidence and an operator deprovisioning entry point are open.</li>
@@ -330,12 +355,8 @@ bash infra/security/secret-scan.sh --env-file .env secret-scan</code></pre>
       <p>The repository is <a href="https://github.com/technicallypete/saastacular">technicallypete/saastacular on GitHub</a>; this page describes its public source at commit <a href="https://github.com/technicallypete/saastacular/commit/b27dd743889d434448f7fdd45b18dbbba7315fc0"><code>b27dd743</code></a>. SaaStacular is licensed under Apache-2.0 unless a file or directory carries its own license (<a href="https://github.com/technicallypete/saastacular/blob/main/LICENSE">LICENSE</a>, <a href="https://github.com/technicallypete/saastacular/blob/main/NOTICE">NOTICE</a>). Third-party material keeps its own license and is listed in <a href="https://github.com/technicallypete/saastacular/blob/main/THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a>. Apache License 2.0, section 6, grants no permission to use trade names or trademarks, including the SaaStacular name and mark.</p>
       <p>This page uses the repository's bundled fonts, unmodified, under the SIL Open Font License 1.1 (<a href="assets/fonts/oswald/OFL.txt">Oswald</a>, <a href="assets/fonts/barlow-condensed/OFL.txt">Barlow Condensed</a>, <a href="assets/fonts/geist/OFL.txt">Geist</a>, <a href="assets/fonts/geist-mono/OFL.txt">Geist Mono</a>). It loads nothing from other sites and runs no scripts.</p>
       <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/README.md#what-it-is-and-what-it-is-not">What it is, and what it is not</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/SECURITY.md#7-transport-and-at-rest-readiness">Transport and at-rest readiness</a></p>
-    </div>
-  </section>
-
-</main>
-
-<footer class="site-footer">
+    </details>
+  </div>
   <div class="container footer-inner">
     <p class="footer-brand"><img src="assets/brand/mark-192.png" alt="" width="28" height="28" loading="lazy"> <span>SaaStacular</span></p>
     <p>Apache-2.0 · Copyright 2026 Vitruvian Technology, Corp.</p>

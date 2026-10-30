@@ -565,8 +565,8 @@ p {
   color: var(--muted);
 }
 
-/* Architecture diagrams: semantic HTML and CSS only. Every node and arrow label is real text in reading order;
-   the connector lines and arrowheads are decoration. No scripts, images or remote assets. */
+/* Architecture diagrams: code-authored SVG drawn inline (its own light/dark colours, text kept as text), with the same
+   content in plain text below. No scripts or remote assets. On narrow screens the drawing keeps a readable size and scrolls. */
 .diagram {
   margin: 2rem 0 0;
   padding: 1.25rem;
@@ -597,138 +597,34 @@ p {
   text-transform: uppercase;
 }
 
-.node {
-  min-width: 0;
-  margin: 0;
-  padding: 0.875rem 1rem;
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
+.diagram-scroll {
+  overflow-x: auto;
   border-radius: var(--radius);
 }
 
-.node h3,
-.node h4 {
-  margin: 0 0 0.3rem;
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 500;
-  line-height: 1.2;
+.diagram-scroll svg {
+  display: block;
+  width: 100%;
+  min-width: 44rem;
+  max-width: 56rem;
+  height: auto;
+  margin-inline: auto;
 }
 
-.node p {
-  margin: 0;
+.diagram-get,
+.diagram-text-title {
+  margin: 1rem 0 0.5rem;
   font-size: 0.9375rem;
-  line-height: 1.5;
 }
 
-.node-core {
-  border-color: var(--accent-rule);
-  border-width: 2px;
-}
-
-.node-quiet {
-  border-color: var(--border);
-}
-
-.node-optional {
-  border-style: dashed;
-}
-
-/* An arrow: a vertical line down the left, a head at its foot, its text beside it. */
-.edge {
-  position: relative;
+.diagram-text {
   margin: 0;
-  padding: 0.625rem 0 1.25rem 2.25rem;
-  color: var(--muted);
+  padding-left: 1.25rem;
   font-size: 0.9375rem;
-  line-height: 1.5;
 }
 
-.edge::before {
-  content: "";
-  position: absolute;
-  left: 0.75rem;
-  top: 0;
-  bottom: 0.5rem;
-  width: 2px;
-  background: var(--accent-rule);
-}
-
-.edge::after {
-  content: "";
-  position: absolute;
-  left: calc(0.75rem - 5px);
-  bottom: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 9px solid var(--accent-rule);
-}
-
-.edge strong {
-  color: var(--fg);
-}
-
-.flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.flow-browser,
-.flow-web,
-.flow-ai {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.flow-ai .edge {
-  flex: 1;
-}
-
-.flow-core,
-.flow-ai-service {
-  min-width: 0;
-}
-
-.flow-stores {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-  gap: 1rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.flow-ai-service {
-  margin-top: 0.5rem;
-}
-
-@media (min-width: 48rem) {
-  .flow {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-    column-gap: 1.5rem;
-  }
-
-  .flow-browser {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .flow-web {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .flow-ai {
-    grid-column: 2;
-    grid-row: 1 / 3;
-  }
-
-  .flow-core,
-  .flow-stores,
-  .flow-ai-service {
-    grid-column: 1 / -1;
-  }
+.diagram-text li {
+  margin-bottom: 0.5rem;
 }
 
 .diagram-note {
@@ -755,80 +651,6 @@ p {
 
 .diagram-sources li {
   margin-bottom: 0.5rem;
-}
-
-/* Diagram 2: stacked stages joined by the same arrows. */
-.authority,
-.steps-3,
-.enforce,
-.org-parts {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.stage {
-  min-width: 0;
-}
-
-.org {
-  padding: 1rem;
-  border: 2px solid var(--accent-rule);
-  border-radius: var(--radius);
-}
-
-.org > h3 {
-  margin-bottom: 0.75rem;
-}
-
-.org-parts,
-.steps-3,
-.enforce {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-}
-
-.enforce > li {
-  position: relative;
-}
-
-.enforce > li:not(:last-child)::after {
-  content: "↓";
-  content: "↓" / "";
-  position: absolute;
-  left: 50%;
-  bottom: -1.5rem;
-  transform: translateX(-50%);
-  color: var(--accent-rule);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.enforce {
-  gap: 1.75rem;
-}
-
-@media (min-width: 48rem) {
-  .org-parts,
-  .steps-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .enforce {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2rem;
-  }
-
-  .enforce > li:not(:last-child)::after {
-    content: "→";
-    content: "→" / "";
-    left: auto;
-    right: -1.5rem;
-    bottom: auto;
-    top: 50%;
-    transform: translateY(-50%);
-  }
 }
 
 /* Gallery: secondary to the diagrams, so smaller. */
@@ -943,4 +765,83 @@ p {
 .footer-brand img {
   width: 28px;
   height: 28px;
+}
+
+/* Author band: the same navy band as the included test harness. The primary button keeps its lime fill on navy. */
+.band .button-primary {
+  --primary-bg: var(--lime);
+  --primary-fg: var(--on-lime);
+}
+
+.author-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem 2rem;
+}
+
+.author-photo {
+  display: block;
+  flex: none;
+  width: 10rem;
+  height: auto;
+  border-radius: 50%;
+}
+
+.author-text {
+  min-width: 0;
+}
+
+.author-text h2 {
+  margin-bottom: 0.75rem;
+}
+
+.author-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Limits and provenance: a subordinate disclosure in the footer, open by default. */
+.limits-wrap {
+  margin-bottom: 1.5rem;
+}
+
+.limits-disclosure {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9375rem;
+}
+
+.limits-disclosure summary {
+  min-height: 44px;
+  padding-block: 0.625rem;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.limits-disclosure .facts {
+  margin-top: 0.5rem;
+}
+
+/* Restruct SDLC section: text beside the supplied badge, on the shared navy band. */
+.workflow-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2rem 3rem;
+}
+
+.workflow-text {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
+.workflow-badge {
+  display: block;
+  flex: none;
+  width: 12rem;
+  height: auto;
+  margin-inline: auto;
 }
