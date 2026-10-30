@@ -1049,8 +1049,29 @@ const AUTH_FONT_SHA256: Record<string, string> = {
   "/fonts/barlow-condensed/barlow-condensed-600.ttf": "7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9",
 };
 const AUTH_FONTS = Object.keys(AUTH_FONT_SHA256);
-// (A trailing-slash path is answered by Next's own 308 before the gate runs, so only the unit test covers those spellings.)
-const UNLISTED_FONTS = ["/fonts/geist-mono/geist-mono-wght.ttf", "/fonts/geist/OFL.txt", "/fonts/oswald/OFL.txt", "/fonts", "/fonts/geist/missing.ttf"];
+const UNLISTED_FONTS = [
+  "/fonts/geist-mono/geist-mono-wght.ttf",
+  "/fonts/geist/OFL.txt",
+  "/fonts/oswald/OFL.txt",
+  "/fonts",
+  "/fonts/",
+  "/fonts/geist/missing.ttf",
+  "/fonts/geist/OFL.txt/",
+  "/fonts/geist-mono/geist-mono-wght.ttf/",
+];
+// Next canonicalizes a trailing slash with its own 308 before the host gate runs. This follows such a same-host redirect
+// (it must keep the request's own host) to the answer at the canonical path, which is the gate's own answer.
+async function gateAnswer(d: APIRequestContext, host: string, path: string): Promise<{ status: number; target: string; body: Buffer }> {
+  let target = path;
+  for (let hop = 0; hop < 3; hop++) {
+    const r = await d.get(`${WEB_DIRECT}${target}`, { headers: { Host: host }, maxRedirects: 0 });
+    if (![301, 302, 303, 307, 308].includes(r.status())) return { status: r.status(), target, body: await r.body() };
+    const location = new URL(r.headers()["location"] ?? "", `http://${host}`);
+    expect(location.host, `${host}${target}: the redirect keeps the request's own host`).toBe(host);
+    target = location.pathname + location.search;
+  }
+  throw new Error(`${host}${path}: more than 3 redirects`);
+}
 
 // An extra page of the context answering an error status (the default page's S-ERRORS check stays on normal pages).
 async function statusAt(context: BrowserContext, url: string): Promise<{ status: number; text: string }> {
@@ -1159,6 +1180,10 @@ test("[E-DOM-3] an unknown platform-shaped or custom host is the fixed 404 and c
     for (const path of AUTH_FONTS) {
       const font = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: new URL(origin).host }, maxRedirects: 0 });
       expect(font.status(), `${origin}${path}`).toBe(404);
+      // Its trailing-slash spelling canonicalizes to the same path on the same host and ends at the same 404, no asset.
+      const slashed = await gateAnswer(d, new URL(origin).host, `${path}/`);
+      expect(slashed.status, `${origin}${path}/ (canonical ${slashed.target})`).toBe(404);
+      expect(slashed.body.toString("utf8"), `${origin}${path}/`).toContain("There is nothing at this address.");
     }
   }
 });
@@ -1222,9 +1247,18 @@ test("[E-DOM-4] the platform domain and www serve the landing with one Sign Up t
     const post = await d.fetch(`${WEB_DIRECT}${path}`, { method: "POST", headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
     expect(post.status(), `POST auth${path}`).toBe(404);
   }
+  // An unlisted path, with or without Next's trailing-slash 308 in front, ends at the fixed 404 and serves no font bytes.
   for (const path of UNLISTED_FONTS) {
-    const refused = await d.get(`${WEB_DIRECT}${path}`, { headers: { Host: "auth.localhost:543" }, maxRedirects: 0 });
-    expect(refused.status(), `GET auth${path}`).toBe(404);
+    const refused = await gateAnswer(d, "auth.localhost:543", path);
+    expect(refused.status, `GET auth${path} (canonical ${refused.target})`).toBe(404);
+    expect(refused.body.toString("utf8"), `GET auth${path}`).toContain("There is nothing at this address.");
+  }
+  // A trailing slash on an allowed font canonicalizes, in its own host, to that same allowed file: the pinned bytes.
+  for (const path of AUTH_FONTS) {
+    const canonical = await gateAnswer(d, "auth.localhost:543", `${path}/`);
+    expect(canonical.target, `auth${path}/ canonicalizes to the file`).toBe(path);
+    expect(canonical.status, `GET auth${path}/`).toBe(200);
+    expect(createHash("sha256").update(canonical.body).digest("hex"), `GET auth${path}/ bytes`).toBe(AUTH_FONT_SHA256[path]);
   }
   const entryOnly = await d.get(`${WEB_DIRECT}${UNLISTED_FONTS[0]}`, { headers: { Host: "localhost:543" }, maxRedirects: 0 });
   expect(entryOnly.status(), "the public entry still serves its /fonts/ files").toBe(200);
