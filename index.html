@@ -322,7 +322,8 @@
         <li>Teardown is verified by exact ID. A crash leaves the runner as a registry row for the next launch's recovery gate, and <code>resources.tsv</code> reports what each scope created and left over.</li>
         <li>The affected profile selects only the checks a committed change requires and falls back to the full profile for unregistered paths or an unusable base. A live <code>N/TOTAL</code> counter tracks required checks as they run.</li>
       </ul>
-      <p class="analogy"><strong>Compared with a resource reaper.</strong> <a href="https://golang.testcontainers.org/features/garbage_collector/">Ryuk</a>, the reaper in Testcontainers (<a href="https://github.com/testcontainers/moby-ryuk">source</a>), removes the containers, networks and volumes that carry a test session's labels after a delay once its connection closes. That is resource cleanup.<br> This harness covers the wider validation workflow: allocation ceilings that refuse before anything is created, exact run ownership and cleanup evidence, restart recovery gates, affected-check selection and scanned validation reports. It is the repository's own tooling, not a dependency or a replacement for either, and no compatibility is claimed.</p>
+      <p class="analogy"><strong>Compared with a resource reaper.</strong> <a href="https://golang.testcontainers.org/features/garbage_collector/">Ryuk</a>, the reaper in Testcontainers (<a href="https://github.com/testcontainers/moby-ryuk">source</a>), removes the containers, networks and volumes that carry a test session's labels after a delay once its connection closes. That is resource cleanup.</p>
+      <p class="analogy">This harness covers the wider validation workflow: allocation ceilings that refuse before anything is created, exact run ownership and cleanup evidence, restart recovery gates, affected-check selection and scanned validation reports. It is the repository's own tooling, not a dependency or a replacement for either, and no compatibility is claimed.</p>
       <p class="limits"><strong>Limits.</strong> Nothing here claims a time saving or leak-free operation. The runtime added by the accounting has not been measured, and some Docker behaviours it relies on, such as event ordering and a real reboot, have not yet been observed on real Docker. Local runs need Docker Engine 24 or later with BuildKit, Compose 2.24 or later, Bash 4.4 or later, GNU coreutils, findutils and grep, plus git, <code>setsid</code>, <code>ps</code>, <code>timeout</code> and <code>flock</code>.</p>
       <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/OPERATIONS.md#batch-docker-reuse-and-resource-accounting">Batch Docker reuse and resource accounting</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TEST-INDEX.md#reading-progress-and-failures">Reading progress and failures</a></p>
     </div>
@@ -441,7 +442,7 @@ bash infra/security/secret-scan.sh --env-file .env secret-scan</code></pre>
   </div>
   <div class="container footer-inner">
     <p class="footer-brand"><img src="assets/brand/mark-192.png" alt="" width="28" height="28" loading="lazy"> <span>SaaStacular</span></p>
-    <p>Copyright 2026 Vitruvian Technology, Corp.</p>
+    <p>© Copyright 2026 Vitruvian Technology, Corp.</p>
     <p class="footer-links"><a href="https://github.com/technicallypete/saastacular">View source</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/SECURITY.md">Security</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></p>
   </div>
 </footer>
