@@ -96,7 +96,7 @@
     closing = false;
     dialog.classList.remove("closing");
     body.replaceChildren();
-    if (opener) opener.focus();
+    if (opener) opener.focus({ preventScroll: true });
     opener = null;
   });
 })();

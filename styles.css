@@ -315,6 +315,27 @@ p {
   .site-nav ul {
     justify-content: center;
   }
+
+  /* A small muted dot between the nav items (none at the ends). It is drawn by CSS only, so it is never announced, and the 20px gap it
+     replaces shrinks to 17px (3px dot plus 7px either side), so the row does not get wider; the links keep their own hit areas. */
+  .site-nav ul {
+    column-gap: 0;
+  }
+
+  .site-nav li {
+    display: flex;
+    align-items: center;
+  }
+
+  .site-nav li + li::before {
+    content: "";
+    flex: none;
+    width: 3px;
+    height: 3px;
+    margin-inline: 0.4375rem;
+    border-radius: 50%;
+    background: var(--muted);
+  }
 }
 
 /* Buttons */
@@ -436,7 +457,7 @@ p {
   display: inline-block;
   margin-bottom: 1rem;
   padding: 0.25rem 0.75rem;
-  background: var(--lime);
+  background: #bcc653; /* the brand lime, slightly muted: same hue, less saturation; only this badge */
   color: var(--on-lime);
   border-radius: var(--radius-pill);
   font-family: var(--font-kicker);
@@ -637,7 +658,7 @@ p {
 }
 
 .diagram-tools {
-  margin: 1rem 0 0.5rem;
+  margin: 1rem 0 2rem;
   font-size: 0.9375rem;
 }
 
@@ -1087,6 +1108,11 @@ p {
   font-weight: 500;
   line-height: 0;
   vertical-align: super;
+}
+
+/* Inside a bold phrase the trademark sign takes the phrase's weight. */
+strong .tm {
+  font-weight: inherit;
 }
 
 /* Restruct SDLC section: text beside the supplied badge, on the shared navy band. */
