@@ -1065,6 +1065,7 @@ p {
 /* The callout reads as ordinary text with one bold phrase. The link's default display face (Oswald, condensed) makes a regular and a bold
    weight hard to tell apart, so this callout uses the body font: 400 for the lead-in and the arrow, 700 for the phrase only. */
 .workflow-handbook a {
+  color: #cbcfd6; /* gray, not the band's lime: this callout only; about 7.3:1 on the navy band, which is the same in both themes */
   font-family: var(--font-body);
   font-size: 1.0625rem;
   font-weight: 400;
