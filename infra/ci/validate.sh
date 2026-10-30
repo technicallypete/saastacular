@@ -1169,9 +1169,21 @@ storage_row() { # PHASE NOW SCOPE METRIC VALUE UNIT STATUS (the candidate is sto
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$2" "$1" "${REG_JOB:-unknown}" "$cand" "$3" "$4" "$5" "$6" "$7" \
     >>"$EV/raw/storage.tsv"
 }
+STORAGE_SIZE_RE='^[0-9]+(\.[0-9]+)?(B|kB|MB|GB|TB|PB)$'
+storage_df_consistent() { # DF: every Images and Build Cache row present has a count and two Docker CLI sizes
+  local t row c s r
+  for t in Images 'Build Cache'; do
+    row="$(awk -F'\t' -v t="$t" '$1 == t { print; exit }' <<<"$1")"
+    if [[ -z "$row" ]]; then continue; fi
+    IFS=$'\t' read -r _ c s r <<<"$row"
+    r="${r%% (*}"
+    if [[ ! "$c" =~ ^[0-9]+$ || ! "$s" =~ $STORAGE_SIZE_RE || ! "$r" =~ $STORAGE_SIZE_RE ]]; then return 1; fi
+  done
+  return 0
+}
 storage_observe() {
   local ph="$1" now df="" rc=0 t key scope row c s r why n inv cand attempt
-  local re_size='^[0-9]+(\.[0-9]+)?(B|kB|MB|GB|TB|PB)$'
+  local re_size="$STORAGE_SIZE_RE"
   if [[ -z "$EV" || ! -d "$EV/raw" ]]; then return 0; fi
   if [[ ! -e "$EV/raw/storage.tsv" ]]; then printf '%s\n' "$STORAGE_HDR" >"$EV/raw/storage.tsv" || return 0; fi
   now="$(ci_utc)"
@@ -1182,10 +1194,16 @@ storage_observe() {
   # foreground harness removed an image. A failed query is retried twice, 2 s apart; a bounded-out (124) or killed
   # query is not retried, its budget is spent. The last attempt's exit is the reported status. VS5 covers this with
   # an injected synthetic transient failure, not a reproduced daemon race; VS4 covers a persistent failure.
+  # OS002 repair: a full run's VS3 read "malformed". A private import/create/rm/rmi loop reproduced it: while images and
+  # containers change, the daemon answers exit 0 with a partial Images size and a negative reclaimable in exponent
+  # notation (for example -4.071e+09B), and, in other attempts, exit 1 (rw layer snapshot or image content not found).
+  # An exit-0 answer whose rows do not parse is as transient as a failed query: it takes the same bounded retry; a
+  # persistent one is still recorded unavailable:malformed.
   for attempt in 1 2 3; do
     rc=0
     df="$(timeout 60 docker system df --format $'{{.Type}}\t{{.TotalCount}}\t{{.Size}}\t{{.Reclaimable}}' 2>/dev/null)" || rc=$?
-    if (( rc == 0 || rc >= 124 )); then break; fi
+    if (( rc >= 124 )); then break; fi
+    if (( rc == 0 )) && storage_df_consistent "$df"; then break; fi
     if (( attempt < 3 )); then sleep 2; fi
   done
   for t in Images 'Build Cache'; do

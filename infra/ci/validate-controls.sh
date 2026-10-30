@@ -944,6 +944,12 @@ case "${1:-}" in
         # G063 repair (VS5): an injected synthetic transient failure; every odd-numbered query fails, the next one
         # passes through. No real daemon mutation is involved.
         transient) echo x >>"${SHIM_DF_COUNT:?}"; if (( $(wc -l <"$SHIM_DF_COUNT") % 2 )); then echo "shim: docker system df failed (transient)" >&2; exit 1; fi ;;
+        # VS5: the answer a real daemon gave (exit 0) while images and containers changed under it: a partial Images size
+        # and a negative reclaimable figure in exponent notation. Every odd-numbered query answers so; the next passes through.
+        inconsistent) echo x >>"${SHIM_DF_COUNT:?}"
+          if (( $(wc -l <"$SHIM_DF_COUNT") % 2 )); then
+            printf 'Images\t64\t440.8MB\t-4.071e+09B (-923%%)\nContainers\t16\t3.622GB\t3.622GB (99%%)\nLocal Volumes\t15\t3.992GB\t1.858GB (46%%)\nBuild Cache\t453\t21.52GB\t21.52GB\n'; exit 0
+          fi ;;
       esac
     fi ;;
   rm) if [[ "${SHIM_FAIL_RM:-0}" == 1 ]]; then echo "shim: docker rm refused" >&2; exit 1; fi ;;
@@ -5152,7 +5158,15 @@ ctl_VS5() {
   if grep -q '^validate: storage pre: images_count=unavailable \|^validate: storage post: images_count=unavailable ' "$C/out"; then prob "a transient failure was reported unavailable"; fi
   n="$(grep -c '^system df ' "$C/shim.log" 2>/dev/null)" || n=0
   if [[ "$n" != 4 ]]; then prob "docker system df was queried $n times, want 4 (one failed and one passing per phase)"; fi
-  detail "exit $RC; an injected transient docker system df failure once per phase is retried once and both observations read ok with real Docker CLI figures; 4 queries (2 per phase), no unavailable row"
+  # A full-run VS3 read malformed: a real daemon answered exit 0 with an inconsistent Images row while images and containers
+  # were created and removed (reproduced by a private import/create/rm/rmi loop sampling docker system df). That answer is
+  # as transient as a failed query: the bounded retry reads the next, consistent one.
+  std_ci 4244; run_v "${CIENV[@]}" SHIM_FAIL_DF=inconsistent SHIM_DF_COUNT="$C/df-count-inc" -- --publish-dir ci-evidence
+  expect_rc 0; expect_pub full; expect_storage "$(PUBDIR)/storage.tsv" ok
+  if grep -q '^validate: storage pre: images_count=unavailable \|^validate: storage post: images_count=unavailable ' "$C/out"; then prob "an inconsistent answer was reported unavailable"; fi
+  n="$(grep -c '^system df ' "$C/shim.log" 2>/dev/null)" || n=0
+  if [[ "$n" != 4 ]]; then prob "an inconsistent docker system df answer was queried $n times, want 4 (one inconsistent and one consistent per phase)"; fi
+  detail "exit $RC; an injected transient docker system df failure once per phase is retried once and both observations read ok with real Docker CLI figures; 4 queries (2 per phase), no unavailable row; likewise an exit-0 answer with an inconsistent Images row (partial size, negative reclaimable) once per phase"
 }
 # G051 cycle 4: process survivors and descriptors, not only Docker resources. A crashed run's launch gets a
 # case lock on descriptor 7, inherited by every process of that run (the watchdog closes it); fd_holders lists who
