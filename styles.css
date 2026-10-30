@@ -793,7 +793,17 @@ p {
 }
 
 .author-text h2 {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.author-role {
+  margin-bottom: 1rem;
+  color: var(--muted);
+  font-size: 1.0625rem;
+}
+
+.workflow-note {
+  max-width: 52rem;
 }
 
 .author-text p:last-child {
