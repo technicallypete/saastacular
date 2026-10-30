@@ -315,9 +315,12 @@ p {
   .site-nav ul {
     justify-content: center;
   }
+}
 
-  /* A small muted dot between the nav items (none at the ends). It is drawn by CSS only, so it is never announced, and the 20px gap it
-     replaces shrinks to 17px (3px dot plus 7px either side), so the row does not get wider; the links keep their own hit areas. */
+/* A small muted dot between the nav items (none at the ends), from 60rem (960px) up, which covers ordinary laptop and desktop windows, not
+   only the widest layout. It is drawn by CSS only, so it is never announced; the 20px gap it replaces shrinks to 16px (4px dot plus 6px
+   either side), so the row does not get wider; the links keep their own hit areas. Below 60rem the nav has no dots. */
+@media (min-width: 60rem) {
   .site-nav ul {
     column-gap: 0;
   }
@@ -330,9 +333,9 @@ p {
   .site-nav li + li::before {
     content: "";
     flex: none;
-    width: 3px;
-    height: 3px;
-    margin-inline: 0.4375rem;
+    width: 4px;
+    height: 4px;
+    margin-inline: 0.375rem;
     border-radius: 50%;
     background: var(--muted);
   }
