@@ -17,7 +17,7 @@ project. Existing personal rules are not automatically migrated or deleted.
 Ignore local settings and Claude worktrees, retaining shared settings. Keep
 credentials out of every committed configuration and documentation file.
 
-Portable adoption distinguishes [tool permissions and classifier rules](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#tool-permissions-and-classifier-rules).
+Portable adoption distinguishes [tool permissions and classifier rules](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#tool-permissions-and-classifier-rules).
 This repository's exact grants and classifier choices below are local history, not
 settings to copy into another project.
 
@@ -43,7 +43,7 @@ No broad application tests, worker restart or repeated full-repository reading i
 required merely for a config/documentation update.
 
 Primary reference: [Claude permission documentation](https://code.claude.com/docs/en/permissions).
-Portable policy: [adoption](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#repository-scoped-claude-permissions).
+Portable policy: [adoption](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#repository-scoped-claude-permissions).
 Installation/history: record it in the project's own management records.
 
 
@@ -101,7 +101,7 @@ This is explicit standing owner authorization for routine approved-scope allow
 rules. Unrequested broader access, global classifier-rule removal and task-scope
 expansion retain their own authorization. Portable adoption names its available
 editor; it does not bundle our paths or require Codex in Claude-only deployments.
-Canonical reusable procedure: [permission change handoff](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#permission-change-handoff).
+Canonical reusable procedure: [permission change handoff](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#permission-change-handoff).
 
 
 ## Reviewed-merge classifier exception — 2026-10-19
@@ -118,7 +118,7 @@ is recognized with current required CI and applicable Duo/findings disposition.
 RC promotion retains separate owner authority and truthful named-waiver records.
 Read-only listings/authorized closeout are not merge operations. Unreviewed merges,
 self-approval and unapproved protection bypasses remain subject to their guards.
-See the [portable procedure](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#reviewed-merges-and-classifier-false-positives)
+See the [portable procedure](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#reviewed-merges-and-classifier-false-positives)
 and the project's installation record.
 
 
@@ -155,4 +155,4 @@ rules and all other settings preserved. Remove task-specific temporary entries
 at their task cleanup, never the permanent rules.
 Native loading/actual operation must be verified, and ownership/slots/complete
 command review remain mandatory; patterns do not enforce a resource sandbox.
-Portable source: [adoption guidance](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#reusable-private-test-permission-rules).
+Portable source: [adoption guidance](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#reusable-private-test-permission-rules).

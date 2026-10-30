@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repository Supervisor"
-  short_description: "Resume Goal supervision from repository records"
-  default_prompt: "Use $repository-supervisor to recover the current management state and continue the authorized supervision task."

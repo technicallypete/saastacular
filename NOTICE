@@ -11,8 +11,8 @@ and does not replace their notices. Files or directories that carry their own
 license file or license notice keep that license. In particular, the
 shadcn/ui-derived modules in the web application keep the shadcn/ui MIT notice
 (web/THIRD_PARTY_NOTICES.md), and the Restruct SDLC skill directory keeps its
-own MIT licenses (distributions/skills/restruct-sdlc/LICENSE,
-distributions/skills/restruct-sdlc/sdlc-management/LICENSE).
+own MIT licenses (.agents/skills/restruct-sdlc/LICENSE,
+.agents/skills/restruct-sdlc/sdlc-management/LICENSE).
 
 Third-party material is not relicensed. See THIRD_PARTY_NOTICES.md for bundled
 third-party files, downloaded build and runtime dependencies, and optional

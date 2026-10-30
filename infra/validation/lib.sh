@@ -218,12 +218,12 @@ tree_state() {
 
 # impl_files: the implementation as git sees it (tracked plus untracked,
 # excluding ignored files such as .env), NUL-separated, relative to the repo.
-impl_files() { git -C "$REPO" ls-files -z --cached --others --exclude-standard | sort -z -u; }
+impl_files() { git -C "$REPO" ls-files -z --cached --others --exclude-standard -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" | sort -z -u; }
 
 # copy_repo DEST: a disposable copy of the current implementation.
 copy_repo() {
   mkdir -p "$1"
-  (cd "$REPO" && impl_files | while IFS= read -r -d '' f; do [[ -e "$f" ]] && printf '%s\0' "$f"; done | tar --null -cf - -T -) | tar -xf - -C "$1"
+  (cd "$REPO" && impl_files | while IFS= read -r -d '' f; do [[ -e "$f" ]] && printf '%s\0' "$f"; done | tar --null --no-recursion -cf - -T -) | tar -xf - -C "$1"
 }
 
 # impl_tree_hash DIR: one hash over every implementation path and content.
@@ -2227,7 +2227,7 @@ db_template_create() {
   # Source binding, recorded first: derived migration set, digests, tested tree, HEAD and images (never --base).
   { _db_bound "$tree" && _db_source "$tree"; } || { _db_refuse db_template_create "$name" "source binding: $DB_LC_ERR"; return 1; }
   head="$(git -C "$REPO" rev-parse HEAD 2>/dev/null)" || head=-
-  if porcelain="$(git -C "$REPO" status --porcelain 2>/dev/null)"; then [[ -z "$porcelain" ]] && state="head" || state="dirty"; else state="unknown"; fi
+  if porcelain="$(git -C "$REPO" status --porcelain -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" 2>/dev/null)"; then [[ -z "$porcelain" ]] && state="head" || state="dirty"; else state="unknown"; fi
   cimg="$(docker image inspect -f '{{.Id}}' "$project-core-check" 2>/dev/null)" || cimg=-
   mimg="$(docker image inspect -f '{{.Id}}' "$project-migrate" 2>/dev/null)" || mimg=-
   for id in $DB_TPL_REQUIRE_ROWS; do

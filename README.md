@@ -31,7 +31,7 @@ Product name, domains and database name are configuration, not code. They live o
 | `contracts/` | Cross-service schemas and the MCP contracts |
 | `infra/` | Compose, images, database and storage initialization, local tooling, validation, CI scripts, recovery and the optional staging tooling |
 | `docs/` | Security, deployment, privacy and CI notes, and the foundation guides (`docs/foundation/`) |
-| `distributions/skills/` | The bundled Restruct SDLC development workflow (the default development dependency), with discovery aliases under `.agents/skills/` and `.claude/skills/` ([Development workflow](docs/DEVELOPMENT-WORKFLOW.md)) |
+| `.agents/skills/restruct-sdlc/` | The pinned GitHub Restruct SDLC development submodule; Claude discovers it through `.claude/skills/restruct-sdlc` ([Development workflow](docs/DEVELOPMENT-WORKFLOW.md)) |
 
 PostgreSQL holds durable state; Redis is ephemeral; MinIO provides local S3-compatible storage. External providers stay behind owned adapters. Identity is global; the Organization is the tenant boundary, resolved on the server from the authenticated session and the request host, never from client-supplied or model-supplied identifiers.
 
@@ -225,7 +225,7 @@ The UI kit source lives unaltered in `web/src` (shadcn/ui-style components on Ba
 
 ## Development workflow
 
-SaaStacular's default development workflow is **Restruct SDLC**, bundled at `distributions/skills/restruct-sdlc/` under its own MIT license with the discovery aliases `.agents/skills/restruct-sdlc` and `.claude/skills/restruct-sdlc`. [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md) and [docs/agents/](docs/agents/) carry its rules for agent-driven work: roles, Goal/Spec/Plan/Result records, planning, review, validation, integration, evidence, resource accountability and cleanup. The application build, tests, migrations and runtime do not depend on it, and its presence scaffolds no management records, installs nothing and starts no agent or watcher. To use another workflow, remove both aliases and replace or update AGENTS.md and CLAUDE.md with your own rules: see [docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md).
+SaaStacular's default development workflow is **Restruct SDLC**, pinned as a GitHub submodule at `.agents/skills/restruct-sdlc/` under its own MIT license; `.claude/skills/restruct-sdlc` points there. Initialize it for agent work with `git submodule update --init -- .agents/skills/restruct-sdlc`. [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md) and [docs/agents/](docs/agents/) carry its rules for agent-driven work: roles, Goal/Spec/Plan/Result records, planning, review, validation, integration, evidence, resource accountability and cleanup. The application build, tests, migrations and runtime do not depend on it, and its presence scaffolds no management records, installs nothing and starts no agent or watcher. To use another workflow, remove the submodule and Claude alias and replace or update AGENTS.md and CLAUDE.md with your own rules: see [docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md).
 
 ## Foundation guides
 
@@ -243,6 +243,6 @@ SaaStacular's default development workflow is **Restruct SDLC**, bundled at `dis
 
 ## License
 
-Apache-2.0 unless a file or directory carries its own license. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party material keeps its own license and is not relicensed; it is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (including `web/THIRD_PARTY_NOTICES.md` for the bundled UI components, fonts and imagery). The bundled Restruct SDLC skill under `distributions/skills/restruct-sdlc/` carries its own MIT licenses.
+Apache-2.0 unless a file or directory carries its own license. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party material keeps its own license and is not relicensed; it is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (including `web/THIRD_PARTY_NOTICES.md` for the bundled UI components, fonts and imagery). The Restruct SDLC submodule under `.agents/skills/restruct-sdlc/` carries its own MIT licenses.
 
 Copyright 2026 Vitruvian Technology, Corp.

@@ -1,4 +1,0 @@
-interface:
-  display_name: "SDLC Management"
-  short_description: "Adopt and run the Goal, Spec, Plan and Result management workflow"
-  default_prompt: "Use $sdlc-management to adopt or apply the repository's management workflow for the current Goal."

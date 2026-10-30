@@ -1580,12 +1580,11 @@ static_dockerignore() {
     [[ -f "$f" ]] && grep -qx '.env' "$f" && grep -qx '.env.\*' "$f" || { ok=0; log "$s.Dockerfile.dockerignore must exclude .env and .env.*"; }
   done
   if find "$REPO/infra/docker" -name '.env*' | grep -q .; then ok=0; log "environment file inside the MinIO build context"; fi
-  # A repository-root build context excludes the operator-private .local, but not the bundled, tracked
-  # distributions/skills (nor the whole distributions directory).
+  # Application build contexts exclude operator-private files and the development submodule.
   f="$REPO/.dockerignore"
-  [[ -f "$f" && ! -L "$f" ]] && grep -qx '.local' "$f" &&
-    ! grep -qxE '/?distributions/?(\*\*?)?|/?distributions/skills.*' "$f" || { ok=0; log ".dockerignore must exclude .local, and not distributions or distributions/skills"; }
-  [[ $ok == 1 ]] && record B-DOCKERIGNORE PASS "core, web, intelligence, migrate and validation-tools build contexts exclude .env and .env.*; the MinIO context holds no environment file; a root context excludes .local, not the bundled distributions/skills" || record B-DOCKERIGNORE FAIL "build-context exclusions"
+  [[ -f "$f" && ! -L "$f" ]] && grep -qx '.local' "$f" && grep -qx '.agents/skills/restruct-sdlc' "$f" ||
+    { ok=0; log ".dockerignore must exclude .local and the Restruct development submodule"; }
+  [[ $ok == 1 ]] && record B-DOCKERIGNORE PASS "service build contexts exclude environment files; the root context excludes .local and the Restruct development submodule" || record B-DOCKERIGNORE FAIL "build-context exclusions"
 }
 
 # B-CI-CONFIG, G072 part (Plan r1 §10.2, §10.8, §10.10, §10.13 AC1). ci_g072_check FILE REGISTRY QUIET CLI: FILE (the
@@ -1618,8 +1617,9 @@ ci_g072_check() {
   g72_stop && return 1
   mapfile -t items < <(yq_stdin -p yaml -o json -I0 'select(document_index == 1) | [(keys | sort | join(" ")), .workflow.rules, ."validate:checks".rules[0], ."validate:integration".rules[0], ."identity-staging".rules[0], (."validate:checks" | keys | sort | join(" ")), (."validate:integration" | keys | sort | join(" ")), (."identity-staging" | keys | sort | join(" ")), ."validate:checks".services, ."staging:prepare", ."staging:check", ."staging:build", ."staging:deploy", ."staging:stop"] | .[]' <"$f" 2>/dev/null)
   [[ ${#items[@]} == 14 ]] || { g72_fail "document 1 could not be read (${#items[@]} of 14 items)"; return 1; }
-  [[ "${items[0]}" == '"identity-staging stages staging:build staging:check staging:deploy staging:prepare staging:stop validate:checks validate:integration workflow"' ]] ||
-    g72_fail "top-level keys differ (no top-level variables; exactly the validation and staging jobs): ${items[0]}"
+  [[ "${items[0]}" == '"identity-staging stages staging:build staging:check staging:deploy staging:prepare staging:stop validate:checks validate:integration variables workflow"' ]] ||
+    g72_fail "top-level keys differ (only the validation/staging jobs and fixed checkout policy): ${items[0]}"
+  [[ "$(yq_stdin -p yaml -o json -I0 'select(document_index == 1) | .variables' <"$f" 2>/dev/null)" == '{"GIT_SUBMODULE_STRATEGY":"none"}' ]] || g72_fail "global variables must only disable automatic submodule checkout"
   ia='\"$[[ inputs.action ]]\"' ie='\"$[[ inputs.environment ]]\"' ic='\"$[[ inputs.candidate ]]\"' id='\"$[[ inputs.duration ]]\"'
   want='{"if":"$CI_COMMIT_TAG","when":"never"},{"if":"'"$ia"' != \"Validate\" && $CI_PIPELINE_SOURCE != \"web\" && $CI_PIPELINE_SOURCE != \"api\"","when":"never"},{"if":"'"$ia"' != \"Validate\" && $CI_COMMIT_BRANCH != \"staging\"","when":"never"},{"if":"'"$ia"' != \"Validate\" && $CI_COMMIT_REF_PROTECTED != \"true\"","when":"never"},'
   pre="${items[1]%%"$want"*}"
@@ -1745,7 +1745,8 @@ static_ci_config() {
     [[ -n "${BASH_REMATCH[6]}" ]] && s2="${BASH_REMATCH[6]}"
     echo $((10#$h * 3600 + 10#$m * 60 + 10#$s2))
   }
-  [[ "$(q 'keys | sort | join(" ")')" == "identity-staging stages staging:build staging:check staging:deploy staging:prepare staging:stop validate:checks validate:integration workflow" ]] || { ok=0; log "top-level validation job keys differ"; }
+  [[ "$(q 'keys | sort | join(" ")')" == "identity-staging stages staging:build staging:check staging:deploy staging:prepare staging:stop validate:checks validate:integration variables workflow" ]] || { ok=0; log "top-level validation job keys differ"; }
+  [[ "$(qj '.variables')" == '{"GIT_SUBMODULE_STRATEGY":"none"}' ]] || { ok=0; log "CI must not initialize development submodules automatically"; }
   # Owner one-off: automatic documentation Markdown bypass; G049: exactly three handoff files also bypass, nested
   # Claude skills are always admitted. Explicit full contexts remain.
   # ONEOFF RC qualification (owner 2026-10-19: no automatic post-merge cloud checks): no push starts a pipeline
@@ -1881,19 +1882,19 @@ suite_provenance() {
     while IFS= read -r e; do log "relocation: $e"; done <"$WORK/skill-relocation.txt"
   fi
   # The listings go through files so a failing git command fails this check instead of yielding an empty list.
-  git -C "$REPO" diff -z --name-only --no-renames "$BASE" -- "${SKILL_ROOTS[@]}" >"$WORK/skill-diff.z" || { skill_ok=0; log "git diff of the skill roots failed"; }
+  git -C "$REPO" diff -z --name-only --no-renames --ignore-submodules=none "$BASE" -- "${SKILL_ROOTS[@]}" "${SKILL_EXCLUSIONS[@]}" >"$WORK/skill-diff.z" || { skill_ok=0; log "git diff of the skill roots failed"; }
   while IFS= read -r -d '' p; do
     [[ -n "${RELOC_SRC[$p]+x}" || -n "${RELOC_DST[$p]+x}" || -n "${RETIRED_SRC[$p]+x}" ]] && continue
     skill_ok=0; log "skill path differs from the base commit: $p"
   done <"$WORK/skill-diff.z"
-  git -C "$REPO" ls-files -z -o --exclude-standard -- "${SKILL_ROOTS[@]}" >"$WORK/skill-untracked.z" || { skill_ok=0; log "git ls-files of the skill roots failed"; }
+  git -C "$REPO" ls-files -z -o --exclude-standard -- "${SKILL_ROOTS[@]}" "${SKILL_EXCLUSIONS[@]}" >"$WORK/skill-untracked.z" || { skill_ok=0; log "git ls-files of the skill roots failed"; }
   while IFS= read -r -d '' p; do
     n_untracked=$((n_untracked + 1))
     [[ -n "${bound[$p]:-}" && "$(sha_of "$REPO/$p")" == "${bound[$p]}" ]] || { skill_ok=0; log "untracked Skill path not bound by a matching --expect-hash: $p"; }
   done <"$WORK/skill-untracked.z"
   (( RELOC_ACTIVE == 0 )) || moved="; relocation verified: ${#RELOC_SRC[@]} base paths at their destinations (same content and mode), no source left, no unbound file"
   (( ${#RETIRED_SRC[@]} == 0 )) || retired="; retired ${SKILL_RETIRED[*]}: ${#RETIRED_SRC[@]} base paths absent, nothing left there"
-  [[ $skill_ok == 1 ]] && record B-SKILL-UNCHANGED PASS "skill roots (${SKILL_ROOTS[*]}) identical to $(git -C "$REPO" rev-parse --short "$BASE")$moved$retired; the ${#SKILL_ALIASES[@]} discovery aliases are exactly their tracked relative links (mode 120000) to a skill directory; $n_untracked untracked Skill path(s), each bound by a matching --expect-hash" || record B-SKILL-UNCHANGED FAIL "a Skill differs from the base commit or its approved hashes"
+  [[ $skill_ok == 1 ]] && record B-SKILL-UNCHANGED PASS "skill roots (${SKILL_ROOTS[*]}) identical to $(git -C "$REPO" rev-parse --short "$BASE")$moved$retired; independent Restruct tooling and its alias are excluded; $n_untracked untracked Skill path(s), each bound by a matching --expect-hash" || record B-SKILL-UNCHANGED FAIL "a Skill differs from the base commit or its approved hashes"
 }
 
 # Reviewed skill relocations (G049, owner 2026-10-18; the bundled Restruct SDLC skill: skills/restruct-sdlc/ ->
@@ -1902,40 +1903,26 @@ suite_provenance() {
 # content; the source must be gone; no unbound file may appear under a destination. A retired root (the SaaS Foundation
 # generator, not part of this distribution) applies the same way: every BASE path under it must be absent and nothing
 # may remain there. The discovery aliases (the two Restruct SDLC aliases; this template ships no brand skill alias) are
-# verified on every run: each is exactly the tracked relative link (Git mode 120000) to its target, which resolves
-# inside the repository to a directory holding SKILL.md. Problems go to
+# Restruct and its discovery alias are outside application validation. Other legacy skill moves remain guarded; problems go to
 # $WORK/skill-relocation.txt; RELOC_SRC/RELOC_DST/RETIRED_SRC name the verified paths for B-SKILL-UNCHANGED and
 # B-PROTECTED, which accepts a removed base path only through this verification.
-SKILL_ROOTS=(skills/ distributions/skills/ .agents/skills/ .claude/skills/ web/.claude/skills/ web/.agents/skills/)
+SKILL_ROOTS=(skills/ .agents/skills/ .claude/skills/ web/.claude/skills/ web/.agents/skills/)
+# Independent development tooling is outside application/CI validation, initialized or not.
+SKILL_EXCLUSIONS=(":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc")
 SKILL_MOVES=("skills/claude-session-handoff/ .agents/skills/claude-session-handoff/"
   "skills/vestive-design-skill/ .agents/skills/vestive-design/"
   "web/.claude/skills/vestive-design/ .agents/skills/vestive-design/"
   ".claude/skills/vestive-design/ .agents/skills/vestive-design/"
-  "skills/restruct-sdlc/ distributions/skills/restruct-sdlc/")
-SKILL_RETIRED=(skills/saas-foundation/)
-SKILL_ALIASES=(".agents/skills/restruct-sdlc ../../distributions/skills/restruct-sdlc"
-  ".claude/skills/restruct-sdlc ../../distributions/skills/restruct-sdlc")
+)
+SKILL_RETIRED=(skills/saas-foundation/ distributions/)
 SKILL_LINK=.claude/skills/vestive-brand SKILL_LINK_TARGET=../../.agents/skills/vestive-brand
 RELOC_ACTIVE=0
 declare -A RELOC_SRC=() RELOC_DST=() RETIRED_SRC=()
 skill_relocation() {
-  local pair src dst rec meta path mode obj d want m e names lt wt alias_source r tgt out="$WORK/skill-relocation.txt"
+  local pair src dst rec meta path mode obj d want m e names lt wt alias_source r out="$WORK/skill-relocation.txt"
   local -A expected=() bound=()
   for e in "${EXPECT[@]}"; do bound["${e%%=*}"]="${e#*=}"; done
   : >"$out"
-  # The discovery aliases (every run).
-  for pair in "${SKILL_ALIASES[@]}"; do
-    e="${pair%% *}" want="${pair##* }"
-    m="$(git -C "$REPO" ls-files -s -- "$e" | cut -d' ' -f1)" || m=""
-    tgt="$(realpath -e "$REPO/$(dirname "$e")/$want" 2>/dev/null)" || tgt=""
-    lt="$(realpath -e "$REPO/$e" 2>/dev/null)" || lt=""
-    if [[ -L "$REPO/$e" && "$(readlink "$REPO/$e")" == "$want" && "$m" == 120000 && -n "$tgt" && "$tgt" == "$REPO"/* &&
-      -d "$tgt" && -f "$tgt/SKILL.md" && "$lt" == "$tgt" ]]; then
-      RELOC_DST["$e"]=1
-    else
-      echo "the alias $e is not exactly the tracked relative link (mode 120000) to $want, a skill directory in the repository" >>"$out"
-    fi
-  done
   # The retired roots.
   for r in "${SKILL_RETIRED[@]}"; do
     git -C "$REPO" ls-tree -r -z --name-only "$BASE" -- "$r" >"$WORK/retired-base.z" || { echo "git ls-tree of $r failed" >>"$out"; continue; }
@@ -3679,7 +3666,7 @@ go_it_source() {
   GO_IT_TREE="$(impl_tree_hash "$1" 2>/dev/null)" || true
   [[ "$GO_IT_TREE" =~ ^[0-9a-f]{64}$ ]] || GO_IT_TREE="unavailable"
   GO_IT_HEAD="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unavailable)"
-  if [[ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]]; then GO_IT_TREEFLAG="head"; else GO_IT_TREEFLAG="dirty"; fi
+  if [[ -z "$(git -C "$REPO" status --porcelain -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" 2>/dev/null)" ]]; then GO_IT_TREEFLAG="head"; else GO_IT_TREEFLAG="dirty"; fi
 }
 # Declared invocation inventories (Plan r2 §4, §5.3): NAME|CHECK. obj-sign-host runs only with a host probe.
 # shellcheck disable=SC2034 # read through go_it_declare's nameref
@@ -6988,7 +6975,7 @@ final_checks() {
     n=$((n + 1))
     for e in "${EXCEPTIONS[@]}"; do [[ "$p" == "$e" ]] && { record B-SCOPE-EXCEPTION INFO "$p: $(git -C "$REPO" diff --stat "$BASE" -- "$p" | tail -1)"; continue 2; }; done
     grep -qE -f "$allow" <<<"$p" || bad+="$p "
-  done < <( { git -C "$REPO" diff -z --name-only "$BASE"; git -C "$REPO" ls-files -z -o --exclude-standard; } | LC_ALL=C sort -z -u)
+  done < <( { git -C "$REPO" diff -z --name-only "$BASE" -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc"; git -C "$REPO" ls-files -z -o --exclude-standard -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc"; } | LC_ALL=C sort -z -u)
   [[ -z "$bad" ]] && record B-SCOPE PASS "$n changed paths since $(git -C "$REPO" rev-parse --short "$BASE"), all within the allow-list" || record B-SCOPE FAIL "outside the allow-list: $bad"
 
   { grep -h '^FROM ' "$REPO"/infra/docker/*.Dockerfile | awk '{print $2}' | grep -E '/|:'

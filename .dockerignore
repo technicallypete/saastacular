@@ -1,3 +1,6 @@
 
 # Operator-private task files never belong in build contexts.
 .local
+
+# The optional development workflow is not an application build input.
+.agents/skills/restruct-sdlc

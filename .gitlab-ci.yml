@@ -122,6 +122,9 @@ workflow:
 
 stages: [checks, integration, staging]
 
+variables:
+  GIT_SUBMODULE_STRATEGY: none
+
 "validate:checks":
   stage: checks
   rules:

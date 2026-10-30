@@ -1544,7 +1544,7 @@ ctl_V4() {
   if (( ok == 0 )); then return 0; fi
   if grep -q '"EI39"' "$REPO_R/contracts/conformance/intelligence/expectations.json"; then :; else prob "prerequisite missing: case EI39"; return 0; fi
   mkdir -p "$imp"
-  (cd "$REPO_R" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' x; do if [[ -e "$x" ]]; then printf '%s\0' "$x"; fi; done | tar --null -cf - -T -) | tar -xf - -C "$imp"
+  (cd "$REPO_R" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' x; do if [[ -f "$x" || -L "$x" ]]; then printf '%s\0' "$x"; fi; done | tar --null --no-recursion -cf - -T -) | tar -xf - -C "$imp"
   D run --rm --pull never --network none "${LB[@]}" -i "$CI_YQ_IMAGE" -p json -o json \
     '(.cases[] | select(.id == "EI39") | .valid) = true' <"$REPO_R/contracts/conformance/intelligence/expectations.json" \
     >"$imp/contracts/conformance/intelligence/expectations.json"
@@ -3862,7 +3862,7 @@ ctl_VB7() {
 vb_copy() { # [fast-profile]: $C/impl, committed; fast-profile also stubs runner-preflight.sh and sets CI_SUITES_fast
   local x imp="$C/impl"
   mkdir -p "$imp" "$C/vbs"
-  (cd "$REPO_R" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' x; do if [[ -e "$x" ]]; then printf '%s\0' "$x"; fi; done | tar --null -cf - -T -) | tar -xf - -C "$imp"
+  (cd "$REPO_R" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' x; do if [[ -f "$x" || -L "$x" ]]; then printf '%s\0' "$x"; fi; done | tar --null --no-recursion -cf - -T -) | tar -xf - -C "$imp"
   cat >"$imp/infra/ci/validate-controls.sh" <<'VBSTUB'
 #!/usr/bin/env bash
 # VB stub of infra/ci/validate-controls.sh (validate-controls.sh VB1/VB3b).

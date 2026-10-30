@@ -1,82 +1,79 @@
 # Development workflow
 
-SaaStacular's default development workflow is **Restruct SDLC**, an agent-driven software delivery workflow bundled
-at `distributions/skills/restruct-sdlc/` as the repository's default development dependency. It is distributed under
-its own MIT license ([distributions/skills/restruct-sdlc/LICENSE](../distributions/skills/restruct-sdlc/LICENSE),
-copyright Vitruvian Technology, Corp.), separately from the repository's Apache-2.0 license, and it is not
-relicensed.
+SaaStacular uses **Restruct SDLC** as its default development dependency. It is an
+unaltered GitHub submodule at `.agents/skills/restruct-sdlc/`, pinned to an exact
+commit by Git and registered in [`.gitmodules`](../.gitmodules). Restruct retains
+its MIT licenses; SaaStacular's Apache-2.0 license does not replace them.
 
-The workflow governs agent-driven development, not the application. Configuration, builds, tests, migrations, local
-startup and runtime work without an AI account, an agent session or a watcher; every command in the
-[README](../README.md#quick-start) runs without agent tooling. The presence of the files scaffolds no management
-records, installs no personal skills, creates no agent sessions and activates no watcher. This bundle is a pinned
-copy; its upstream project remains its source of truth, and updating the bundled copy is an explicit, reviewed
-version change.
+The full workflow stays in [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md)
+and [docs/agents/](agents/): roles, Goal/Spec/Plan/Result records, planning,
+implementation, review, budgets, parallel scheduling, validation, integration,
+evidence, resource accountability and cleanup. Installation starts no agent or
+watcher and creates no management records automatically.
 
-## What ships
+## Initialize for agent work
 
-- **The package.** One entrypoint, [`distributions/skills/restruct-sdlc/SKILL.md`](../distributions/skills/restruct-sdlc/SKILL.md),
-  routes to exactly one of three complete child skills:
+Clone with `git clone --recurse-submodules` or initialize an existing checkout:
 
-  | Child skill | Capabilities |
-  |---|---|
-  | `sdlc-management` | adopt the workflow; bootstrap management directories and project guidance; write Goal, Spec, Plan, Result and review records; apply budget, validation, integration, release and cleanup policies |
-  | `repository-supervisor` | resume supervision from committed records; review Plans and implementation evidence; manage dependencies, acceptance and progress |
-  | `claude-session-handoff` | discover and verify local Claude Code sessions; send authorized handoffs and check receipts; observe milestone notices |
+```sh
+git submodule update --init -- .agents/skills/restruct-sdlc
+```
 
-  [`distributions/skills/restruct-sdlc/README.md`](../distributions/skills/restruct-sdlc/README.md) describes the
-  workflow and its installation in detail.
-- **The live rules.** [AGENTS.md](../AGENTS.md) and [CLAUDE.md](../CLAUDE.md) carry the workflow's full governance for
-  this repository: roles and ownership, Goal/Spec/Plan/Result formats, planning, implementation, review outcomes,
-  budgets, parallel scheduling, validation selection, integration, evidence, resource accountability and cleanup.
-  The runbooks under [docs/agents/](agents/) hold the GitLab branch workflow, Claude Code session handoffs and
-  project permission placement.
-- **Codex project defaults.** [`.codex/config.toml`](../.codex/config.toml) sets the repository's model defaults for
-  Codex sessions (main sessions `gpt-6.1-sol` at `low`; spawned agents `gpt-6.1-sol` at `high`). It is
-  developer-tool configuration, not an application or runtime dependency; explicit session settings override it.
+The entrypoint at [`.agents/skills/restruct-sdlc/SKILL.md`](../.agents/skills/restruct-sdlc/SKILL.md)
+routes to three complete child skills:
 
-## Discovery
+| Child | Responsibility |
+|---|---|
+| `sdlc-management` | Adopt the workflow, bootstrap records, and apply delivery policies and templates. |
+| `repository-supervisor` | Recover supervision, review Plans/Results, and manage dependencies and acceptance. |
+| `claude-session-handoff` | Verify local Claude sessions, deliver authorized handoffs, and observe milestones. |
 
-The repository provides two discovery aliases, both relative symlinks to the same bundle:
+Claude discovers the same submodule through the relative symlink
+`.claude/skills/restruct-sdlc` → `../../.agents/skills/restruct-sdlc`.
+Linux and WSL support this layout; native Windows requires symlink support.
+Use the pinned project version rather than an unrelated personal copy.
 
-- `.agents/skills/restruct-sdlc` → `../../distributions/skills/restruct-sdlc` (Codex and other agents that scan
-  `.agents/skills`);
-- `.claude/skills/restruct-sdlc` → `../../distributions/skills/restruct-sdlc` (Claude Code project sessions).
+Start adoption with the submodule's `sdlc-management/references/adoption.md` and
+`sdlc-management/templates/parameters.example.json`. Record owner/agent roles,
+canonical documents, branches, validation commands and budgets. Reconcile its
+proposals with the full rules already in AGENTS.md and CLAUDE.md; do not overwrite
+them automatically. Use this repository's existing validation commands.
 
-A personal skill with the same name may take precedence over the project skill; keep personal copies identical or
-remove them so the repository source is used. A native Windows checkout without symlink support gets a small text
-file in place of each alias; Linux and WSL are the supported runtime.
+[`.codex/config.toml`](../.codex/config.toml) supplies optional project model
+defaults; explicit session settings override them.
 
-## Use the default workflow
+## Application checks and dependency updates
 
-Ask your agent to use `restruct-sdlc` to bootstrap your management records, starting from
-`distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md` and
-`distributions/skills/restruct-sdlc/sdlc-management/templates/parameters.example.json`. Record your owner and agent
-roles, canonical documents, branches, validation commands and budgets; the adoption guide creates only missing
-files and proposes changes beside existing ones (AGENTS.md and CLAUDE.md already hold the rules, so review any
-proposal against them rather than overwriting). Point its validation commands at this repository's existing entry
-points (`infra/ci/validate.sh` profiles and the README blocks) rather than adding a parallel harness. A watcher or
-coordinator binding is activated only when you explicitly establish and verify it. The rules keep the dated owner
-directions and examples of the project they were developed in; treat their role names, branch names, budgets,
-worker targets, model and effort choices and test-run concurrency as defaults, and record your own choices in
-AGENTS.md and CLAUDE.md.
+Application configuration, builds, tests, migrations and runtime work without
+initializing Restruct. Parent CI explicitly skips automatic submodule checkout.
+The parent scanner scans `.gitmodules` as ordinary source metadata and excludes
+this independent submodule without inspecting it. Application snapshots and
+Docker contexts exclude the development dependency. CI and local application
+checks do not validate Restruct's pin, contents or Claude symlink and do not run
+Restruct tests. They work when Restruct is absent or uninitialized.
 
-## Use another workflow, or opt out fully
+Submodule initialization uses the recorded commit, never the latest branch tip.
+To update Restruct, fetch its upstream commits, check out a reviewed commit in
+`.agents/skills/restruct-sdlc`, and commit the changed gitlink in SaaStacular.
+Reconcile live workflow guidance when upstream policies change. Such updates
+retain the normal review rules; the application does not acquire a runtime
+dependency on Restruct.
 
-1. **Disable discovery.** Delete both aliases, `.agents/skills/restruct-sdlc` and `.claude/skills/restruct-sdlc`
-   (and `.agents/skills/`, `.agents/`, `.claude/skills/` or `.claude/` if they are then empty). Removing an alias
-   disables discovery by that agent only; it does not remove the workflow instructions.
-2. **Replace the rules.** Replace or update [AGENTS.md](../AGENTS.md) and [CLAUDE.md](../CLAUDE.md) with your own
-   rules, and remove or rewrite `docs/agents/`. Keep the neutral repository orientation (commands and architecture
-   constraints) if it is useful to you.
-3. **Optionally delete the bundle.** Delete `distributions/skills/restruct-sdlc/` (and `distributions/skills/` and
-   `distributions/` if they are then empty), then remove the bundle's row from
-   [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and its mention in [NOTICE](../NOTICE). Keep the MIT notices
-   for as long as any of its files remain.
-4. **Commit the change as its own commit.** The harness's skill-root check (`B-SKILL-UNCHANGED`, `provenance` suite)
-   compares the skill directories and discovery aliases with the `--base` commit, so run the developer checks with a
-   base that already contains the removal, or expect that one change to be reported as a skill-root change.
+The original export manifests describe the initial publication and remain in that
+commit's history. Current maintained repository content is identified by its Git
+tree and the explicit Restruct gitlink, rather than stale export file lists.
 
-The validation harness, the application and its tests do not use Restruct. Opting out changes no application code,
-migration, configuration, test or runtime behaviour. Delete `.codex/config.toml` too if you do not want its Codex
-model defaults.
+## Use another workflow
+
+1. Preserve any local Restruct edits, then use `git submodule deinit -- .agents/skills/restruct-sdlc`
+   and `git rm .agents/skills/restruct-sdlc .claude/skills/restruct-sdlc`.
+   Remove `.gitmodules` if no entries remain. Removing discovery alone does not
+   remove the written workflow rules.
+2. Replace or update AGENTS.md, CLAUDE.md and `docs/agents/` with your own rules.
+   Keep useful repository commands and architecture constraints.
+3. Reconcile the Restruct notices in [NOTICE](../NOTICE) and
+   [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Retain MIT notices for any
+   Restruct content you keep. Commit the intentional removal as its own change.
+
+No application test or CI change is needed to remove Restruct. Delete
+`.codex/config.toml` too if its model defaults are unwanted.

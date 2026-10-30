@@ -9,7 +9,7 @@ labels. Discover by labels, then verify exact identity/lifecycle using the exist
 compact run registry. Preserve anonymous/shared exceptions and reboot recovery;
 no extra cleanup manifest, label-only deletion or relabeling of active bound work.
 
-Follow [label discovery and existing cleanup records](../../distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#project-scoped-docker-labels-and-cleanup-discovery).
+Follow [label discovery and existing cleanup records](../../.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#project-scoped-docker-labels-and-cleanup-discovery).
 
 ## Acceptance and cleanup closeout publication
 
@@ -41,9 +41,9 @@ Run full local qualification on the integration branch tip when the owner reques
 
 After a failure, rerun the failed checks and checks affected by the fix, reusing attributable unchanged passes. A broad local selection needs a concrete coverage reason; explicit technically justified full-run requirements remain binding. Reconcile active work at a safe boundary without restarting running batches or rewriting approved snapshots. Ready authorized successor implementation may overlap post-merge checks in isolation, respecting resource reservations; predecessor final ACCEPT still gates successor integration/final acceptance. Preserve owner holds, manual/security gates, documentation-only exemptions and failure history. This supersedes the blanket full-local-run-after-every-feature default.
 
-[Current policy](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
+[Current policy](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
 
-Ready, authorized successor implementation may overlap that local run **after predecessor merge**, in isolation with shared-resource locks respected. Predecessor final ACCEPT still gates successor merge/final acceptance, and its own owner retains repairs. Explicit owner/phase holds and documentation-only exemptions remain. This supersedes the earlier pre-merge/unmerged-successor variant. See [current policy](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#local-qualification-after-merge).
+Ready, authorized successor implementation may overlap that local run **after predecessor merge**, in isolation with shared-resource locks respected. Predecessor final ACCEPT still gates successor merge/final acceptance, and its own owner retains repairs. Explicit owner/phase holds and documentation-only exemptions remain. This supersedes the earlier pre-merge/unmerged-successor variant. See [current policy](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#local-qualification-after-merge).
 
 ## Default parallel scheduling
 
@@ -55,7 +55,7 @@ default when ownership, writable paths, inputs and resource reservations permit.
 Each dependency chain retains finish/fix/rerun gates; a failure holds its batch and
 dependents, while unrelated safe work may continue. Preserve task-specific
 sequencing, frozen validation sources, the shared test pool, sequential builds and
-all merge/qualification gates. See [parallel scheduling](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#default-to-safe-parallel-work-lanes).
+all merge/qualification gates. See [parallel scheduling](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#default-to-safe-parallel-work-lanes).
 
 ## Duo feedback before merge — 2026-10-11
 
@@ -92,9 +92,9 @@ explicit owner hold/opt-out on a specific MR takes precedence. Disarm and
 reassess on a relevant new commit or blocking finding. Preserve failed/manual
 gate status honestly.
 
-The bundled Restruct SDLC copy under `distributions/skills/restruct-sdlc/` is a
-pinned copy; its upstream project remains the source of truth, and updating the
-bundled copy is an explicit, reviewed version change. For the corresponding live
+The Restruct SDLC submodule under `.agents/skills/restruct-sdlc/` pins its
+upstream GitHub project, which remains the source of truth. Updating its Git pin
+is an explicit, reviewed dependency change. For the corresponding live
 guidance in this adopting repository, publish directly to `staging` under
 supervisor publication authority; do not open a separate MR solely for those
 documentation changes. This exception does not alter the normal MR routes for
@@ -195,7 +195,7 @@ both repositories through their authorized routes. Verify both remote commits;
 matching local files alone is not completion. Preserve explicit adaptations,
 README/release metadata and held unaccepted work. Record partial syncs and held
 divergence; no silent public sweep or automatic tag/release/live cutover. See
-[portable guidance](../../distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#maintaining-a-shared-package-in-two-repositories).
+[portable guidance](../../.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#maintaining-a-shared-package-in-two-repositories).
 
 ## Long-lived branches
 
@@ -412,7 +412,7 @@ rebase/reconciliation, review, validation and separate merge authority still app
 ## Local validation evidence closeout — owner direction, 2026-10-13
 
 After final ACCEPT, integration and required qualification, apply the SDLC skill's
-[compact-record and bulk-purge policy](../../distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#local-validation-evidence-retain-a-compact-record-purge-bulk-output).
+[compact-record and bulk-purge policy](../../.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#local-validation-evidence-retain-a-compact-record-purge-bulk-output).
 This replaces indefinite retention of redundant task-owned local validation logs,
 traces/videos, report copies and scratch outputs, including eligible older closed
 Goals at their next cleanup. Verify retained acceptance/provenance/failure records
@@ -445,19 +445,19 @@ Session/binding/observer state, active work and unresolved investigations remain
 
 ## Low-overhead delivery refinement — 2026-10-15
 
-Follow [validation economy and recurring failures](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures)
+Follow [validation economy and recurring failures](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures)
 for focused evidence reuse, one evidenced job retry, recurring-failure repair,
 superseded-run cancellation and the narrow verified workflow-prose CI-skip option.
 No path-selector change or blanket directory exemption; required application
 qualification and failed-check gates remain. Continue already-authorized MR/Duo/
 merge transitions without another routine owner prompt. Use the existing
-[closeout receipt](../../distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#routine-closeout-receipt).
+[closeout receipt](../../.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#routine-closeout-receipt).
 
 
 ## Mandatory task-acceptance cleanup — owner direction, 2026-10-17
 
 At every final task ACCEPT, immediately remove all finished task-owned worktrees
-and temporary resources under the [mandatory cleanup policy](../../distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#mandatory-cleanup-at-every-task-acceptance).
+and temporary resources under the [mandatory cleanup policy](../../.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#mandatory-cleanup-at-every-task-acceptance).
 Unlock finished agent-tool worktrees; preserve unique commits and dirty/untracked
 work before force removal when needed. Clean task-owned containers, unused images
 (including attributable untagged IDs), volumes and disposable evidence without
@@ -468,7 +468,7 @@ no silent lock/dirty-work deferral, blanket host prune or extra test campaign.
 
 ## First failure requires intervention — 2026-10-18
 
-Apply the [first-failure intervention rule](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#first-failure-requires-intervention--2026-10-18): inspect every task pipeline outcome, diagnose the first failure, and test a correction or evidenced retry hypothesis before another diagnostic run. Native local-test blocks require a supported configuration remedy, not repeated failing hosted runs. Preserve checkpoint authority and failed evidence.
+Apply the [first-failure intervention rule](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#first-failure-requires-intervention--2026-10-18): inspect every task pipeline outcome, diagnose the first failure, and test a correction or evidenced retry hypothesis before another diagnostic run. Native local-test blocks require a supported configuration remedy, not repeated failing hosted runs. Preserve checkpoint authority and failed evidence.
 
 
 ## Staging repair gate — owner direction, 2026-10-18
@@ -494,7 +494,7 @@ A staging repair must fix every known failure before it merges.
   run, correction or disposition, and pre-merge proof. Codex review and the
   owner's merge approval read that table, not only the latest failure.
 - Timing or flake hypotheses keep the existing
-  [one evidenced job retry](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures)
+  [one evidenced job retry](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures)
   rule; a recurrence needs focused diagnosis. The post-merge staging gate, the
   acceptance status rule and all native merge gates are unchanged.
 
@@ -507,7 +507,7 @@ The wrapper retains its scanned report in `<evidence-dir>/candidate/`, including
 files after finalization before a retry, repair handoff or acceptance review.
 Keep original failure and later-run records separately. Withheld detail is an
 explicit evidence gap; do not bypass scans or count JUnit phase/aggregate entries
-as distinct underlying test failures. Follow the [portable retention rule](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#preserve-local-validation-evidence-before-cleanup).
+as distinct underlying test failures. Follow the [portable retention rule](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#preserve-local-validation-evidence-before-cleanup).
 
 ### Supervisor verification of repair completeness — 2026-10-18
 
@@ -674,5 +674,5 @@ reconcile before startup/resume/dispatch, at every handback and batch end, and a
 failure/cancellation. Reclaim finished worker trees and scratch immediately after
 preserving their handback. Any unresolved abandoned resources block new resource-
 consuming work until repaired; verify actual absence, including nested resources
-and anonymous volumes. Follow [continuous accountability](../../distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#continuous-resource-accountability--mandatory).
+and anonymous volumes. Follow [continuous accountability](../../.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#continuous-resource-accountability--mandatory).
 This adds no coordinator polling or duplicate inventory framework.

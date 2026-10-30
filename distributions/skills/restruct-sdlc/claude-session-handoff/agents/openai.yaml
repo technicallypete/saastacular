@@ -1,4 +1,0 @@
-interface:
-  display_name: "Claude Session Handoff"
-  short_description: "Check Claude sessions and deliver authorized handoffs"
-  default_prompt: "Use $claude-session-handoff to check the intended local Claude Code session and report its progress."

@@ -1,24 +1,19 @@
 # Repository Management Governance
 
-SaaStacular ships the **Restruct SDLC** workflow as its default bundled development
-dependency. The complete package lives at `distributions/skills/restruct-sdlc/`
-(under its own MIT licenses; the repository is Apache-2.0), with two relative
-discovery aliases, `.agents/skills/restruct-sdlc` (Codex and other agents that scan
-`.agents/skills`) and `.claude/skills/restruct-sdlc` (Claude Code), both targeting
-`../../distributions/skills/restruct-sdlc`. The rules in this file and in
-[CLAUDE.md](CLAUDE.md) are that workflow's live governance for this repository;
-the runbooks under [docs/agents/](docs/agents/) and the bundled references hold
-the detailed procedures. The `management/` records these rules refer to are not
-shipped: bootstrap them with the bundled `sdlc-management` skill
-([adoption guide](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md)).
-The application's configure, build, test, migrate and run commands do not need
-any agent tooling.
+SaaStacular uses **Restruct SDLC** as its default development dependency, pinned as
+an unaltered GitHub submodule at `.agents/skills/restruct-sdlc/` (MIT; this
+repository is Apache-2.0). Claude discovers the same skill through
+`.claude/skills/restruct-sdlc` → `../../.agents/skills/restruct-sdlc`.
+Initialize it with `git submodule update --init -- .agents/skills/restruct-sdlc`
+before agent-driven work. The application's configure, build, test, migrate and
+run commands do not need the submodule to be initialized.
 
-**Using another workflow.** Remove both aliases (`.agents/skills/restruct-sdlc`
-and `.claude/skills/restruct-sdlc`) and replace or update AGENTS.md, CLAUDE.md
-and `docs/agents/` with your own rules. Removing the aliases alone disables skill
-discovery but not the workflow instructions in these files. See
-[docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md).
+The full rules in this file, [CLAUDE.md](CLAUDE.md) and [docs/agents/](docs/agents/)
+remain the live governance. Bootstrap missing management records with Restruct's
+[sdlc-management skill](.agents/skills/restruct-sdlc/sdlc-management/SKILL.md).
+To use another workflow, remove the submodule and Claude alias and replace or
+update these agent guides with your own rules; see
+[Development workflow](docs/DEVELOPMENT-WORKFLOW.md).
 
 Default role assignment (unless the owner explicitly selects the Claude-supervisor option below):
 
@@ -72,9 +67,9 @@ After a failure, rerun the failed checks and checks affected by the fix, reusing
 
 Ordinary application feature work does **not** require the full `ci-controls` suite merely because it updates product test registration or expectations inside harness files. This includes routes/import allowlists, migration versions, schema/catalog counts, browser matrices, test invocations, required-check IDs and their resulting count pins. Run affected product checks and only the directly affected control cases using existing focused selectors. A changed harness pathname, copied fixture, mechanical count update or desire for an aggregate PASS row is not a reason to select all controls. Full CI controls require a recorded concrete reason involving changed shared runner behavior or an explicitly selected full staging/RC qualification. Required-check aggregates apply to selected coverage; do not add `ci-controls` merely to make `B-CI-CONTROLS` required. Preserve actual outcomes and report focused control proof without claiming an unexecuted full suite passed.
 
-See [the current policy](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
+See [the current policy](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
 
-Ready, authorized successor implementation may overlap that local run **after predecessor merge**, in isolation with shared-resource locks respected. Predecessor final ACCEPT still gates successor merge/final acceptance, and its own owner retains repairs. Explicit owner/phase holds and documentation-only exemptions remain. This supersedes the earlier pre-merge/unmerged-successor variant. See [current policy](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
+Ready, authorized successor implementation may overlap that local run **after predecessor merge**, in isolation with shared-resource locks respected. Predecessor final ACCEPT still gates successor merge/final acceptance, and its own owner retains repairs. Explicit owner/phase holds and documentation-only exemptions remain. This supersedes the earlier pre-merge/unmerged-successor variant. See [current policy](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally).
 
 
 The merged-SHA local qualification checkout remains frozen: development-branch fetch/rebase preparation does not rebase that tested merge. Inspect later target changes separately and reconcile their actual effects; do not silently switch the qualification source or repeat unchanged coverage for management-only commits.
@@ -227,7 +222,7 @@ counts in the existing receipt. Preserve credentials, native session state,
 required minimal failure proof and unrelated/shared resources. This is event-driven
 accounting, not coordinator polling. Repair and focus-test executable leaks before
 resuming the affected workload; prose alone is insufficient. See
-[continuous resource accountability](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#continuous-resource-accountability--mandatory).
+[continuous resource accountability](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#continuous-resource-accountability--mandatory).
 
 ## Supervisor progress-index closeout
 
@@ -242,7 +237,7 @@ blockers. Preserve interrupted receipts and resume unfinished items. Do not add
 another cleanup framework, approval loop or test campaign. Report native refusals
 once for supported owner handling; never bypass them. Required active-run cleanup
 gates and existing retention/input bindings remain unchanged. Full procedure:
-[bounded routine cleanup](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#bounded-routine-cleanup).
+[bounded routine cleanup](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#bounded-routine-cleanup).
 
 Owner direction, 2026-10-11: Codex owns PROGRESS.md housekeeping after each
 Goal's final ACCEPT and integration closeout. Assess whether repeated or
@@ -287,9 +282,9 @@ alone is insufficient. Preserve repository-specific settings and existing task
 bindings; record any conflict or explicit owner deferral rather than silently
 leaving the live guidance stale. This applies to every adopting repository.
 
-The bundled copy under `distributions/skills/restruct-sdlc/` is a pinned copy of
-the upstream Restruct SDLC project, which remains its source of truth. Updating
-the bundled copy is an explicit, reviewed version change. In this adopting
+The GitHub submodule at `.agents/skills/restruct-sdlc/` pins the upstream
+Restruct SDLC project, which remains its source of truth. Updating its Git pin
+is an explicit, reviewed dependency change. In this adopting
 repository, publish the corresponding live governance updates directly to
 `staging` under the supervisor publication authority; do not open a separate MR
 solely for those Restruct SDLC guidance changes. This exception does not change
@@ -336,7 +331,7 @@ task-specific sequencing, source freezes, owner stops and all review/acceptance
 gates. Private DB/browser tests share the existing two-run pool (third only with
 owner approval); image builds remain sequential. Apply this to active work at a
 safe handoff, preserving accepted Plan history and frozen runs. Use existing
-coordinator facilities and records. See [parallel scheduling](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#default-to-safe-parallel-work-lanes).
+coordinator facilities and records. See [parallel scheduling](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#default-to-safe-parallel-work-lanes).
 
 ### Supervisor checkout, delegation and automatic reviews
 
@@ -690,7 +685,7 @@ unapproved schema/constraint/grant/data or risky migration changes, major vendor
 budgets, explicit holds and native refusals still escalate. Never weaken a control
 or alter expected values to conceal a regression. This does not grant a full-gate
 retry, new test campaign, merge permission or new specification authority.
-Full portable rule: [mechanical corrections](distributions/skills/restruct-sdlc/sdlc-management/references/roles-lifecycle.md#autonomous-mechanical-corrections).
+Full portable rule: [mechanical corrections](.agents/skills/restruct-sdlc/sdlc-management/references/roles-lifecycle.md#autonomous-mechanical-corrections).
 
 ### Risk-based execution for future Goals
 
@@ -817,7 +812,7 @@ use equivalent owner-selected tiers; no new provider dependency is introduced.
 
 All Goals and implementation agents must follow
 `management/BUDGET_POLICY.md` (bootstrapped at adoption; see
-[budgets](distributions/skills/restruct-sdlc/sdlc-management/references/budgets.md)).
+[budgets](.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md)).
 
 Codex assigns the Goal's budget class when authoring the Goal.
 Claude may recommend changes during planning but may not change an approved
@@ -882,7 +877,7 @@ Owner direction, 2026-10-15: planning must inspect relevant existing tests and
 cite reused/extended/new coverage in the existing Plan/AC mapping. New tests need
 an actual gap or distinct changed boundary; do not duplicate suites, fixtures or
 accepted invariants simply for a new Goal. Codex reviews this justification.
-See [coverage reuse during planning](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#reuse-existing-coverage-during-planning);
+See [coverage reuse during planning](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#reuse-existing-coverage-during-planning);
 required regression, security and selected local/hosted coverage remain binding.
 
 Before approval, specify test scenarios and the evidence they will produce.
@@ -894,7 +889,7 @@ pre-approval demonstrations of unchanged, accepted controls without an
 identified defect or changed assumption.
 
 Codex correction requests must name the finding, required guarantee and minimum
-validation. Use the [compact repair handoff](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#compact-repair-handoff)
+validation. Use the [compact repair handoff](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#compact-repair-handoff)
 for failures: reference exact revisions/diff, focused evidence, attempted fixes,
 current hypothesis and next smallest test in the existing Result/review context. If process work starts dominating the requested outcome, Codex must
 reassess and narrow the procedural request, or propose separately scoped work.
@@ -909,7 +904,7 @@ for durable evidence. Local raw output is temporary during active diagnosis/revi
 purge closed-task bulk and duplicate downloads, preserving compact outcomes and
 explicit necessary-proof exceptions with release conditions. Artifact expiry is
 recorded honestly, not a reason to mirror every run. Session/binding/observer state
-is separate. Follow the [evidence cleanup policy](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#local-evidence-is-temporary--owner-direction-2026-10-14).
+is separate. Follow the [evidence cleanup policy](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#local-evidence-is-temporary--owner-direction-2026-10-14).
 
 #### Git-first provenance for new work
 
@@ -924,7 +919,7 @@ secret-safe handling and failed history; purge disposable output at closeout.
 Existing approved snapshots/wrappers and exact bindings, including active G008,
 remain required until an explicit reviewed amendment. No replan, relaxed acceptance
 or security/CI/resource gate follows. See
-[Git-first provenance](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#git-first-provenance).
+[Git-first provenance](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#git-first-provenance).
 
 Owner direction, 2026-10-09: minimize repeated context loading and procedural
 handoffs. After required initial reading, review changed sections and unresolved
@@ -1271,34 +1266,34 @@ execution-release or budget-extension authority.
 ## Low-overhead delivery defaults — owner direction, 2026-10-15
 
 Apply the existing SDLC references for [proportionate checks, recurring failures and
-policy-only publication](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures),
-[automatic routine transitions](distributions/skills/restruct-sdlc/sdlc-management/references/roles-lifecycle.md#continue-routine-transitions-without-owner-nudges),
-[concise messages](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages) and
-[routine closeout receipts](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#routine-closeout-receipt).
+policy-only publication](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#validation-economy-and-recurring-failures),
+[automatic routine transitions](.agents/skills/restruct-sdlc/sdlc-management/references/roles-lifecycle.md#continue-routine-transitions-without-owner-nudges),
+[concise messages](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages) and
+[routine closeout receipts](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#routine-closeout-receipt).
 Continue already-authorized actions without owner nudges; preserve all actual
 acceptance/security/scope/budget/native-permission gates. This amendment adds a
 narrow verified workflow-prose CI-skip option, not a directory-wide CI exemption.
 Active application qualification and historical failures remain required/recorded.
 
 Container-produced retained artifacts must be operator-removable at creation.
-Follow [artifact ownership](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#container-artifact-ownership):
+Follow [artifact ownership](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#container-artifact-ownership):
 retain reviewed non-root execution, use existing transfer/copy-out paths and
 verify ownership, failure propagation and normal cleanup without recurring sudo.
 
 Owner note, 2026-10-16: assess coordinator history at task handoffs/closeout and
-when old messages dominate context; use [safe context compaction](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-context-compaction-at-safe-boundaries)
+when old messages dominate context; use [safe context compaction](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-context-compaction-at-safe-boundaries)
 with current task/decision/evidence references preserved. Keep the same session,
 watcher binding and safe running batches; no model switch, transcript purge or new
 monitor is implied. Context size alone does not attribute allowance consumption.
 
-Owner default, 2026-10-16: [targeted reruns and attributable coverage](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#targeted-reruns-and-attributable-coverage-default)
+Owner default, 2026-10-16: [targeted reruns and attributable coverage](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#targeted-reruns-and-attributable-coverage-default)
 applies to active and future tasks. Reuse unchanged passing cases instead of
 repeating whole batches/control suites; retain honest failed/canceled history and
 actual required coverage. Review frozen source in parallel with independent checks.
 Required hosted/atomic checks, cleanup and final acceptance gates remain; no new
 aggregation framework or automatic passing status.
 
-Owner clarification, 2026-10-16: apply [bounded worker context handoffs](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#worker-context-and-phase-handoffs)
+Owner clarification, 2026-10-16: apply [bounded worker context handoffs](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#worker-context-and-phase-handoffs)
 when oversized obsolete history warrants them; preserve one write owner, exact
 state/evidence and phase-specific effort. No mandatory fresh agent per phase,
 full retest, budget reset or new tracking system. Report owner-only native
@@ -1306,7 +1301,7 @@ compaction/effort controls once; policy text does not perform those actions.
 
 Owner default, 2026-10-16: worker checkpoint target is **150,000 active context
 tokens**, with an upper handoff threshold of **200,000**, under
-[the existing context policy](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#worker-context-and-phase-handoffs).
+[the existing context policy](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#worker-context-and-phase-handoffs).
 Prepare concise transfer state around 150k at a safe boundary; checkpointing alone
 does not force immediate agent rotation or another review.
 At a safe step/batch boundary, checkpoint and transfer concise state to a fresh
@@ -1314,7 +1309,7 @@ worker; no full-transcript fork, duplicate writer, retest or budget change solel
 for rotation. Record a brief completion-imminent exception or unavailable context
 measurement; coordinator identity/compaction remains separate.
 
-Owner direction, 2026-10-16: [focused executable checks from the first run](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#focused-selection-before-the-first-run)
+Owner direction, 2026-10-16: [focused executable checks from the first run](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#focused-selection-before-the-first-run)
 are the default for all local implementation/correction/final validation. Verify
 what selectors actually run before dispatch; broad umbrella suites require a
 recorded technical coverage reason and supervisor disposition before launch.
@@ -1322,7 +1317,7 @@ Existing reviewed justification suffices; no repeated owner permission loop.
 Convenience or a missing narrow harness selector is no automatic broad fallback.
 Reuse attributable evidence and preserve required hosted/atomic/security gates.
 
-Owner direction, 2026-10-16: apply [early risk review and short correction loops](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#early-risk-review-and-short-correction-loops)
+Owner direction, 2026-10-16: apply [early risk review and short correction loops](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#early-risk-review-and-short-correction-loops)
 inside existing planning/review: changed trust boundaries first, risky functional
 slice early, bounded caller/pin inventory and batched actionable findings. Preserve
 focused validation, context handoffs and all gates; no new process or G016 restart.
@@ -1337,7 +1332,7 @@ proof or material overrun needs a compact Result checkpoint and bounded correcti
 not another reporting framework. Apply only to remaining work at a safe boundary;
 do not restart active planning or validation. See the linked early-risk policy.
 
-Owner direction, 2026-10-16: [coordinator checkpoints and retirement](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-checkpoints-and-retirement)
+Owner direction, 2026-10-16: [coordinator checkpoints and retirement](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-checkpoints-and-retirement)
 uses a 150k active-context checkpoint and 200k compaction-or-handoff threshold,
 not a hard kill. Prefer compaction; retire at a safe boundary for persistent
 context/decision/session problems. Replacement needs recorded creation authority,
@@ -1345,7 +1340,7 @@ verified native cutover, one coordinator and observer rebinding. No live retirem
 or automatic session-launch implementation is authorized by this documentation.
 
 Owner clarification, 2026-10-16: the session lifecycle policy is effective now,
-not deferred to G055. Apply [supervisor continuity](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#supervisor-session-continuity)
+not deferred to G055. Apply [supervisor continuity](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#supervisor-session-continuity)
 to Codex as well, with actual native/model limits and compaction first.
 Native context limits, security stops and acceptance gates remain. This records
 policy, not an automatic launcher or authority to bypass existing session-creation checks.
@@ -1354,7 +1349,7 @@ policy, not an automatic launcher or authority to bypass existing session-creati
 ## Mandatory task-acceptance cleanup — owner direction, 2026-10-17
 
 At every final task ACCEPT, immediately remove all finished task-owned worktrees
-and temporary resources under the [mandatory cleanup policy](distributions/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#mandatory-cleanup-at-every-task-acceptance).
+and temporary resources under the [mandatory cleanup policy](.agents/skills/restruct-sdlc/sdlc-management/references/closeout-risks.md#mandatory-cleanup-at-every-task-acceptance).
 Unlock finished agent-tool worktrees; preserve unique commits and dirty/untracked
 work before force removal when needed. Clean task-owned containers, unused images
 (including attributable untagged IDs), volumes and disposable evidence without
@@ -1367,7 +1362,7 @@ no silent lock/dirty-work deferral, blanket host prune or extra test campaign.
 
 Use the main integration checkout's ignored `.local/{evidence,secrets,tmp}/` for
 new task-private files, shared across worker worktrees. Follow the [local storage
-policy](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#repository-local-private-files): task-scoped paths, private permissions, Git/build/upload exclusions
+policy](.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#repository-local-private-files): task-scoped paths, private permissions, Git/build/upload exclusions
 and separate evidence/secret cleanup. Existing tasks keep current paths through
 acceptance cleanup; do not migrate active bindings or native session state.
 
@@ -1378,7 +1373,7 @@ tracked shared `.claude/settings.json`, ignored repository-specific personal
 `.claude/settings.local.json`, home settings only for intentional cross-project
 preferences. Verify actual native loading in worker/service launch directories;
 permission rules never replace task/review/merge authority or native gates.
-Distinguish those tool rules from [classifier configuration](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#tool-permissions-and-classifier-rules):
+Distinguish those tool rules from [classifier configuration](.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#tool-permissions-and-classifier-rules):
 use its native required scope, preserve owner-selected defaults, and verify actual
 approved operations. Machine/task exceptions and disabled classifier rules are
 not portable adoption defaults.
@@ -1387,7 +1382,7 @@ not portable adoption defaults.
 
 Preserve useful detail; abbreviate prose with short labeled bullets and fragments.
 Trim filler/repetition, not decisions, evidence, uncertainty or gates. Follow
-[operational messages](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
+[operational messages](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
 This does not change status-marker syntax or require a dashboard-only report.
 
 
@@ -1461,7 +1456,7 @@ approval or leave approved-scope rules for the owner to paste.
 
 Claude must verify native loading and the actual approved edit/test/commit before
 reporting the block cleared and continuing. Installation, loading and operation
-success are distinct. Follow the [permission handoff](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#permission-change-handoff).
+success are distinct. Follow the [permission handoff](.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#permission-change-handoff).
 This standing authority covers bounded allow rules, not unrequested global guard
 removal, permission-mode changes, broader task authority or bypassing a remaining
 native refusal. Keep the current task, budget and single write owner.
@@ -1469,13 +1464,13 @@ native refusal. Keep the current task, budget and single write owner.
 
 ## Usage correction — owner direction, 2026-10-18
 
-Enforce [existing context and coordination limits](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#enforce-existing-usage-limits)
+Enforce [existing context and coordination limits](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#enforce-existing-usage-limits)
 at safe boundaries: one implementation worker by default, justified bounded nested
 delegation, delta-only continuation reads, no unchanged-state acknowledgment or
 repeated closed-worker inventories. Keep current indexes concise and preserve
 history in archives. Required security/CI proof and native gates are unchanged.
 
-Local validation also follows [change-impact selection before merge](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#change-impact-selection-before-merge): map applicable shared fixtures, migration paths, pins, disabled variants and concurrency effects to focused checks in the existing Plan. Reconcile material deltas; no new broad-run default or duplicate planning artifact.
+Local validation also follows [change-impact selection before merge](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#change-impact-selection-before-merge): map applicable shared fixtures, migration paths, pins, disabled variants and concurrency effects to focused checks in the existing Plan. Reconcile material deltas; no new broad-run default or duplicate planning artifact.
 
 Owner direction,2026-10-18: Codex supervision with a Claude implementation coordinator remains the supported delivery baseline. Live workflow changes retain their existing release gates.
 
@@ -1525,7 +1520,7 @@ The owner may explicitly cancel a named RC promotion MR's pipeline and direct th
 ## Reviewed-merge classifier reconciliation — 2026-10-19
 
 Owner requested narrowing the Merge Without Review false positive. Follow
-[reviewed merges and classifier false positives](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#reviewed-merges-and-classifier-false-positives):
+[reviewed merges and classifier false positives](.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#reviewed-merges-and-classifier-false-positives):
 verified independent supervisor review under delegated merge authority satisfies
 the review requirement without another routine human approval. Required CI,
 source-SHA binding, applicable findings disposition and separate RC owner
@@ -1599,7 +1594,7 @@ remain unchanged. Missing support or unsafe resource collisions remain blockers.
 Owner-authorized private test commands use a stable project test prefix/label,
 shared build/run/Compose/tagged-image cleanup allows in tracked project settings,
 and machine-specific evidence Write/Edit paths in ignored local settings. Follow
-[reusable test permissions](distributions/skills/restruct-sdlc/sdlc-management/references/adoption.md#reusable-private-test-permission-rules).
+[reusable test permissions](.agents/skills/restruct-sdlc/sdlc-management/references/adoption.md#reusable-private-test-permission-rules).
 Preserve existing provider/GitLab rules. Keep active task-specific bridge rules
 through safe transition/cleanup; permanent rules remain. Verify loaded sources and
 actual operation. Prefix/allow matching does not prove task ownership or waive
@@ -1608,10 +1603,10 @@ native checks, test concurrency/build sequencing, scope or validation.
 
 ## Context and coordination economy — owner direction, 2026-10-20
 
-Current checkpoint/handoff defaults are150k/200k active context, superseding300k/350k at the next safe boundary for workers and coordinator/supervisor assessment. Claude and Codex may initiate supported native self-compaction at safe points under standing owner authority. Preserve running batches, exact bindings, children, budgets and smaller native limits. Follow [coordination economy](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#lower-context-thresholds-and-coordination-economy--owner-direction-2026-10-20): directly review routine prose/mechanical changes, reserve delegation for meaningful independent work and required substantive reviews, batch searches/edits/handoffs, read deltas and suppress unchanged polls/acknowledgments. No full-history fork, duplicate worker, test rerun or automatic replacement merely for a checkpoint; no weakening of security/source/validation gates.
+Current checkpoint/handoff defaults are150k/200k active context, superseding300k/350k at the next safe boundary for workers and coordinator/supervisor assessment. Claude and Codex may initiate supported native self-compaction at safe points under standing owner authority. Preserve running batches, exact bindings, children, budgets and smaller native limits. Follow [coordination economy](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#lower-context-thresholds-and-coordination-economy--owner-direction-2026-10-20): directly review routine prose/mechanical changes, reserve delegation for meaningful independent work and required substantive reviews, batch searches/edits/handoffs, read deltas and suppress unchanged polls/acknowledgments. No full-history fork, duplicate worker, test rerun or automatic replacement merely for a checkpoint; no weakening of security/source/validation gates.
 
 
-Owner amendment,2026-10-20: [safe self-compaction](distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#authorized-self-compaction-at-safe-points--owner-amendment-2026-10-20) is authorized for Claude/Codex without a repeat prompt where native tools support it; supersedes the prior owner-only policy. Save current state first, preserve active work, and verify native completion. An operator-only interface remains a capability limitation, not a reason to fabricate input or replace sessions.
+Owner amendment,2026-10-20: [safe self-compaction](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#authorized-self-compaction-at-safe-points--owner-amendment-2026-10-20) is authorized for Claude/Codex without a repeat prompt where native tools support it; supersedes the prior owner-only policy. Save current state first, preserve active work, and verify native completion. An operator-only interface remains a capability limitation, not a reason to fabricate input or replace sessions.
 
 
 ## Codex routine work and Sol delegates — owner direction, 2026-10-20
@@ -1621,18 +1616,14 @@ Routine supervisor status, management publication, handoffs, prose/configuration
 
 ## Restruct SDLC skill-suite packaging
 
-The bundled Restruct SDLC package is a thin parent
-([entrypoint](distributions/skills/restruct-sdlc/SKILL.md)) with the three preserved
-child skills `sdlc-management`, `repository-supervisor` and `claude-session-handoff`.
-It is SaaStacular's default bundled development dependency and lives at
-`distributions/skills/restruct-sdlc/` with the aliases `.agents/skills/restruct-sdlc`
-and `.claude/skills/restruct-sdlc` (relative symlinks to
-`../../distributions/skills/restruct-sdlc`). Commands and links in these guides use
-the bundle through those paths. Its MIT notices
-([LICENSE](distributions/skills/restruct-sdlc/LICENSE) and the `sdlc-management`
-LICENSE) stay with it. To use another workflow, remove both aliases and replace
-or update AGENTS.md, CLAUDE.md and `docs/agents/` with your own rules; see
-[docs/DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md).
+The GitHub Restruct SDLC submodule at `.agents/skills/restruct-sdlc/` is the
+repository's default development dependency. Its parent entrypoint routes to
+three complete child skills: `sdlc-management`, `repository-supervisor` and
+`claude-session-handoff`. The `.claude/skills/restruct-sdlc` alias points to
+`../../.agents/skills/restruct-sdlc`. Keep its MIT notices and full workflow;
+updates are explicit reviewed Git submodule pin changes. See
+[Development workflow](docs/DEVELOPMENT-WORKFLOW.md) for initialization,
+updates and a complete opt-out.
 
 ## Retain local validation diagnostics — owner direction, 2026-10-21
 
@@ -1640,4 +1631,4 @@ Before retrying or handing back a failed local run, verify its scanned check led
 underlying failure logs and supplemental JUnit survive temporary cleanup in the
 explicit private evidence directory. Record any withheld/missing detail and keep
 failed and later outcomes distinct; wrapper/phase failures are not underlying test
-IDs. Follow [local evidence retention](distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#preserve-local-validation-evidence-before-cleanup).
+IDs. Follow [local evidence retention](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#preserve-local-validation-evidence-before-cleanup).

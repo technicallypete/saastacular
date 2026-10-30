@@ -281,7 +281,7 @@ records the operating rules.
   and native `worktree-state`, refresh pin provenance and restore the observer
   from the current transcript tail. No metadata fabrication, permission change,
   fork or move beneath a live holder. Native gates remain binding. See the
-  [relocation gate](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#naming-dispatch-and-relocation-gate).
+  [relocation gate](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#naming-dispatch-and-relocation-gate).
 - **Creation.** Documented procedure only; the helper never starts a session. The
   read-only `status --creation-check` gate must report no reusable live or stopped
   coordinator, no unknown or ambiguous candidate, CLI 2.1.296 and a Codex-verified
@@ -360,7 +360,7 @@ pipeline. Assign and verify that owner separately under the
 For ordinary replies to direct owner prompts, omit the `COORDINATOR_STATUS` footer unless the owner explicitly asks for supervisor relay. Exception: an owner decision that changes active work must immediately emit a `decision` footer, including when the same message answers the owner. Do not wait for another turn, worker handback or review-ready commit. Autonomous handoffs and required reviews, failure records and blockers still notify; existing legacy-prose/native-question detection is unchanged.
 
 For autonomous supervisor handoffs, the coordinator ends with one plain `COORDINATOR_STATUS: CLASS | TASK-ID | SUMMARY`
-line, following the [portable convention](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-final-status-line).
+line, following the [portable convention](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-final-status-line).
 Owner-decision updates (`decision`), pending questions (`question`) and review handoffs (`review-ready`) take priority over
 another task's running work. Name the actionable task in the final marker; keep routine task progress in the body.
 The watcher prefers the valid final marker; `working` suppresses routine history/recovery notices, but an explicit
@@ -409,7 +409,7 @@ interrupting a batch or resetting budgets. Prose does not configure the runtime.
 
 ## Compact repair context — 2026-10-15
 
-Use the [repair checklist](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#compact-repair-handoff)
+Use the [repair checklist](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#compact-repair-handoff)
 for failed batches/corrections. Existing Goal/Plan/Result/review and artifact links
 supply durable context; no separate packet, full-log payload or authority expansion.
 
@@ -435,7 +435,7 @@ repeatedly probing the allowance. This is model selection only, not scope,
 execution-release or budget-extension authority.
 
 
-For routine status/handoffs use [concise operational messages](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
+For routine status/handoffs use [concise operational messages](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
 Report changes and actionable waits, reference the existing decision record and
 continue authorized next actions; do not repeat settled context or approval prompts.
 
@@ -464,7 +464,7 @@ independently. Restart a running observer at a safe point with `stop`, then
 
 ## Coordinator retirement checkpoints — 2026-10-16
 
-Follow [coordinator checkpoints and retirement](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-checkpoints-and-retirement):
+Follow [coordinator checkpoints and retirement](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-checkpoints-and-retirement):
 150k active-context checkpoint, 200k compaction-or-handoff assessment, with safe
 batch completion and compaction first. A new UUID requires verified single-owner
 cutover, preserved pending work and explicit pin/observer rebinding. Existing
@@ -487,7 +487,7 @@ without settings self-modification, duplicate workers or speculative retries.
 
 Keep the useful detail in policy acknowledgments and multi-task reports. Write
 short labeled bullets/fragments rather than repeated explanatory sentences;
-[examples and boundaries](../../distributions/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
+[examples and boundaries](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#concise-operational-messages).
 No dashboard-only restriction, cryptic shorthand, authority omission or marker/parser change.
 
 
@@ -508,7 +508,7 @@ fixed-length reports; it changes no technical, native-permission or review gate.
 
 ## Post-merge local qualification handoff — 2026-10-19 UTC
 
-After an authorized merge, the existing Claude coordinator must automatically launch, own and track affected local staging batches/suites on the exact merged SHA under the [current policy](../../distributions/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally). Name executable selectors and coverage rationale in the handoff. Full local staging-tip runs are owner-requested or supervisor-recommended, with the reason and frozen observed tip recorded; RC MRs retain full hosted qualification. A Codex merge handoff names that SHA; delivery/receipt is not proof that the run started or passed. Verify actual queued/running/terminal state and retain command, exit, logs and cleanup in the Result. Shared-resource contention queues the run visibly without an extra owner prompt, a new persistent coordinator or a hosted-full substitute. Successor implementation may overlap after merge; predecessor final ACCEPT still gates its integration.
+After an authorized merge, the existing Claude coordinator must automatically launch, own and track affected local staging batches/suites on the exact merged SHA under the [current policy](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#post-merge-qualification-runs-locally). Name executable selectors and coverage rationale in the handoff. Full local staging-tip runs are owner-requested or supervisor-recommended, with the reason and frozen observed tip recorded; RC MRs retain full hosted qualification. A Codex merge handoff names that SHA; delivery/receipt is not proof that the run started or passed. Verify actual queued/running/terminal state and retain command, exit, logs and cleanup in the Result. Shared-resource contention queues the run visibly without an extra owner prompt, a new persistent coordinator or a hosted-full substitute. Successor implementation may overlap after merge; predecessor final ACCEPT still gates its integration.
 
 
 ## No automatic post-merge cloud checks — owner clarification

@@ -86,15 +86,14 @@ not replace them.
 
 | Component | Path | Licence | Licence file |
 |---|---|---|---|
-| Restruct SDLC (default bundled development workflow; the application build and runtime do not use it) | `distributions/skills/restruct-sdlc/` | MIT, Copyright (c) 2026 Vitruvian Technology, Corp. | `distributions/skills/restruct-sdlc/LICENSE`, `distributions/skills/restruct-sdlc/sdlc-management/LICENSE` |
+| Restruct SDLC (default development submodule; the application build and runtime do not use it) | `.agents/skills/restruct-sdlc/` | MIT, Copyright (c) 2026 Vitruvian Technology, Corp. | `.agents/skills/restruct-sdlc/LICENSE`, `.agents/skills/restruct-sdlc/sdlc-management/LICENSE` |
 
-The bundled Restruct copy matches the package bundled in the source repository at the pinned commit except in three files.
-`claude-session-handoff/SKILL.md` and
-`claude-session-handoff/references/local-session-handoff.md` each had one origin
-phrase made generic. In `claude-session-handoff/scripts/test_watch.py`, two
-identifiers in one test fixture string were replaced with synthetic values of the
-same length. Every other file is byte-identical to that package, including its
-paths and links to the bundled location `distributions/skills/restruct-sdlc/`.
+Restruct is an unmodified Git submodule from
+https://github.com/technicallypete/restruct-sdlc, pinned by this repository's Git
+link and registered in `.gitmodules`. Its MIT licenses remain in the initialized
+submodule; initializing it downloads the pinned upstream contents. Updates are
+explicit reviewed dependency pin changes. No locally transformed Restruct files
+are shipped by this repository.
 
 ### Lock and module files
 

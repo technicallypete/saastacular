@@ -8,7 +8,7 @@
 # streamed into the pinned gitleaks container on stdin (no bind mount, no network) by the Compose overlay
 # infra/compose/secret-scan.yml, which checks the regular-file and link counts before scanning.
 #
-# - Git index entries of mode 160000 (gitlinks, submodules) are identified first and refused.
+# - The independent development submodule is excluded by path without inspection; other gitlinks are refused.
 # - A symbolic link is kept as a link and never followed; its target text is scanned (scan/link-targets.txt).
 # - An untracked nested repository (one directory entry) is skipped and counted, never descended.
 # - Any other entry type, a missing path or a name with a tab or newline is refused.
@@ -55,13 +55,17 @@ done <"$TMP/stage.z"
 git -C "$ROOT" ls-files -z --cached --others --exclude-standard >"$TMP/list.z" || fail 2 "git ls-files failed"
 
 : >"$TMP/files.z"; : >"$TMP/w/scan/link-targets.txt"
-nreg=0 nlink=0 nskip=0
+nreg=0 nlink=0 nskip=0 nsub=0
 while IFS= read -r -d '' e; do
   p="${e%/}"
   if [[ -n "${SEEN[$p]+x}" ]]; then continue; fi
   SEEN["$p"]=1
   [[ "$p" != *$'\t'* && "$p" != *$'\n'* ]] || fail 2 "a submitted path contains a tab or newline"
   if [[ -n "${GITLINK[$p]+x}" ]]; then
+    if [[ "$p" == .agents/skills/restruct-sdlc ]]; then
+      nsub=$((nsub + 1)); echo "secret-scan: excluded independent development submodule: $p" >&2
+      continue
+    fi
     fail 2 "gitlink (submodule) entry is not supported: $p"
   elif [[ -L "$ROOT/$p" ]]; then
     nlink=$((nlink + 1)); printf '%s\0' "$p" >>"$TMP/files.z"
@@ -110,7 +114,7 @@ tar -C "$ROOT" --null --no-recursion -T "$TMP/files.z" -cf - | tar -C "$TMP/w/sc
 printf '%s\n' "$nreg" >"$TMP/w/meta/count-regular"
 printf '%s\n' "$nlink" >"$TMP/w/meta/count-links"
 cp -- "$CONFIG" "$TMP/w/meta/gitleaks.toml"
-echo "secret-scan: submitted set of $ROOT: $nreg regular files, $nlink links, $nskip skipped nested repositories" >&2
+echo "secret-scan: submitted set of $ROOT: $nreg regular files, $nlink links, $nskip skipped nested repositories; $nsub independent development submodules" >&2
 
 rc=0
 tar -C "$TMP/w" -cf - scan meta | docker compose --env-file "$ENV_FILE" -f "$REPO/infra/compose/local.yml" \

@@ -1,8 +1,0 @@
-# sdlc-management: machine-local session delivery records and private worker checkouts
-/management/**/SESSION-HANDOFFS.jsonl
-/.claude/settings.local.json
-/.claude/worktrees/
-/.codex/worktrees/
-
-# Shared operator-private evidence, secrets and scratch in the main checkout.
-/.local/

@@ -1,0 +1,4 @@
+[submodule "restruct-sdlc"]
+	path = .agents/skills/restruct-sdlc
+	url = https://github.com/technicallypete/restruct-sdlc.git
+	ignore = all

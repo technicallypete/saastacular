@@ -309,14 +309,14 @@ ci_controls_required() {
   git --no-optional-locks -C "$repo" rev-parse --verify "$base^{commit}" >/dev/null 2>&1 || return 0
   git --no-optional-locks -C "$repo" merge-base --is-ancestor "$base" "$resolved" 2>/dev/null || return 0
   if (
-    git --no-optional-locks -C "$repo" diff --name-only -z --no-renames "$base" "$resolved" -- || exit 2
-    git --no-optional-locks -C "$repo" diff --name-only -z --no-renames "$resolved" -- || exit 2
-    git --no-optional-locks -C "$repo" ls-files -z --others --exclude-standard || exit 2
+    git --no-optional-locks -C "$repo" diff --name-only -z --no-renames "$base" "$resolved" -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" || exit 2
+    git --no-optional-locks -C "$repo" diff --name-only -z --no-renames "$resolved" -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" || exit 2
+    git --no-optional-locks -C "$repo" ls-files -z --others --exclude-standard -- . ":(top,exclude).agents/skills/restruct-sdlc" ":(top,exclude).claude/skills/restruct-sdlc" || exit 2
   ) | (
     while IFS= read -r -d '' p; do
       case "$p" in
         infra/*|contracts/*|distributions/skills/*|.gitlab-ci.yml|.env.example|.gitignore|.dockerignore|README.md|Dockerfile|*/Dockerfile|*/.dockerignore|*.Dockerfile|core/go.mod|core/go.sum|web/package.json|web/package-lock.json|intelligence/pyproject.toml|intelligence/uv.lock|web/.claude/*|web/.agents/*|.claude/skills/vestive-brand|.agents/skills/vestive-brand/*) exit 0 ;;
-        core/*|web/*|intelligence/*|AGENTS.md|CLAUDE.md|LICENSE|docs/*.md|management/*.md|.agents/*|.claude/*) ;;
+        core/*|web/*|intelligence/*|AGENTS.md|CLAUDE.md|.gitmodules|LICENSE|docs/*.md|management/*.md|.agents/*|.claude/*) ;;
         *) exit 0 ;;
       esac
     done
