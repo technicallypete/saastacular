@@ -198,8 +198,8 @@
       <aside class="callout" aria-labelledby="tenancy-title">
         <h3 id="tenancy-title">One Organization or many</h3>
         <p>For multi-tenant SaaS, serve many Organizations from the same deployment (default operation.) For simpler apps, use single-tenant operation: one Organization served at your root domain.</p>
-        <p>By default each Organization is served on its own generated platform host subdomain, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
-        <p>The setting creates and converts nothing: the multi-tenant data model and every other host stay as they are, and removing it restores multi-tenant operation. <code>PLATFORM_ROOT_PAGE</code> selects what the multi-tenant root shows.</p>
+        <p>By default, each Organization is served on its own generated platform host subdomain, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
+        <p>The setting creates and converts nothing: the multi-tenant data model and every other host stay as they are, and removing it restores multi-tenant operation. <code>PLATFORM_ROOT_PAGE</code> selects what the multi-tenant root shows: a simple landing page with a sign-up CTA, or a redirect straight to sign-up.</p>
         <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DOMAINS.md#default-tenant-root-alias-and-root-presentation">Default-tenant root alias and root presentation</a></p>
       </aside>
     </div>
