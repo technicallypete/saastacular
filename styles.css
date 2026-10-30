@@ -457,7 +457,7 @@ p {
   display: inline-block;
   margin-bottom: 1rem;
   padding: 0.25rem 0.75rem;
-  background: #bcc653; /* the brand lime, slightly muted: same hue, less saturation; only this badge */
+  background: #b4bc62; /* the brand lime, muted: same hue, less saturation (about 40%); only this badge */
   color: var(--on-lime);
   border-radius: var(--radius-pill);
   font-family: var(--font-kicker);
@@ -1058,6 +1058,18 @@ p {
    case study and from the source links). */
 .workflow-handbook {
   margin: 1.5rem 0;
+}
+
+/* The callout reads as ordinary text with one bold phrase. The link's default display face (Oswald, condensed) makes a regular and a bold
+   weight hard to tell apart, so this callout uses the body font: 400 for the lead-in and the arrow, 700 for the phrase only. */
+.workflow-handbook a {
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  font-weight: 400;
+}
+
+.workflow-handbook strong {
+  font-weight: 700;
 }
 
 .author-text p:last-child {
