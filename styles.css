@@ -317,28 +317,27 @@ p {
   }
 }
 
-/* A small muted dot between the nav items (none at the ends), from 60rem (960px) up, which covers ordinary laptop and desktop windows, not
-   only the widest layout. It is drawn by CSS only, so it is never announced; the 20px gap it replaces shrinks to 16px (4px dot plus 6px
-   either side), so the row does not get wider; the links keep their own hit areas. Below 60rem the nav has no dots. */
-@media (min-width: 60rem) {
-  .site-nav ul {
-    column-gap: 0;
-  }
+/* A small muted dot between the nav items, at every width. It follows each item except the last, so when the items wrap a line ends with its
+   separator and never starts with one, and the row has no dot before the first or after the last item. It is drawn by CSS only, so it is never
+   announced. The space between two items is 16px (6px gap, 4px dot, 6px margin), less than the 20px it replaces, so the row is no wider; the
+   links keep their own hit areas and the items still wrap naturally. */
+.site-nav ul {
+  column-gap: 0.375rem;
+}
 
-  .site-nav li {
-    display: flex;
-    align-items: center;
-  }
+.site-nav li {
+  display: flex;
+  align-items: center;
+}
 
-  .site-nav li + li::before {
-    content: "";
-    flex: none;
-    width: 4px;
-    height: 4px;
-    margin-inline: 0.375rem;
-    border-radius: 50%;
-    background: var(--muted);
-  }
+.site-nav li:not(:last-child)::after {
+  content: "";
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-inline-start: 0.375rem;
+  border-radius: 50%;
+  background: var(--muted);
 }
 
 /* Buttons */
