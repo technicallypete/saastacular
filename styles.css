@@ -787,7 +787,7 @@ p {
   grid-column: 1;
   grid-row: 2 / 6;
   align-self: start;
-  width: 8rem;
+  width: 9rem;
   height: auto;
   border-radius: 50%;
 }
