@@ -465,6 +465,19 @@ p {
   font-size: 1.0625rem;
 }
 
+.h-line {
+  display: block;
+}
+
+.h-line + .h-line {
+  margin-top: 0.5rem;
+}
+
+.agent-lead {
+  color: var(--fg);
+  font-size: 1.1875rem;
+}
+
 .section-muted {
   background: var(--section-muted);
   --code-bg: #2b2422;
@@ -634,25 +647,103 @@ p {
   cursor: zoom-in;
 }
 
-/* Full-width view: a native modal dialog. Near the full viewport on a phone; on a wide screen the drawing keeps a cap and
-   the body scrolls vertically inside the dialog, never the page. */
+/* Full-width view: a native modal dialog, nearly the full viewport width on a phone and capped at 1440px on a wide screen. Its height
+   is capped at 80% of the viewport: the body scrolls inside, under a fixed header with Close, and the page never scrolls. */
 .diagram-dialog {
   box-sizing: border-box;
   width: calc(100vw - 1rem);
   max-width: 1440px;
-  height: calc(100vh - 1rem);
-  height: calc(100dvh - 1rem);
-  max-height: calc(100dvh - 1rem);
+  max-height: 80vh;
+  max-height: 80dvh;
   padding: 0;
   color: var(--fg);
   background: var(--card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border: 1px solid #404040;
+  border-radius: 1rem;
   overflow: hidden;
 }
 
 .diagram-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.75);
+  background-color: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Open 180ms, close 120-160ms (140ms): opacity and a slight scale. The controller adds .closing and waits for the animation, so the
+   dialog stays modal and inert until it is gone; with reduced motion there is no animation and it closes at once. */
+.diagram-dialog[open] {
+  animation: diagram-in 180ms ease-out;
+}
+
+.diagram-dialog[open]::backdrop {
+  animation: diagram-fade-in 180ms ease-out;
+}
+
+.diagram-dialog.closing {
+  animation: diagram-out 140ms ease-in forwards;
+}
+
+.diagram-dialog.closing::backdrop {
+  animation: diagram-fade-out 140ms ease-in forwards;
+}
+
+@keyframes diagram-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes diagram-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* The dim fades in while the page behind blurs from 0 to 6px, on the dialog's own backdrop only; a browser without backdrop-filter
+   keeps the dim fade. Reduced motion shows the final dim and blur at once. */
+@keyframes diagram-fade-in {
+  from {
+    background-color: rgba(0, 0, 0, 0);
+    -webkit-backdrop-filter: blur(0);
+    backdrop-filter: blur(0);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0.75);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+}
+
+@keyframes diagram-fade-out {
+  from {
+    background-color: rgba(0, 0, 0, 0.75);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0);
+    -webkit-backdrop-filter: blur(0);
+    backdrop-filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagram-dialog[open],
+  .diagram-dialog[open]::backdrop,
+  .diagram-dialog.closing,
+  .diagram-dialog.closing::backdrop {
+    animation: none;
+  }
 }
 
 .diagram-dialog[open] {
@@ -662,7 +753,8 @@ p {
 .diagram-dialog-inner {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  max-height: 80vh;
+  max-height: 80dvh;
 }
 
 .diagram-dialog-head {
@@ -670,7 +762,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 0.75rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -683,6 +775,7 @@ p {
 
 .diagram-close {
   flex: none;
+  margin-inline-start: auto;
   font: inherit;
   color: var(--fg);
   background: none;
@@ -693,7 +786,7 @@ p {
 }
 
 .diagram-dialog-body {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -706,10 +799,12 @@ p {
   height: auto;
 }
 
-/* A screenshot is shown at most at its own pixel size and never wider than the dialog, centred; a tall one scrolls inside. */
+/* A screenshot is shown at most at its own pixel size (the controller sets max-width from the image's width attribute) and never wider
+   than the dialog, centred; a tall one scrolls inside. Its width and height attributes give the aspect ratio before it loads, so the
+   dialog does not change height when the image arrives. */
 .diagram-dialog-body img {
   display: block;
-  width: auto;
+  width: 100%;
   max-width: 100%;
   height: auto;
   margin-inline: auto;
@@ -788,9 +883,6 @@ p {
   display: block;
   width: 100%;
   height: auto;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 .shot-mobile img {

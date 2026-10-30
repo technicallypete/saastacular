@@ -146,8 +146,8 @@
 
   <section id="security" class="section" aria-labelledby="security-title">
     <div class="container">
-      <p class="kicker">What ships</p>
-      <h2 id="security-title">Security boundaries you start with</h2>
+      <p class="kicker">Shipped with confidence</p>
+      <h2 id="security-title">Security boundaries from day 0</h2>
       <p class="section-lead">Each card summarizes a mechanism described in the public documentation. Security statements are scoped to the tested configuration and the checks the guides name.</p>
       <ol class="cards">
         <li class="card">
@@ -181,7 +181,7 @@
         <li class="card">
           <span class="card-index" aria-hidden="true">05</span>
           <h3>Tenant-scoped object storage and MCP clients</h3>
-          <p>Core derives every object key from the Organization and object identifiers and authorizes each read, upload and delete against the object's recorded scope before any provider call; row-level security enforces the same table independently. Signed download URLs are GET-only, expire after at most 300 seconds and are never logged. The storage layer is core-internal: no route wires it in yet, and the guide states what is not proven.</p>
+          <p>Core derives every object key from the Organization and object IDs and authorizes each read, upload and delete against the object's recorded scope before any provider call; row-level security enforces the same table independently. Signed download URLs are GET-only, expire after at most 300 seconds and are never logged. The storage layer is core-internal: no route wires it in yet.</p>
           <p>An AI client connects to core over MCP through its own connection URL, bound to one Organization, one user and one client. Every call is reauthorized against the user's current membership and Group, and the member can revoke the connection.</p>
           <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/OBJECT-STORAGE.md#signed-urls-and-endpoint-identity">Object storage</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/MCP.md#how-it-works">MCP connections</a></p>
         </li>
@@ -196,8 +196,8 @@
 
       <aside class="callout" aria-labelledby="tenancy-title">
         <h3 id="tenancy-title">One Organization or many</h3>
-        <p>For simpler apps, use single-tenant operation: one Organization served at your root domain. For multi-tenant SaaS, serve many Organizations from the same deployment.</p>
-        <p>By default each Organization is served on its own generated platform host, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
+        <p>For multi-tenant SaaS, serve many Organizations from the same deployment (default operation.) For simpler apps, use single-tenant operation: one Organization served at your root domain.</p>
+        <p>By default each Organization is served on its own generated platform host subdomain, or on a verified custom domain, and there is no default tenant. Setting <code>DEFAULT_TENANT_SLUG</code> makes the exact root host serve the entry, sign-in, <code>/join</code> and account pages of one existing Organization at the root's own address.</p>
         <p>The setting creates and converts nothing: the multi-tenant data model and every other host stay as they are, and removing it restores multi-tenant operation. <code>PLATFORM_ROOT_PAGE</code> selects what the multi-tenant root shows.</p>
         <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/DOMAINS.md#default-tenant-root-alias-and-root-presentation">Default-tenant root alias and root presentation</a></p>
       </aside>
@@ -208,7 +208,7 @@
     <div class="container workflow-inner">
       <div class="workflow-text">
       <p class="kicker">Included development workflow</p>
-      <h2 id="workflow-title">Restruct<sup class="tm">™</sup> SDLC for agent-driven work</h2>
+      <h2 id="workflow-title">Restruct<sup class="tm">™</sup> SDLC for agent-driven engineering management</h2>
       <p class="section-lead">SaaStacular includes Restruct SDLC, a development workflow for working with AI coding agents and human decision-makers. It is pinned as an unaltered submodule at <code>.agents/skills/restruct-sdlc/</code> and keeps its own MIT license.</p>
       <ul class="facts">
         <li>It covers the delivery steps in order: Goal, Spec, Plan, implementation, review and validation, and a Result record, with budgets, parallel scheduling, evidence and cleanup.</li>
@@ -225,7 +225,7 @@
   <section id="architecture" class="section" aria-labelledby="architecture-title">
     <div class="container">
       <p class="kicker">Architecture</p>
-      <h2 id="architecture-title">A base for any SaaS. Peace-of-mind security for your AI features, from the start.</h2>
+      <h2 id="architecture-title"><span class="h-line">A base for any SaaS.</span> <span class="h-line">Peace-of-mind security for your AI features, from the start.</span></h2>
       <p class="section-lead">Every arrow below comes from the repository's README, SECURITY guide, foundation guides or MCP contract; the source for each is listed under its diagram. They show what the template does today, not a deployment you operate, and the security statements are scoped to the tested configuration.</p>
 
       <figure class="diagram" id="diagram-services" aria-labelledby="diagram-services-title">
@@ -319,7 +319,7 @@
         <li>Teardown is verified by exact ID. A crash leaves the runner as a registry row for the next launch's recovery gate, and <code>resources.tsv</code> reports what each scope created and left over.</li>
         <li>The affected profile selects only the checks a committed change requires and falls back to the full profile for unregistered paths or an unusable base. A live <code>N/TOTAL</code> counter tracks required checks as they run.</li>
       </ul>
-      <p class="analogy"><strong>Compared with a resource reaper.</strong> <a href="https://golang.testcontainers.org/features/garbage_collector/">Ryuk</a>, the reaper in Testcontainers (<a href="https://github.com/testcontainers/moby-ryuk">source</a>), removes the containers, networks and volumes that carry a test session's labels after a delay once its connection closes. That is resource cleanup. This harness covers the wider validation workflow: allocation ceilings that refuse before anything is created, exact run ownership and cleanup evidence, restart recovery gates, affected-check selection and scanned validation reports. It is the repository's own tooling, not a dependency or a replacement for either, and no compatibility is claimed.</p>
+      <p class="analogy"><strong>Compared with a resource reaper.</strong> <a href="https://golang.testcontainers.org/features/garbage_collector/">Ryuk</a>, the reaper in Testcontainers (<a href="https://github.com/testcontainers/moby-ryuk">source</a>), removes the containers, networks and volumes that carry a test session's labels after a delay once its connection closes. That is resource cleanup.<br> This harness covers the wider validation workflow: allocation ceilings that refuse before anything is created, exact run ownership and cleanup evidence, restart recovery gates, affected-check selection and scanned validation reports. It is the repository's own tooling, not a dependency or a replacement for either, and no compatibility is claimed.</p>
       <p class="limits"><strong>Limits.</strong> Nothing here claims a time saving or leak-free operation. The runtime added by the accounting has not been measured, and some Docker behaviours it relies on, such as event ordering and a real reboot, have not yet been observed on real Docker. Local runs need Docker Engine 24 or later with BuildKit, Compose 2.24 or later, Bash 4.4 or later, GNU coreutils, findutils and grep, plus git, <code>setsid</code>, <code>ps</code>, <code>timeout</code> and <code>flock</code>.</p>
       <p class="card-links"><a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/OPERATIONS.md#batch-docker-reuse-and-resource-accounting">Batch Docker reuse and resource accounting</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/foundation/TEST-INDEX.md#reading-progress-and-failures">Reading progress and failures</a></p>
     </div>
@@ -373,6 +373,7 @@
     <div class="container">
       <p class="kicker">Get started</p>
       <h2 id="get-started-title">Four commands from the repository root</h2>
+      <p class="section-lead agent-lead">We recommend using your coding-agent harness to set up, develop and operate SaaStacular. The documented commands are recipes for your agents; you are not expected to run the routine workflow by hand. You provide configuration and approve key decisions.</p>
       <p class="section-lead">You need Docker Engine or Docker Desktop with Compose 2.24 or later, bash with coreutils and <code>flock</code>, and Git for the developer checks. No host Go, Python, Node, PostgreSQL, Redis or MinIO is needed. These are the README's quick-start commands, shown here for reading.</p>
       <ol class="steps">
         <li>
@@ -437,7 +438,7 @@ bash infra/security/secret-scan.sh --env-file .env secret-scan</code></pre>
   </div>
   <div class="container footer-inner">
     <p class="footer-brand"><img src="assets/brand/mark-192.png" alt="" width="28" height="28" loading="lazy"> <span>SaaStacular</span></p>
-    <p>Apache-2.0 · Copyright 2026 Vitruvian Technology, Corp.</p>
+    <p>Copyright 2026 Vitruvian Technology, Corp.</p>
     <p class="footer-links"><a href="https://github.com/technicallypete/saastacular">View source</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/docs/SECURITY.md">Security</a> · <a href="https://github.com/technicallypete/saastacular/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></p>
   </div>
 </footer>

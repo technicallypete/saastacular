@@ -8,6 +8,7 @@
   if (!dialog || !title || !body || typeof dialog.showModal !== "function") return;
   var closeButton = dialog.querySelector(".diagram-close");
   var opener = null;
+  var closing = false;
 
   function text(el) {
     return el.textContent.replace(/\s+/g, " ").trim();
@@ -44,6 +45,7 @@
     if (!img || !caption) return;
     var copy = img.cloneNode(false);
     copy.removeAttribute("loading");
+    copy.style.maxWidth = copy.getAttribute("width") + "px";
     show(copy, text(caption), from);
   }
 
@@ -71,9 +73,28 @@
     button.addEventListener("click", function () { openShot(figure, button); });
   });
 
-  closeButton.addEventListener("click", function () { dialog.close(); });
-  dialog.addEventListener("click", function (event) { if (event.target === dialog) dialog.close(); });
+  /* Close through the exit animation: the dialog stays modal until it has finished (no animation, so no wait, with reduced motion). */
+  function finish() {
+    dialog.classList.remove("closing");
+    if (dialog.open) dialog.close();
+  }
+
+  function requestClose() {
+    if (closing || !dialog.open) return;
+    closing = true;
+    dialog.classList.add("closing");
+    Promise.all(dialog.getAnimations({ subtree: true }).map(function (a) { return a.finished; })).then(finish, finish);
+  }
+
+  closeButton.addEventListener("click", requestClose);
+  dialog.addEventListener("click", function (event) { if (event.target === dialog) requestClose(); });
+  dialog.addEventListener("cancel", function (event) {
+    event.preventDefault();
+    requestClose();
+  });
   dialog.addEventListener("close", function () {
+    closing = false;
+    dialog.classList.remove("closing");
     body.replaceChildren();
     if (opener) opener.focus();
     opener = null;
