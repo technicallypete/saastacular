@@ -18,13 +18,16 @@ type Scope struct {
 }
 
 // Member is one member of a scope with action hints read from the same snapshot. Hints confer nothing: every action
-// re-decides on its own locked facts.
+// re-decides on its own locked facts. G074 (Plan r3.1 §3.9a): DisplayName is the effective presentation name where the
+// caller may read the member's account profile (the provider name otherwise) and AvatarVersion the version of its
+// current avatar there (nil without one or for a profile the caller may not read); a field only, no avatar delivery.
 type Member struct {
-	UserID      tenancy.UserID
-	DisplayName *string
-	Role        string
-	Self        bool
-	Disabled    bool
+	UserID        tenancy.UserID
+	DisplayName   *string
+	Role          string
+	Self          bool
+	Disabled      bool
+	AvatarVersion *int32
 
 	CanChangeRole, CanRemove, CanPromote, CanDemote, CanTransfer bool
 }
@@ -285,7 +288,8 @@ func (s *Service) ListMembers(ctx context.Context, tc *TenantContext, sc Scope, 
 // enabled admin and demotion of an owner while another owner remains, with the owner capability; transfer to an enabled
 // admin by an owner.
 func memberHints(sc Scope, actor tenancy.UserID, r tenancy.Member, owners, actorOwner bool, ownerCount int) Member {
-	m := Member{UserID: r.UserID, DisplayName: r.DisplayName, Role: r.Role, Self: r.UserID == actor, Disabled: r.Disabled}
+	m := Member{UserID: r.UserID, DisplayName: r.DisplayName, Role: r.Role, Self: r.UserID == actor, Disabled: r.Disabled,
+		AvatarVersion: r.AvatarVersion}
 	owner, admin := r.Role == sc.ownerRole(), r.Role == sc.adminRole()
 	m.CanChangeRole = !m.Self && !owner
 	m.CanRemove = !m.Self && !owner

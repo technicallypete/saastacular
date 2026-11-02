@@ -24,7 +24,7 @@ var (
 	orgA, orgB            = uid[tenancy.OrganizationID](0xa1), uid[tenancy.OrganizationID](0xb1)
 	g1, g2, g3, gNew, gB  = uid[tenancy.GroupID](0x01), uid[tenancy.GroupID](0x02), uid[tenancy.GroupID](0x03), uid[tenancy.GroupID](0x04), uid[tenancy.GroupID](0x0b)
 	p1, p2, p3, pB        = uid[tenancy.BusinessProfileID](0x11), uid[tenancy.BusinessProfileID](0x12), uid[tenancy.BusinessProfileID](0x13), uid[tenancy.BusinessProfileID](0x1b)
-	allCapabilities       = []Capability{capOrganizationRead, capOrganizationManageMembers, capOrganizationManagePolicy, capGroupRead, capGroupUpdate, capGroupManageMembers, capProfileRead, capProfileUpdate, capProfileSelect, capProfilePrivileged, capAuditRead, capOrganizationManageDomains, capOrganizationManageBranding, capGroupCreate, capGroupCompleteOnboarding, capOrganizationManageOwners, capGroupManageOwners, capOrganizationLeave, capGroupLeave, capLabelOrganizationManage, capLabelGroupManage, capLabelGroupRead}
+	allCapabilities       = []Capability{capOrganizationRead, capOrganizationManageMembers, capOrganizationManagePolicy, capGroupRead, capGroupUpdate, capGroupManageMembers, capProfileRead, capProfileUpdate, capProfileSelect, capProfilePrivileged, capAuditRead, capOrganizationManageDomains, capOrganizationManageBranding, capGroupCreate, capGroupCompleteOnboarding, capOrganizationManageOwners, capGroupManageOwners, capOrganizationLeave, capGroupLeave, capLabelOrganizationManage, capLabelGroupManage, capLabelGroupRead, capAccountProfileRead, capAccountProfileManageSelf, capGroupMemberProfileRead, capGroupMemberProfileManageSelf, capGroupMemberProfileManage}
 	orgOnly, selG1, selG3 = contextSelection{Organization: orgA}, contextSelection{Organization: orgA, Group: g1}, contextSelection{Organization: orgA, Group: g3}
 	targetOrgA            = Target{Kind: kindOrganization, Organization: orgA}
 	targetG               = func(g tenancy.GroupID) Target { return Target{Kind: kindGroup, Group: g} }
@@ -186,7 +186,7 @@ func TestPolicyGates(t *testing.T) {
 		f.Groups = append(slices.Clone(f.Groups), tenancy.Group{ID: gB, OrganizationID: orgB})
 		f.Profiles = append(slices.Clone(f.Profiles), tenancy.BusinessProfile{ID: pB, OrganizationID: orgB})
 		unknownG, unknownP := uid[tenancy.GroupID](0x7e), uid[tenancy.BusinessProfileID](0x7e)
-		for _, c := range []Capability{capGroupRead, capGroupUpdate, capGroupManageMembers, capGroupCompleteOnboarding, capLabelGroupManage, capLabelGroupRead} {
+		for _, c := range []Capability{capGroupRead, capGroupUpdate, capGroupManageMembers, capGroupCompleteOnboarding, capLabelGroupManage, capLabelGroupRead, capGroupMemberProfileManageSelf, capGroupMemberProfileManage} {
 			for _, g := range []tenancy.GroupID{gB, unknownG, {}} {
 				wantDecision(t, "Group target", c, orgOnly, f, targetG(g), false, reasonTargetNotFound)
 			}
@@ -196,7 +196,7 @@ func TestPolicyGates(t *testing.T) {
 				wantDecision(t, "profile target", c, orgOnly, f, targetP(p), false, reasonTargetNotFound)
 			}
 		}
-		for _, c := range []Capability{capOrganizationRead, capOrganizationManagePolicy, capAuditRead, capOrganizationManageDomains, capOrganizationManageBranding, capGroupCreate, capLabelOrganizationManage} {
+		for _, c := range []Capability{capOrganizationRead, capOrganizationManagePolicy, capAuditRead, capOrganizationManageDomains, capOrganizationManageBranding, capGroupCreate, capLabelOrganizationManage, capAccountProfileRead, capAccountProfileManageSelf, capGroupMemberProfileRead} {
 			for _, o := range []tenancy.OrganizationID{orgB, {}} {
 				if ok, r := decide(c, orgOnly, f, Target{Kind: kindOrganization, Organization: o}); ok || r != reasonTargetNotFound {
 					t.Errorf("Organization target: %s -> (%v, %s)", c, ok, r)
@@ -456,5 +456,119 @@ func TestPolicyHasNoAssuranceInput(t *testing.T) {
 		if a1 != a2 || r1 != r2 {
 			t.Errorf("%s: not a function of the facts", c)
 		}
+	}
+}
+
+// G074 (Plan r3.1 §3.5): account_profile.read and account_profile.manage_self hold for every Organization role, in
+// Organization-only and selected-Group context, on the active Organization only; a Group binding alone confers nothing.
+// The profile row rule is SQL's (the relationship predicate and the self-only policies), never the matrix's.
+func TestProfilePolicy(t *testing.T) {
+	for _, c := range []Capability{capAccountProfileRead, capAccountProfileManageSelf} {
+		if k, ok := capabilityKind(c); !ok || k != kindOrganization || readCapability(c) != capOrganizationRead {
+			t.Errorf("%s: kind %s %t, read capability %s", c, k, ok, readCapability(c))
+		}
+		if req, err := RequireCapability(string(c)); err != nil || req.cap != c {
+			t.Errorf("RequireCapability(%s) = %+v, %v", c, req, err)
+		}
+		for _, r := range []tenancy.OrganizationRole{tenancy.OrgOwner, tenancy.OrgAdmin, tenancy.OrgMember} {
+			wantDecision(t, string(r)+" Organization-only", c, orgOnly, factsA(r), targetOrgA, true, reasonAllowed)
+		}
+		wantDecision(t, "member selected g1", c, selG1, factsA(tenancy.OrgMember, groupBinding(g1, tenancy.GroupMember)), targetOrgA, true,
+			reasonAllowed)
+		wantDecision(t, "Group binding only", c, orgOnly, factsA("", groupBinding(g1, tenancy.GroupOwner)), targetOrgA, false,
+			reasonOrganizationNotPermitted)
+		for _, o := range []tenancy.OrganizationID{orgB, {}} {
+			if ok, r := decide(c, orgOnly, factsA(tenancy.OrgOwner), Target{Kind: kindOrganization, Organization: o}); ok || r != reasonTargetNotFound {
+				t.Errorf("%s on another Organization: (%v, %s)", c, ok, r)
+			}
+		}
+	}
+}
+
+// G075 (Plan r2 §3.4, C4; P1): group_member_profile.read holds for every Organization role on the active Organization in
+// either context (the cards are the projection's); group_member_profile.manage_self is any own role of the exact Group;
+// group_member_profile.manage is the exact Group's own owner or admin. The Organization owner/admin path and the G060
+// override never write a label (a plain role denial, never allowed_override); a selected Group other than the target is
+// outside the context; the Group-kind read capability (group.read) decides forbidden versus not_found.
+func TestGroupMemberProfilePolicy(t *testing.T) {
+	for c, kind := range map[Capability]TargetKind{capGroupMemberProfileRead: kindOrganization,
+		capGroupMemberProfileManageSelf: kindGroup, capGroupMemberProfileManage: kindGroup} {
+		if k, ok := capabilityKind(c); !ok || k != kind {
+			t.Errorf("capabilityKind(%s) = %s, %t; want %s", c, k, ok, kind)
+		}
+		want := capOrganizationRead
+		if kind == kindGroup {
+			want = capGroupRead
+		}
+		if r := readCapability(c); r != want {
+			t.Errorf("readCapability(%s) = %s, want %s", c, r, want)
+		}
+		if req, err := RequireCapability(string(c)); err != nil || req.cap != c {
+			t.Errorf("RequireCapability(%s) = %+v, %v", c, req, err)
+		}
+	}
+	for _, r := range []tenancy.OrganizationRole{tenancy.OrgOwner, tenancy.OrgAdmin, tenancy.OrgMember} {
+		wantDecision(t, string(r)+" reads cards", capGroupMemberProfileRead, orgOnly, factsA(r), targetOrgA, true, reasonAllowed)
+	}
+	wantDecision(t, "member reads cards, selected g1", capGroupMemberProfileRead, selG1,
+		factsA(tenancy.OrgMember, groupBinding(g1, tenancy.GroupMember)), targetOrgA, true, reasonAllowed)
+	wantDecision(t, "Group binding only", capGroupMemberProfileRead, orgOnly, factsA("", groupBinding(g1, tenancy.GroupOwner)), targetOrgA,
+		false, reasonOrganizationNotPermitted)
+
+	f := factsA(tenancy.OrgMember, groupBinding(g1, tenancy.GroupOwner), groupBinding(g2, tenancy.GroupAdmin), groupBinding(g3, tenancy.GroupMember))
+	for _, c := range []struct {
+		what  string
+		cap   Capability
+		g     tenancy.GroupID
+		allow bool
+	}{
+		{"owner, own label", capGroupMemberProfileManageSelf, g1, true},
+		{"admin, own label", capGroupMemberProfileManageSelf, g2, true},
+		{"member, own label", capGroupMemberProfileManageSelf, g3, true},
+		{"no role, own label", capGroupMemberProfileManageSelf, gNew, false},
+		{"owner, another member's label", capGroupMemberProfileManage, g1, true},
+		{"admin, another member's label", capGroupMemberProfileManage, g2, true},
+		{"member, another member's label", capGroupMemberProfileManage, g3, false},
+		{"no role, another member's label", capGroupMemberProfileManage, gNew, false},
+	} {
+		r := reasonAllowed
+		if !c.allow {
+			r = reasonRoleNotPermitted
+		}
+		wantDecision(t, c.what, c.cap, orgOnly, f, targetG(c.g), c.allow, r)
+	}
+	wantDecision(t, "selected g1, owner's label in g1", capGroupMemberProfileManage, selG1, f, targetG(g1), true, reasonAllowed)
+	wantDecision(t, "selected g3, a label in g1", capGroupMemberProfileManage, selG3, f, targetG(g1), false, reasonTargetOutsideContext)
+	wantDecision(t, "selected g3, own label in g1", capGroupMemberProfileManageSelf, selG3, f, targetG(g1), false, reasonTargetOutsideContext)
+
+	// The Organization path never writes a label, with or without the override; a member Group role still writes its own.
+	for _, r := range []tenancy.OrganizationRole{tenancy.OrgOwner, tenancy.OrgAdmin} {
+		for _, override := range []bool{false, true} {
+			o := factsA(r, groupBinding(g3, tenancy.GroupMember))
+			o.Policy.GroupManagementOverride = override
+			what := string(r)
+			if override {
+				what += ", override"
+			}
+			wantDecision(t, what+" manages a label in g1", capGroupMemberProfileManage, orgOnly, o, targetG(g1), false, reasonRoleNotPermitted)
+			wantDecision(t, what+" own label in g1 without a role", capGroupMemberProfileManageSelf, orgOnly, o, targetG(g1), false,
+				reasonRoleNotPermitted)
+			wantDecision(t, what+" manages a label in its member Group", capGroupMemberProfileManage, orgOnly, o, targetG(g3), false,
+				reasonRoleNotPermitted)
+			wantDecision(t, what+" own label in its member Group", capGroupMemberProfileManageSelf, orgOnly, o, targetG(g3), true, reasonAllowed)
+			// group.read admits the Organization owner/admin: the denial is forbidden, never not_found.
+			if d := denial(capGroupMemberProfileManage, orgOnly, o, Target{Kind: kindGroup, Organization: orgA, Group: g1}, reasonRoleNotPermitted); d.code != CodeForbidden {
+				t.Errorf("%s: denial %s, want forbidden", what, d.code)
+			}
+		}
+	}
+	// A plain member without a role in the Group cannot read it: not_found.
+	m := factsA(tenancy.OrgMember, groupBinding(g3, tenancy.GroupMember))
+	if d := denial(capGroupMemberProfileManage, orgOnly, m, Target{Kind: kindGroup, Organization: orgA, Group: g1}, reasonRoleNotPermitted); d.code != CodeNotFound {
+		t.Errorf("non-member Group: denial %s, want not_found", d.code)
+	}
+	// A peer of the Group (member) reads it: forbidden.
+	if d := denial(capGroupMemberProfileManage, orgOnly, m, Target{Kind: kindGroup, Organization: orgA, Group: g3}, reasonRoleNotPermitted); d.code != CodeForbidden {
+		t.Errorf("peer: denial %s, want forbidden", d.code)
 	}
 }

@@ -417,10 +417,17 @@ func nullable(s *string) any {
 	return *s
 }
 
+// memberJSON renders a member row. G074 (Plan r3.1 §3.9, §3.9a): avatar_version appears only when the facade supplied
+// it, i.e. the viewer may read the subject's profile now (the row-level-security-gated join) and the subject has a
+// current avatar; the thumbnail URL is /profiles/<user_id>/avatar?v=<avatar_version>, read through the gated route.
 func memberJSON(m access.Member) map[string]any {
-	return map[string]any{"user_id": formatID(m.UserID), "display_name": nullable(m.DisplayName), "role": m.Role,
+	out := map[string]any{"user_id": formatID(m.UserID), "display_name": nullable(m.DisplayName), "role": m.Role,
 		"self": m.Self, "disabled": m.Disabled, "can_change_role": m.CanChangeRole, "can_remove": m.CanRemove,
 		"can_promote": m.CanPromote, "can_demote": m.CanDemote, "can_transfer": m.CanTransfer}
+	if m.AvatarVersion != nil {
+		out["avatar_version"] = *m.AvatarVersion
+	}
+	return out
 }
 
 // invitationJSON renders an invitation; intended_address appears only when the facade supplied it (the issuing scope's

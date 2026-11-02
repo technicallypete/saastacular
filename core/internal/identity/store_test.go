@@ -71,12 +71,14 @@ WHERE c.relnamespace = 'app'::regnamespace AND c.relkind = 'r' AND c.relname <> 
 		// invitations table joins the set, forced as well (TestMembershipCatalog), and from version 16 the G058
 		// enrollment_requests, enrollment_restrictions and enrollment_sessions tables, forced as well (TestEnrollmentCatalog),
 		// and from version 18 the G062 signup_sessions table, forced as well (TestSignupCatalog), and from version 20 the
-		// G020 label_assignments and label_definitions tables, forced as well (TestLabelsCatalog).
-		want := "business_profiles,enrollment_requests,enrollment_restrictions,enrollment_sessions,group_business_profiles,groups," +
-			"identity_principals,identity_provider_binding,invitations,label_assignments,label_definitions,login_transactions," +
-			"mcp_connections,organization_branding," +
+		// G020 label_assignments and label_definitions tables, forced as well (TestLabelsCatalog), and from version 23 the
+		// G074 account_avatars and account_profiles tables, forced as well (TestProfileCatalog), and from version 24 the G075
+		// group_member_profiles table, forced as well (the 00024 postconditions).
+		want := "account_avatars,account_profiles,business_profiles,enrollment_requests,enrollment_restrictions,enrollment_sessions," +
+			"group_business_profiles,group_member_profiles,groups,identity_principals,identity_provider_binding,invitations,label_assignments,label_definitions," +
+			"login_transactions,mcp_connections,organization_branding," +
 			"organization_domains,organizations,role_bindings,sessions,signup_sessions,stored_objects,users"
-		if tables != want || owners != it.cfg.OwnerRole() || rls != 20 {
+		if tables != want || owners != it.cfg.OwnerRole() || rls != 23 {
 			t.Fatalf("tables=%q owners=%q rls=%d", tables, owners, rls)
 		}
 		// No tenant, organization, group, role or vendor-organization column. The two exemptions are exactly
@@ -201,6 +203,61 @@ VALUES (convert_to($1, 'UTF8'), convert_to($1, 'UTF8'), $2, 'client_01X', 'https
 	if n := loginTx(`DELETE FROM app.login_transactions`); n != 1 {
 		t.Fatalf("runtime DELETE login_transactions in its own binding: %d rows", n)
 	}
+
+	// G074 (Plan r3.1 §3.2 E1, §3.9; EP-1 A2): at version 23 E1 returns the effective presentation name
+	// coalesce(account_profiles.name, users.display_name) with unchanged result columns: the provider name without a
+	// profile row, the explicit name once set (it survives a later provider rename, resolved P3), and the current provider
+	// name again once cleared. One live bound session of the seeded user and the profile writes run in the user's IDENTITY
+	// shape in one rolled-back runtime transaction; E1 is called as the runtime calls it.
+	t.Run("E1 presentation name at version 23", func(t *testing.T) {
+		var result string
+		if err := own.QueryRow(ctx, `SELECT pg_get_function_result('app.auth_resolve_session(bytea, timestamptz, text)'::regprocedure)`).Scan(&result); err != nil ||
+			result != "TABLE(session_id uuid, user_id uuid, display_name text, mfa_assurance text, auth_time timestamp with time zone, "+
+				"idle_expires_at timestamp with time zone, absolute_expires_at timestamp with time zone, renewed_at timestamp with time zone, "+
+				"csrf_token bytea, provider_session_id text, origin text, organization_id uuid)" {
+			t.Fatalf("E1 result columns: %q (%v)", result, err)
+		}
+		tx, err := rt.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if _, err := tx.Exec(ctx, `SELECT set_config('app.user_id', $1, true)`, uid); err != nil {
+			t.Fatal(err)
+		}
+		cred := strings.Repeat("e", 32)
+		if _, err := tx.Exec(ctx, `
+INSERT INTO app.sessions (user_id, credential_hash, csrf_token, provider_session_id, auth_time, idle_expires_at, absolute_expires_at, origin, organization_id)
+VALUES ($1, convert_to($2, 'UTF8'), convert_to($2, 'UTF8'), 'sid-e1', now(), now() + interval '30 minutes', now() + interval '8 hours', $3, $4::text::uuid)`,
+			uid, cred, originA, orgAID); err != nil {
+			t.Fatalf("live bound session: %v", err)
+		}
+		resolved := func(step string) string {
+			t.Helper()
+			var name, user string
+			var n int
+			if err := tx.QueryRow(ctx, `SELECT display_name, user_id::text, count(*) OVER ()::int FROM app.auth_resolve_session(convert_to($1, 'UTF8'), now(), $2)`,
+				cred, originA).Scan(&name, &user, &n); err != nil || n != 1 || user != uid {
+				t.Fatalf("%s: E1 resolved %d rows for user %q (%v)", step, n, user, err)
+			}
+			return name
+		}
+		for _, s := range []struct{ step, stmt, want string }{
+			{"no profile row (legacy rows unaffected)", ``, "Catalog 2"},
+			{"explicit name", `INSERT INTO app.account_profiles (user_id, name) VALUES ($1, 'Catalog Presentation')`, "Catalog Presentation"},
+			{"later provider rename", `UPDATE app.users SET display_name = 'Catalog 3' WHERE id = $1`, "Catalog Presentation"},
+			{"name cleared", `UPDATE app.account_profiles SET name = NULL, version = version + 1 WHERE user_id = $1`, "Catalog 3"},
+		} {
+			if s.stmt != "" {
+				if tag, err := tx.Exec(ctx, s.stmt, uid); err != nil || tag.RowsAffected() != 1 {
+					t.Fatalf("%s: %v (SQLSTATE %s)", s.step, err, sqlstate(err))
+				}
+			}
+			if got := resolved(s.step); got != s.want {
+				t.Errorf("%s: E1 display_name %q, want %q", s.step, got, s.want)
+			}
+		}
+	})
 
 	t.Run("constraint negatives", func(t *testing.T) {
 		missing := "00000000-0000-0000-0000-000000000001"

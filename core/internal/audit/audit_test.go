@@ -107,24 +107,69 @@ func TestCatalogParity(t *testing.T) {
 	// its up section is read first, so the action, reason, operation, resource-type and trigger-owned lists below are the
 	// version-20 ones. The outcomes keep their 00008 source.
 	mig20 := readFile(t, "../../migrations/00020_labels.sql")
+	// 00023 (G074) replaces all four catalog constraints again (+ profile.updated, its three reasons, the five profile
+	// operations and the account_profile resource type) and the attribution body (the action is trigger-owned); its up
+	// section is read first, so the action, reason, operation, resource-type and trigger-owned lists below are the
+	// version-23 ones. The outcomes keep their 00008 source.
+	mig23 := readFile(t, "../../migrations/00023_account_profiles.sql")
+	// 00024 (G075) replaces all four catalog constraints once more (+ group_member_profile.updated, its reason
+	// role_label_changed, the two Group member profile operations and the group_member_profile resource type) and the
+	// attribution body (the action is trigger-owned); its up section is read first, so the lists below are the version-24
+	// ones.
+	mig24 := readFile(t, "../../migrations/00024_group_member_profiles.sql")
 	all := append(slices.Clone(TriggerActions), CoreActions...)
-	if len(TriggerActions) != 45 || len(CoreActions) != 7 || len(all) != 52 || len(ResourceTypes) != 12 {
-		t.Fatalf("catalog: %d trigger + %d core actions, %d resource types, want 45 + 7 = 52 and 12", len(TriggerActions), len(CoreActions),
+	if len(TriggerActions) != 47 || len(CoreActions) != 7 || len(all) != 54 || len(ResourceTypes) != 14 {
+		t.Fatalf("catalog: %d trigger + %d core actions, %d resource types, want 47 + 7 = 54 and 14", len(TriggerActions), len(CoreActions),
 			len(ResourceTypes))
 	}
 	for name, c := range map[string]struct{ goList, migList []string }{
-		"actions":        {sorted(all), sortedStrings(sqlList(t, mig20, "ADD CONSTRAINT events_action_valid"))},
-		"reasons":        {sorted(Reasons), sortedStrings(sqlList(t, mig20, "ADD CONSTRAINT events_reason_valid"))},
-		"operations":     {sorted(Operations), sortedStrings(sqlList(t, mig20, "ADD CONSTRAINT events_operation_valid"))},
+		"actions":        {sorted(all), sortedStrings(sqlList(t, mig24, "ADD CONSTRAINT events_action_valid"))},
+		"reasons":        {sorted(Reasons), sortedStrings(sqlList(t, mig24, "ADD CONSTRAINT events_reason_valid"))},
+		"operations":     {sorted(Operations), sortedStrings(sqlList(t, mig24, "ADD CONSTRAINT events_operation_valid"))},
 		"outcomes":       {sorted(Outcomes), sortedStrings(sqlList(t, mig, "CONSTRAINT events_outcome_valid"))},
-		"resource types": {sorted(ResourceTypes), sortedStrings(sqlList(t, mig20, "ADD CONSTRAINT events_resource_type_valid"))},
-		"trigger-owned":  {sorted(TriggerActions), sortedStrings(sqlList(t, mig20, "trig := NEW.action"))},
+		"resource types": {sorted(ResourceTypes), sortedStrings(sqlList(t, mig24, "ADD CONSTRAINT events_resource_type_valid"))},
+		"trigger-owned":  {sorted(TriggerActions), sortedStrings(sqlList(t, mig24, "trig := NEW.action"))},
 	} {
 		if !slices.Equal(c.goList, c.migList) || len(slices.Compact(slices.Clone(c.goList))) != len(c.goList) {
 			t.Errorf("%s differ:\n go        %v\n migration %v", name, c.goList, c.migList)
 		}
 	}
-	// The 00020 lists are the reviewed version-19 sources (actions and trigger-owned 00019, reasons and operations 00018,
+	// The 00023 lists are the reviewed version-22 sources (all 00020) plus exactly the profile values; no value is
+	// dropped or reordered away.
+	for _, l := range []struct {
+		marker string
+		plus   []string
+	}{
+		{"ADD CONSTRAINT events_action_valid", []string{string(ProfileUpdated)}},
+		{"trig := NEW.action", []string{string(ProfileUpdated)}},
+		{"ADD CONSTRAINT events_reason_valid", []string{string(ReasonProfileNameChanged), string(ReasonProfileAvatarSet),
+			string(ReasonProfileAvatarRemoved)}},
+		{"ADD CONSTRAINT events_operation_valid", []string{string(OpProfileGet), string(OpProfileUpdate), string(OpProfileAvatarGet),
+			string(OpProfileAvatarSet), string(OpProfileAvatarRemove)}},
+		{"ADD CONSTRAINT events_resource_type_valid", []string{string(ResourceAccountProfile)}},
+	} {
+		prev, v23 := sortedStrings(sqlList(t, mig20, l.marker)), sortedStrings(sqlList(t, mig23, l.marker))
+		if want := sortedStrings(append(slices.Clone(prev), l.plus...)); !slices.Equal(v23, want) {
+			t.Errorf("%s: 00023 list %v, want the version-22 list plus exactly %v", l.marker, v23, l.plus)
+		}
+	}
+	// The 00024 lists are the reviewed version-23 sources plus exactly the Group member profile values.
+	for _, l := range []struct {
+		marker string
+		plus   []string
+	}{
+		{"ADD CONSTRAINT events_action_valid", []string{string(GroupMemberProfileUpdated)}},
+		{"trig := NEW.action", []string{string(GroupMemberProfileUpdated)}},
+		{"ADD CONSTRAINT events_reason_valid", []string{string(ReasonRoleLabelChanged)}},
+		{"ADD CONSTRAINT events_operation_valid", []string{string(OpProfileGroupsList), string(OpProfileGroupLabelUpdate)}},
+		{"ADD CONSTRAINT events_resource_type_valid", []string{string(ResourceGroupMemberProfile)}},
+	} {
+		prev, v24 := sortedStrings(sqlList(t, mig23, l.marker)), sortedStrings(sqlList(t, mig24, l.marker))
+		if want := sortedStrings(append(slices.Clone(prev), l.plus...)); !slices.Equal(v24, want) {
+			t.Errorf("%s: 00024 list %v, want the version-23 list plus exactly %v", l.marker, v24, l.plus)
+		}
+	}
+	// The 00020 lists were the reviewed version-19 sources (actions and trigger-owned 00019, reasons and operations 00018,
 	// resource types 00016) plus exactly the label values; no value is dropped or reordered away.
 	labelActions := []string{string(LabelCreated), string(LabelUpdated), string(LabelDeleted), string(LabelAssigned), string(LabelUnassigned)}
 	for _, l := range []struct {
@@ -160,8 +205,10 @@ func TestCatalogParity(t *testing.T) {
 	// G062: +9 reasons (signup_authenticated, tenant_created, signup_origin_rejected, signup_user_mismatch, signup_invalid,
 	// intent_used, slug_taken, continuation_invalid, signup_context_mismatch), +8 signup operations.
 	// G020: +2 reasons (renamed, visibility_changed), +7 label operations.
-	if len(Reasons) != 81 || len(Operations) != 80 {
-		t.Errorf("%d reasons, %d operations: want 81 and 80", len(Reasons), len(Operations))
+	// G074: +3 reasons (name_changed, avatar_set, avatar_removed), +5 profile operations.
+	// G075: +1 reason (role_label_changed), +2 operations (profile.groups.list, profile.group_label.update).
+	if len(Reasons) != 85 || len(Operations) != 87 {
+		t.Errorf("%d reasons, %d operations: want 85 and 87", len(Reasons), len(Operations))
 	}
 	// The 00017 lists stay the reviewed version-17 sources the 00018 lists extend (no value dropped).
 	for _, l := range []struct {

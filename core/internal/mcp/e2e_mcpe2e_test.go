@@ -368,7 +368,18 @@ func TestMCPE2E(t *testing.T) {
 		}
 		gl := e.mustCall(t, h.A1, a1Tok, ToolListGroups, nil)
 		groups, _ := gl["groups"].([]any)
-		if len(groups) != 1 || groups[0].(map[string]any)["group_id"] != e2eResearch || gl["next_cursor"] != nil {
+		// The seed gives him Research alone in Organization A; the earlier profile browser specs also leave Groups he created
+		// there (the product has no Group deletion), so the list is Research plus his own, never Design or Operations' Group.
+		research := 0
+		for _, g := range groups {
+			switch g.(map[string]any)["group_id"] {
+			case e2eResearch:
+				research++
+			case e2eDesign, e2eOperations:
+				t.Fatalf("list_groups names a Group he is not a member of in Organization A: %v", gl)
+			}
+		}
+		if research != 1 || gl["next_cursor"] != nil {
 			t.Fatalf("list_groups: %v", gl)
 		}
 		if s := e.mustCall(t, h.A1, a1Tok, ToolSwitchGroup, map[string]any{"group_id": e2eResearch}); e2eGroup(s) != e2eResearch {

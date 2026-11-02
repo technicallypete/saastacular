@@ -1470,6 +1470,32 @@ JOIN app.role_bindings rb ON rb.organization_id = gbp.organization_id AND rb.gro
 		}
 	})
 
+	// G074 (Plan r3.1 §5 RLS-PROFILE; EP-1 A1 and A5): the relationship predicate, the self-only policies, the gated
+	// projection, the RLS-gated member join and the gated invitation-candidate body, as the runtime login over the oracle
+	// world. Every profile and avatar row is its user's own insert inside one rolled-back runtime transaction (the context
+	// is switched per actor inside it); nothing is committed.
+	t.Run("RLS-PROFILE relationship predicate, self-only writes, gated projection and invitation candidates (G074 A1, A5)", func(t *testing.T) {
+		orgA, orgB := tenancy.OrganizationID(mustUUID(t, w.id["A"])), tenancy.OrganizationID(mustUUID(t, w.id["B"]))
+		before := e.state(t, orgA, orgB)
+		e.rlsProfile(t, rt, w)
+		if e.state(t, orgA, orgB) != before {
+			t.Error("the oracle fixture changed (RLS-PROFILE commits nothing)")
+		}
+	})
+
+	// G075 (Plan r2 §5 RLS-GMP; EP-1 A1 and A4): the Group member card projection, the two writer paths, the guard's
+	// binding check and the overflow bound, as the runtime login over the oracle world. Every label row is its writer's
+	// own insert inside one rolled-back runtime transaction (the context is switched per actor inside it); the overflow
+	// world is a separate committed Organization outside A and B.
+	t.Run("RLS-GMP Group member cards, writer paths, binding guard and overflow bound (G075 A1, A4)", func(t *testing.T) {
+		orgA, orgB := tenancy.OrganizationID(mustUUID(t, w.id["A"])), tenancy.OrganizationID(mustUUID(t, w.id["B"]))
+		before := e.state(t, orgA, orgB)
+		e.rlsGroupProfile(t, rt, w)
+		if e.state(t, orgA, orgB) != before {
+			t.Error("the oracle fixture changed (RLS-GMP commits nothing in A or B)")
+		}
+	})
+
 	// G020 oracle (rls_expected_test.go "oracle G020"): the label reads of the fixture-only subject Grace and the other
 	// label contexts, the raw label writes, and the isolated foreign-key cases with superuser zero-row/zero-audit counts.
 	// It runs last: Grace's bindings are added here and removed before it ends, and the restored state is verified.
@@ -2031,6 +2057,682 @@ func mustUUID(t *testing.T, s string) [16]byte {
 		t.Fatal(err)
 	}
 	return id
+}
+
+// rlsProfile is RLS-PROFILE (G074 Plan r3.1 §3.2, §3.9a, §5; EP-1 A1 and A5) over the oracle world, in one rolled-back
+// runtime transaction. The explicit names are planted by their own users ("Override <label>"); provider names are the
+// fixture's "Oracle <label>". Each matrix row asserts the predicate app.rls_profile_visible, the profile row visibility
+// through account_profiles_select and the gated projection app.rls_account_profile; raw cross-user writes are refused;
+// the member join shows an edited name only where the predicate admits it; the invitation-candidate body keeps the
+// version-22 candidate set, order and cursor and shows an edited name only to an issuer the predicate admits.
+func (e *itEnv) rlsProfile(t *testing.T, rt *pgx.Conn, w *rlsOracleWorld) {
+	t.Helper()
+	ctx := context.Background()
+	id := func(l string) string {
+		t.Helper()
+		v, ok := w.id[l]
+		if !ok {
+			t.Fatalf("RLS-PROFILE names an unknown oracle label %s", l)
+		}
+		return v
+	}
+	lab := func(uuid string) string {
+		if l, ok := w.labels[uuid]; ok {
+			return l
+		}
+		return "#extra"
+	}
+	unknown := rlsUUID(t)
+	w.id["unknownUser"], w.labels[unknown] = unknown, "unknownUser"
+	defer delete(w.id, "unknownUser")
+	defer delete(w.labels, unknown)
+	rlsTx(t, rt, ptr(id("memberA")), ptr(""), ptr(""), nil, func(tx pgx.Tx) {
+		as := func(actor, org, group string) {
+			t.Helper()
+			o, g := "", ""
+			if org != "" {
+				o = id(org)
+			}
+			if group != "" {
+				g = id(group)
+			}
+			if err := rlsSet(ctx, tx, ptr(id(actor)), ptr(o), ptr(g), nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		one := func(sql string, args ...any) string {
+			t.Helper()
+			var s *string
+			if err := tx.QueryRow(ctx, sql, args...).Scan(&s); err != nil {
+				t.Fatalf("%s: %v (SQLSTATE %s)", sql, err, pgState(err))
+			}
+			if s == nil {
+				return "-"
+			}
+			return *s
+		}
+		exec := func(sql string, args ...any) {
+			t.Helper()
+			if tag, err := tx.Exec(ctx, sql, args...); err != nil || tag.RowsAffected() != 1 {
+				t.Fatalf("%s: %v (SQLSTATE %s) rows %d", sql, err, pgState(err), tag.RowsAffected())
+			}
+		}
+		// pick pages through the invitation candidates of group with page size limit, as the current actor, and returns
+		// "label|name" per candidate in order.
+		pick := func(group string, limit int) []string {
+			t.Helper()
+			var out []string
+			var after *string
+			for range 50 {
+				rows, err := tx.Query(ctx, `SELECT user_id::text, display_name FROM app.rls_group_invitation_candidates($1::uuid, $2::uuid, $3)`,
+					id(group), after, limit)
+				if err != nil {
+					t.Fatalf("invitation candidates: %v (SQLSTATE %s)", err, pgState(err))
+				}
+				n := 0
+				for rows.Next() {
+					var u, name string
+					if err := rows.Scan(&u, &name); err != nil {
+						t.Fatal(err)
+					}
+					// A user outside the oracle world (another subtest's Organization owner in the shared fixture) is a
+					// candidate the oracle does not model: it is paged past and neither compared nor logged.
+					if l := lab(u); l != "#extra" {
+						out = append(out, l+"|"+name)
+					}
+					after, n = &u, n+1
+				}
+				rows.Close()
+				if err := rows.Err(); err != nil {
+					t.Fatalf("invitation candidates: %v (SQLSTATE %s)", err, pgState(err))
+				}
+				if n < limit {
+					return out
+				}
+			}
+			t.Fatal("invitation candidates: more than 50 pages")
+			return nil
+		}
+		// candidates is the independent version-22 expectation: the active Organization-scope members of A without a
+		// binding of group, ordered by id, each with name(label).
+		candidates := func(group string, members []string, name func(string) string) []string {
+			t.Helper()
+			in := map[string]bool{}
+			for _, b := range w.fx.Bindings {
+				if b.ScopeType == "group" && b.Group == group {
+					in[b.User] = true
+				}
+			}
+			var ids []string
+			for _, m := range members {
+				if !in[m] {
+					ids = append(ids, id(m))
+				}
+			}
+			slices.Sort(ids)
+			out := make([]string, len(ids))
+			for i, u := range ids {
+				out[i] = lab(u) + "|" + name(lab(u))
+			}
+			return out
+		}
+		membersA := []string{"ownerA", "adminA", "memberA", "gOwnerA1", "adminA2", "memberA2", "ownerA4", "crossUser"}
+		provider := func(l string) string { return "Oracle " + l }
+
+		// P-PICK-1 baseline: no profile row yet, exactly the version-22 candidates of A1 for its owner, on every page size.
+		as("gOwnerA1", "A", "")
+		baseline := candidates("A1", membersA, provider)
+		for _, limit := range []int{101, 2, 1} {
+			if got := pick("A1", limit); !slices.Equal(got, baseline) {
+				t.Errorf("P-PICK-1 baseline (page %d): %q, want the version-22 candidates %q", limit, got, baseline)
+			}
+		}
+
+		// The explicit names, each planted by its own user (IDENTITY shape; profile.updated name_changed is captured with
+		// the user as actor and subject, and rolled back with everything else).
+		overridden := map[string]bool{}
+		for _, u := range []string{"memberA", "memberA2", "adminA2", "crossUser", "memberB1", "ownerA4"} {
+			as(u, "", "")
+			exec(`INSERT INTO app.account_profiles (user_id, name) VALUES ($1::uuid, $2)`, id(u), "Override "+u)
+			overridden[u] = true
+		}
+		as("memberA", "", "")
+		// format() renders a boolean through its output function: t or f.
+		if got := one(`SELECT format('%s|%s|%s', version, avatar_version, avatar_object_id IS NULL) FROM app.account_profiles WHERE user_id = $1::uuid`,
+			id("memberA")); got != "1|0|t" {
+			t.Errorf("first row: version|avatar_version|no avatar = %s, want 1|0|t", got)
+		}
+		if got := one(`SELECT count(*)::text FROM audit.events WHERE action = 'profile.updated' AND reason = 'name_changed'
+  AND subject_user_id = $1::uuid AND actor_user_id = $1::uuid AND resource_id = $1::uuid AND organization_id IS NULL`, id("memberA")); got != "-" && got != "0" {
+			// The runtime reads no global audit row (events_select); a visible row would be a privacy failure.
+			t.Errorf("the runtime reads %s global profile.updated rows", got)
+		}
+
+		// The fixed-actor matrix (P1-P3, N1, N2 of Plan §5, the C3 edge and the context shapes).
+		for _, c := range []struct {
+			name, viewer, org, group, subject string
+			pred                              bool
+		}{
+			{"P1 self", "memberA", "A", "", "memberA", true},
+			{"P1 self, IDENTITY shape (the predicate needs an Organization; the policy's self branch does not)", "memberA", "", "", "memberA", false},
+			{"IDENTITY shape, another user", "memberA", "", "", "memberA2", false},
+			{"P2 Organization admin", "adminA", "A", "", "memberA", true},
+			{"P2 Organization owner", "ownerA", "A", "", "memberA2", true},
+			{"P2 admin, Group-owner subject", "adminA", "A", "", "ownerA4", true},
+			{"P2 admin, selected A1", "adminA", "A", "A1", "ownerA4", true},
+			{"P3 peer in A2", "memberA2", "A", "", "adminA2", true},
+			{"P3 peer in A2, reverse", "adminA2", "A", "", "memberA2", true},
+			{"P3 peer in A2, selected A2", "memberA2", "A", "A2", "adminA2", true},
+			{"P3 shared A3", "gOwnerA1", "A", "", "crossUser", true},
+			{"P3 shared A3, the selected A1 does not narrow", "gOwnerA1", "A", "A1", "crossUser", true},
+			{"N1 no shared Group", "memberA", "A", "", "memberA2", false},
+			{"N1 no shared Group, reverse", "memberA2", "A", "", "memberA", false},
+			{"N1 Group owner, unrelated member", "gOwnerA1", "A", "", "memberA", false},
+			{"N1 sole owner of A4", "ownerA4", "A", "", "memberA2", false},
+			{"N1 plain member, cross user", "memberA", "A", "", "crossUser", false},
+			{"N2 foreign subject", "adminA", "A", "", "memberB1", false},
+			{"N2 foreign viewer", "ownerB", "B", "", "memberA", false},
+			{"N2 outsider", "adminA", "A", "", "outsider", false},
+			{"N2 unknown user", "adminA", "A", "", "unknownUser", false},
+			{"C3 shared B1 is not a relationship on host A", "crossUser", "A", "", "memberB1", false},
+			{"C3 the same pair on host B", "crossUser", "B", "", "memberB1", true},
+			{"C3 admin of B, cross user bound in B", "adminB", "B", "", "crossUser", true},
+			{"unselectable Group context", "memberA2", "A", "A1", "adminA2", false},
+		} {
+			as(c.viewer, c.org, c.group)
+			if got := one(`SELECT app.rls_profile_visible($1::uuid)::text`, id(c.subject)); got != fmt.Sprint(c.pred) {
+				t.Errorf("%s: rls_profile_visible = %s, want %t", c.name, got, c.pred)
+			}
+			proj := "0"
+			if c.pred {
+				proj = "1"
+			}
+			if got := one(`SELECT count(*)::text FROM app.rls_account_profile($1::uuid)`, id(c.subject)); got != proj {
+				t.Errorf("%s: projection rows %s, want %s", c.name, got, proj)
+			}
+			row := "0"
+			if overridden[c.subject] && (c.pred || c.viewer == c.subject) {
+				row = "1"
+			}
+			if st, n := rlsStmt(t, tx, `SELECT name FROM app.account_profiles WHERE user_id = $1::uuid`, id(c.subject)); st != "" || fmt.Sprint(n) != row {
+				t.Errorf("%s: account_profiles rows %d (SQLSTATE %q), want %s", c.name, n, st, row)
+			}
+		}
+		// The projection carries the effective name: the explicit one, else the provider's.
+		as("adminA", "A", "")
+		if got := one(`SELECT format('%s|%s|%s', name, avatar_version IS NULL, avatar_type IS NULL) FROM app.rls_account_profile($1::uuid)`, id("memberA")); got != "Override memberA|t|t" {
+			t.Errorf("projection of memberA: %s", got)
+		}
+		if got := one(`SELECT name FROM app.rls_account_profile($1::uuid)`, id("gOwnerA1")); got != "Oracle gOwnerA1" {
+			t.Errorf("projection of a subject without a profile row: %s, want the provider name", got)
+		}
+
+		// Raw writes: self only, no DELETE, no cross-user avatar row; the guard and the name grammar hold.
+		av := rlsUUID(t)
+		for _, c := range []struct {
+			name, actor, org, sql, state, constraint string
+			args                                     []any
+			rows                                     int64
+		}{
+			{"update another user's invisible row", "memberA", "A", `UPDATE app.account_profiles SET name = 'X', version = version + 1 WHERE user_id = $1::uuid`, "", "", []any{id("memberA2")}, 0},
+			{"update another user's visible row", "adminA", "A", `UPDATE app.account_profiles SET name = 'X', version = version + 1 WHERE user_id = $1::uuid`, "", "", []any{id("memberA")}, 0},
+			{"insert another user's row", "adminA", "A", `INSERT INTO app.account_profiles (user_id, name) VALUES ($1::uuid, 'X')`, "42501", "", []any{id("outsider")}, 0},
+			{"delete a profile row", "memberA", "A", `DELETE FROM app.account_profiles WHERE user_id = $1::uuid`, "42501", "", []any{id("memberA")}, 0},
+			{"insert another user's avatar row", "memberA", "A", `INSERT INTO app.account_avatars (id, user_id, byte_size, content_type) VALUES ($1::uuid, $2::uuid, 10, 'image/png')`, "42501", "", []any{av, id("memberA2")}, 0},
+			{"insert an own avatar row as ready", "memberA", "A", `INSERT INTO app.account_avatars (id, user_id, byte_size, content_type, state) VALUES ($1::uuid, $2::uuid, 10, 'image/png', 'ready')`, "42501", "", []any{av, id("memberA")}, 0},
+			{"update another user's avatar row", "memberA", "A", `UPDATE app.account_avatars SET state = 'deleting' WHERE user_id = $1::uuid`, "", "", []any{id("memberA2")}, 0},
+			{"delete an avatar row", "memberA", "A", `DELETE FROM app.account_avatars WHERE user_id = $1::uuid`, "42501", "", []any{id("memberA")}, 0},
+			{"version not advanced", "memberA", "A", `UPDATE app.account_profiles SET name = 'Y' WHERE user_id = $1::uuid`, "23514", "account_profiles_guard", []any{id("memberA")}, 0},
+			{"name with a line feed", "memberA", "A", `UPDATE app.account_profiles SET name = 'a' || chr(10) || 'b', version = version + 1 WHERE user_id = $1::uuid`, "23514", "account_profiles_name_valid", []any{id("memberA")}, 0},
+			{"name with edge space", "memberA", "A", `UPDATE app.account_profiles SET name = ' Y', version = version + 1 WHERE user_id = $1::uuid`, "23514", "account_profiles_name_valid", []any{id("memberA")}, 0},
+			{"own name change", "memberA", "A", `UPDATE app.account_profiles SET name = 'Z', version = version + 1 WHERE user_id = $1::uuid`, "", "", []any{id("memberA")}, 1},
+		} {
+			as(c.actor, c.org, "")
+			st, cn, n := rlsStmtC(t, tx, c.sql, c.args...)
+			if st != c.state || cn != c.constraint || n != c.rows {
+				t.Errorf("%s: SQLSTATE %q constraint %q rows %d, want %q %q %d", c.name, st, cn, n, c.state, c.constraint, c.rows)
+			}
+		}
+		// Each case above ran in a rolled-back savepoint; the own change is now kept (version 2).
+		as("memberA", "A", "")
+		exec(`UPDATE app.account_profiles SET name = 'Z', version = version + 1 WHERE user_id = $1::uuid`, id("memberA"))
+		// An own avatar: pending, then a reference to it is refused until it is ready; once current, it cannot leave ready
+		// (I-CUR); no other viewer reads the avatar row, a related one sees it through the projection only.
+		exec(`INSERT INTO app.account_avatars (id, user_id, byte_size, content_type) VALUES ($1::uuid, $2::uuid, 10, 'image/png')`, av, id("memberA"))
+		ref := `UPDATE app.account_profiles SET avatar_object_id = $2::uuid, avatar_version = avatar_version + 1, version = version + 1 WHERE user_id = $1::uuid`
+		if st, cn, _ := rlsStmtC(t, tx, ref, id("memberA"), av); st != "23514" || cn != "account_profiles_guard" {
+			t.Errorf("reference to a pending avatar: SQLSTATE %q constraint %q, want 23514 account_profiles_guard", st, cn)
+		}
+		exec(`UPDATE app.account_avatars SET state = 'ready', sha256 = sha256('rls-profile'::bytea) WHERE id = $1::uuid`, av)
+		exec(ref, id("memberA"), av)
+		if st, cn, _ := rlsStmtC(t, tx, `UPDATE app.account_avatars SET state = 'deleting' WHERE id = $1::uuid`, av); st != "23000" || cn != "account_avatars_current" {
+			t.Errorf("I-CUR: withdrawing the current avatar: SQLSTATE %q constraint %q, want 23000 account_avatars_current", st, cn)
+		}
+		if got := one(`SELECT format('%s|%s|%s|%s', version, avatar_version, ready_at IS NOT NULL, storage_key = 'avatars/' || $2 || '/' || $1)
+FROM app.account_avatars a JOIN app.account_profiles p ON p.avatar_object_id = a.id WHERE a.id = $1::uuid`, av, id("memberA")); got != "3|1|t|t" {
+			t.Errorf("own avatar: profile version|avatar_version|ready|key = %s, want 3|1|t|t", got)
+		}
+		as("adminA", "A", "")
+		if st, n := rlsStmt(t, tx, `SELECT 1 FROM app.account_avatars WHERE user_id = $1::uuid`, id("memberA")); st != "" || n != 0 {
+			t.Errorf("a related viewer reads %d avatar rows (SQLSTATE %q), want 0", n, st)
+		}
+		if got := one(`SELECT format('%s|%s|%s|%s', name, avatar_version, avatar_type, octet_length(avatar_sha256)) FROM app.rls_account_profile($1::uuid)`,
+			id("memberA")); got != "Z|1|image/png|32" {
+			t.Errorf("projection with the ready avatar: %s, want Z|1|image/png|32", got)
+		}
+		as("memberA2", "A", "")
+		if got := one(`SELECT count(*)::text FROM app.rls_account_profile($1::uuid)`, id("memberA")); got != "0" {
+			t.Errorf("an unrelated viewer's projection of the avatar owner: %s rows, want 0", got)
+		}
+
+		// The member join (the G019 member pages' shape): an edited name only where account_profiles_select admits it.
+		join := `SELECT string_agg(u.id::text || '=' || coalesce(ap.name, u.display_name), ',' ORDER BY u.id) FROM app.users u
+LEFT JOIN app.account_profiles ap ON ap.user_id = u.id WHERE u.id::text = ANY ($1::text[])`
+		names := func(pairs ...string) string {
+			t.Helper()
+			m := map[string]string{}
+			var ids []string
+			for i := 0; i < len(pairs); i += 2 {
+				m[id(pairs[i])] = pairs[i+1]
+				ids = append(ids, id(pairs[i]))
+			}
+			slices.Sort(ids)
+			var out []string
+			for _, u := range ids {
+				out = append(out, u+"="+m[u])
+			}
+			return strings.Join(out, ",")
+		}
+		for _, c := range []struct {
+			viewer string
+			want   string
+		}{
+			// users_select shows an ordinary member only its own row, so the join can disclose nothing else; the
+			// Organization administrator sees every row and every effective name.
+			{"memberA", names("memberA", "Z")},
+			{"adminA", names("memberA", "Z", "memberA2", "Override memberA2", "crossUser", "Override crossUser")},
+			// a Group owner's picker view (provider names for unrelated candidates) is proven below by P-PICK-1/2.
+		} {
+			as(c.viewer, "A", "")
+			if got := one(join, []string{id("memberA"), id("memberA2"), id("crossUser")}); got != c.want {
+				t.Errorf("member join as %s: %s, want %s", c.viewer, got, c.want)
+			}
+		}
+
+		// P-PICK-1/2: the same issuer after the edits: identical candidates, order and cursor on every page size; the
+		// effective name only for the shared-Group candidate (crossUser through A3), the provider name for every unrelated
+		// one (memberA, adminA2, memberA2, ownerA4).
+		as("gOwnerA1", "A", "")
+		edited := candidates("A1", membersA, func(l string) string {
+			if l == "crossUser" {
+				return "Override crossUser"
+			}
+			return provider(l)
+		})
+		for _, limit := range []int{101, 2, 1} {
+			if got := pick("A1", limit); !slices.Equal(got, edited) {
+				t.Errorf("P-PICK-1/2 (page %d): %q, want %q", limit, got, edited)
+			}
+		}
+		// P-PICK-3: an Organization-admin issuer (adminA through the override, enabled by ownerA in this transaction) sees
+		// every candidate's effective name; still no avatar field (the result columns are user_id and display_name only).
+		if !w.applyOverride(t, tx, rlsContext{Actor: "adminA", Org: "A", Shape: "valid", Override: true}, ptr(id("adminA")), ptr(id("A")), ptr("")) {
+			return
+		}
+		effective := func(l string) string {
+			switch l {
+			case "memberA":
+				return "Z"
+			case "memberA2", "adminA2", "crossUser":
+				return "Override " + l
+			}
+			return provider(l)
+		}
+		if got, want := pick("A4", 101), candidates("A4", membersA, effective); !slices.Equal(got, want) {
+			t.Errorf("P-PICK-3 Organization-admin issuer: %q, want %q", got, want)
+		}
+		if got := one(`SELECT array_to_string(proargnames, ',') FROM pg_proc WHERE oid = 'app.rls_group_invitation_candidates(uuid, uuid, integer)'::regprocedure`); got != "p_group,p_after,p_limit,user_id,display_name" {
+			t.Errorf("invitation candidates arguments: %s, want p_group,p_after,p_limit,user_id,display_name", got)
+		}
+
+		// A disabled subject stays readable through its current bindings (users.status is not a read filter; its sessions
+		// are refused elsewhere) and leaves the candidate set (the unchanged page query's status filter). memberA2 disables
+		// itself in the IDENTITY shape, as identity's DisableUser does.
+		as("memberA2", "", "")
+		exec(`UPDATE app.users SET status = 'disabled', disabled_at = now(), updated_at = now() WHERE id = $1::uuid`, id("memberA2"))
+		as("adminA2", "A", "")
+		if got := one(`SELECT name FROM app.rls_account_profile($1::uuid)`, id("memberA2")); got != "Override memberA2" {
+			t.Errorf("disabled subject's projection: %s, want Override memberA2", got)
+		}
+		as("gOwnerA1", "A", "")
+		var withoutDisabled []string
+		for _, c := range edited {
+			if !strings.HasPrefix(c, "memberA2|") {
+				withoutDisabled = append(withoutDisabled, c)
+			}
+		}
+		if got := pick("A1", 101); !slices.Equal(got, withoutDisabled) {
+			t.Errorf("candidates after the disable: %q, want %q", got, withoutDisabled)
+		}
+	})
+	fmt.Println("RLS-PROFILE {\"matrix\":25}")
+}
+
+// rlsGroupProfile is RLS-GMP (G075 Plan r2 §3.1-§3.2, §5; EP-1 A1 and A4) over the oracle world, in one rolled-back
+// runtime transaction, then the overflow bound over a separate committed Organization. The label rows are planted by
+// their own writers: crossUser its own A3 label (the member path), gOwnerA1 adminA's A1 label and adminA2 memberA2's A2
+// label (the Group owner/admin path), memberB1 its own B1 label. Each matrix row asserts the exact card set of
+// app.rls_group_member_cards (Group, label, edit hint, version) in Group id order: self, shared Groups only (never a
+// sibling Group), the Organization owner/admin oversight under both override settings with no edit hint, the
+// selected-Group narrowing, tenant-local cards, and zero rows for every subject G074's predicate refuses (Business-
+// Profile sharing confers nothing). The raw statements prove the two writer paths, the guard's binding check for forged
+// Organization, Group, user and binding values, the version and grammar rules and the absence of a DELETE path; no
+// statement may hit a 42P17 policy cycle.
+func (e *itEnv) rlsGroupProfile(t *testing.T, rt *pgx.Conn, w *rlsOracleWorld) {
+	t.Helper()
+	ctx := context.Background()
+	id := func(l string) string {
+		t.Helper()
+		v, ok := w.id[l]
+		if !ok {
+			t.Fatalf("RLS-GMP names an unknown oracle label %s", l)
+		}
+		return v
+	}
+	lab := func(uuid string) string {
+		if l, ok := w.labels[uuid]; ok {
+			return l
+		}
+		return "#extra"
+	}
+	unknown := rlsUUID(t)
+	w.id["unknownUser"], w.labels[unknown] = unknown, "unknownUser"
+	defer delete(w.id, "unknownUser")
+	defer delete(w.labels, unknown)
+	// The binding ids of the fixture's Group memberships (attested superuser read; never printed).
+	binding := func(user, group string) string {
+		t.Helper()
+		var s string
+		if err := e.setup.QueryRow(ctx, `SELECT id::text FROM app.role_bindings WHERE subject_user_id = $1::uuid AND scope_id = $2::uuid`,
+			id(user), id(group)).Scan(&s); err != nil {
+			t.Fatalf("binding of %s in %s: %v", user, group, err)
+		}
+		return s
+	}
+	insert := `INSERT INTO app.group_member_profiles (organization_id, binding_id, group_id, user_id, role_label) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5)`
+	matrix := 0
+	rlsTx(t, rt, ptr(id("memberA")), ptr(""), ptr(""), nil, func(tx pgx.Tx) {
+		as := func(actor, org, group string) {
+			t.Helper()
+			o, g := "", ""
+			if org != "" {
+				o = id(org)
+			}
+			if group != "" {
+				g = id(group)
+			}
+			if err := rlsSet(ctx, tx, ptr(id(actor)), ptr(o), ptr(g), nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		exec := func(sql string, args ...any) {
+			t.Helper()
+			if tag, err := tx.Exec(ctx, sql, args...); err != nil || tag.RowsAffected() != 1 {
+				t.Fatalf("%s: %v (SQLSTATE %s) rows %d", sql, err, pgState(err), tag.RowsAffected())
+			}
+		}
+		// cards returns the projection's rows for subject as the current actor, "Group:label:edit:version" each, and checks
+		// that they come in ascending Group id order.
+		cards := func(subject string) []string {
+			t.Helper()
+			rows, err := tx.Query(ctx, `SELECT group_id::text, coalesce(role_label, '-'), can_edit, version FROM app.rls_group_member_cards($1::uuid)`,
+				id(subject))
+			if err != nil {
+				t.Fatalf("cards: %v (SQLSTATE %s)", err, pgState(err))
+			}
+			defer rows.Close()
+			var out []string
+			prev := ""
+			for rows.Next() {
+				var g, label string
+				var edit bool
+				var version int32
+				if err := rows.Scan(&g, &label, &edit, &version); err != nil {
+					t.Fatal(err)
+				}
+				if prev != "" && g <= prev {
+					t.Errorf("cards of %s are not in ascending Group id order", subject)
+				}
+				prev = g
+				out = append(out, fmt.Sprintf("%s:%s:%t:%d", lab(g), label, edit, version))
+			}
+			if err := rows.Err(); err != nil {
+				t.Fatalf("cards: %v (SQLSTATE %s)", err, pgState(err))
+			}
+			slices.Sort(out)
+			return out
+		}
+
+		// The planted labels, each by its own writer path (A4 positives).
+		as("crossUser", "A", "")
+		exec(insert, id("A"), binding("crossUser", "A3"), id("A3"), id("crossUser"), "Cross A3")
+		as("gOwnerA1", "A", "")
+		exec(insert, id("A"), binding("adminA", "A1"), id("A1"), id("adminA"), "Member of A1")
+		as("adminA2", "A", "")
+		exec(insert, id("A"), binding("memberA2", "A2"), id("A2"), id("memberA2"), "Member of A2")
+		as("memberB1", "B", "")
+		exec(insert, id("B"), binding("memberB1", "B1"), id("B1"), id("memberB1"), "Member B1")
+
+		type gmpCase struct {
+			name, viewer, org, group, subject string
+			want                              []string
+		}
+		matrixCases := []gmpCase{
+			{"S1 self", "crossUser", "A", "", "crossUser", []string{"A3:Cross A3:true:1"}},
+			{"S1 self, selected A3", "crossUser", "A", "A3", "crossUser", []string{"A3:Cross A3:true:1"}},
+			{"S1 self with two Groups", "gOwnerA1", "A", "", "gOwnerA1", []string{"A1:-:true:0", "A3:-:true:0"}},
+			{"S1 self, the selected A1 narrows", "gOwnerA1", "A", "A1", "gOwnerA1", []string{"A1:-:true:0"}},
+			{"S2 shared A3, member viewer", "gOwnerA1", "A", "", "crossUser", []string{"A3:Cross A3:false:1"}},
+			{"S2 shared A3, owner viewer; no card for the sibling A1", "crossUser", "A", "", "gOwnerA1", []string{"A3:-:true:0"}},
+			{"S2 shared A1, the Group owner edits a member", "gOwnerA1", "A", "", "adminA", []string{"A1:Member of A1:true:1"}},
+			{"S2 self, a label set by the Group owner", "adminA", "A", "", "adminA", []string{"A1:Member of A1:true:1"}},
+			{"S2 shared A2, the Group admin edits a member", "adminA2", "A", "", "memberA2", []string{"A2:Member of A2:true:1"}},
+			{"S2 shared A2, a member sees the admin read-only", "memberA2", "A", "", "adminA2", []string{"A2:-:false:0"}},
+			{"S4 Organization admin oversight", "adminA", "A", "", "crossUser", []string{"A3:Cross A3:false:1"}},
+			{"S4 Organization owner oversight", "ownerA", "A", "", "gOwnerA1", []string{"A1:-:false:0", "A3:-:false:0"}},
+			{"S4 Organization admin, selected A1 narrows", "adminA", "A", "A1", "gOwnerA1", []string{"A1:-:false:0"}},
+			{"N3 Organization admin, selected A1, no card there", "adminA", "A", "A1", "crossUser", nil},
+			{"N3 shared A3 visible, selected A1 holds no card", "gOwnerA1", "A", "A1", "crossUser", nil},
+			{"N3 shared A3, selected A3", "gOwnerA1", "A", "A3", "crossUser", []string{"A3:Cross A3:false:1"}},
+			{"T1 tenant-local: self on host B", "crossUser", "B", "", "crossUser", []string{"B1:-:true:0"}},
+			{"T1 tenant-local: B admin of a B1 member", "adminB", "B", "", "crossUser", []string{"B1:-:false:0"}},
+			{"T1 shared B1 on host B", "crossUser", "B", "", "memberB1", []string{"B1:Member B1:true:1"}},
+			{"N1 no shared Group", "memberA", "A", "", "memberA2", nil},
+			{"N1 plain member, cross user", "memberA", "A", "", "crossUser", nil},
+			{"N1 Group owner, unrelated member", "gOwnerA1", "A", "", "memberA", nil},
+			{"N6 A1 and A2 share pA12: the Business Profile confers nothing", "gOwnerA1", "A", "", "memberA2", nil},
+			{"N6 the reverse", "adminA2", "A", "", "gOwnerA1", nil},
+			{"N7 foreign viewer", "ownerB", "B", "", "memberA", nil},
+			{"N7 foreign subject", "adminA", "A", "", "memberB1", nil},
+			{"N7 outsider", "adminA", "A", "", "outsider", nil},
+			{"N7 unknown user", "adminA", "A", "", "unknownUser", nil},
+			{"C3 shared B1 is not a relationship on host A", "crossUser", "A", "", "memberB1", nil},
+			{"unselectable Group context", "memberA2", "A", "A1", "adminA2", nil},
+			{"IDENTITY shape", "memberA", "", "", "memberA", nil},
+		}
+		check := func(phase string, cs []gmpCase) {
+			t.Helper()
+			for _, c := range cs {
+				as(c.viewer, c.org, c.group)
+				if got := cards(c.subject); !slices.Equal(got, c.want) {
+					t.Errorf("%s %s: cards %q, want %q", phase, c.name, got, c.want)
+				}
+				matrix++
+			}
+		}
+		check("override off:", matrixCases)
+
+		// The raw table: the two writer paths read their rows; everyone else reads none (only the projection shows cards).
+		for _, c := range []struct {
+			name, actor, org, group, where string
+			args                           []any
+			rows                           int64
+		}{
+			{"the member reads its own row", "crossUser", "A", "", "user_id = $1::uuid", []any{id("crossUser")}, 1},
+			{"the Group owner reads its Group's rows", "gOwnerA1", "A", "", "group_id = $1::uuid", []any{id("A1")}, 1},
+			{"a Group member reads no other member's row", "gOwnerA1", "A", "", "user_id = $1::uuid", []any{id("crossUser")}, 0},
+			{"the Organization admin reads no other member's row", "adminA", "A", "", "user_id = $1::uuid", []any{id("crossUser")}, 0},
+			{"a peer reads no admin-side row", "memberA2", "A", "", "user_id <> $1::uuid", []any{id("memberA2")}, 0},
+			{"a selected Group hides another Group's rows", "gOwnerA1", "A", "A3", "group_id = $1::uuid", []any{id("A1")}, 0},
+			{"a foreign context reads nothing of A", "ownerB", "B", "", "organization_id = $1::uuid", []any{id("A")}, 0},
+		} {
+			as(c.actor, c.org, c.group)
+			if st, n := rlsStmt(t, tx, `SELECT binding_id FROM app.group_member_profiles WHERE `+c.where, c.args...); st != "" || n != c.rows {
+				t.Errorf("raw read, %s: %d rows (SQLSTATE %q), want %d", c.name, n, st, c.rows)
+			}
+		}
+
+		// Raw writes: the guard's binding check (forged Organization, Group, user and binding), the version and grammar
+		// rules, the writer paths and no DELETE. Each runs in a rolled-back savepoint.
+		upd := `UPDATE app.group_member_profiles SET role_label = $2, version = version + 1 WHERE binding_id = $1::uuid`
+		raw := []struct {
+			name, actor, org, group, sql, state, constraint string
+			args                                            []any
+			rows                                            int64
+		}{
+			{"own label, member path", "gOwnerA1", "A", "", insert, "", "", []any{id("A"), binding("gOwnerA1", "A1"), id("A1"), id("gOwnerA1"), "Own A1"}, 1},
+			{"forged Organization", "gOwnerA1", "A", "", insert, "23514", "group_member_profiles_binding",
+				[]any{id("B"), binding("gOwnerA1", "A1"), id("A1"), id("gOwnerA1"), "Forged"}, 0},
+			{"forged Group", "gOwnerA1", "A", "", insert, "23514", "group_member_profiles_binding",
+				[]any{id("A"), binding("gOwnerA1", "A1"), id("A3"), id("gOwnerA1"), "Forged"}, 0},
+			{"forged user", "gOwnerA1", "A", "", insert, "23514", "group_member_profiles_binding",
+				[]any{id("A"), binding("gOwnerA1", "A1"), id("A1"), id("memberA"), "Forged"}, 0},
+			{"a binding of another Organization", "crossUser", "A", "", insert, "23514", "group_member_profiles_binding",
+				[]any{id("A"), binding("crossUser", "B1"), id("A3"), id("crossUser"), "Forged"}, 0},
+			{"another member's binding by a peer", "memberA2", "A", "", insert, "23514", "group_member_profiles_binding",
+				[]any{id("A"), binding("adminA2", "A2"), id("A2"), id("adminA2"), "Peer"}, 0},
+			{"a member's binding by the Organization admin (override off)", "adminA", "A", "", insert, "42501", "",
+				[]any{id("A"), binding("gOwnerA1", "A3"), id("A3"), id("gOwnerA1"), "Staff"}, 0},
+			{"a first row at version 2", "gOwnerA1", "A", "",
+				`INSERT INTO app.group_member_profiles (organization_id, binding_id, group_id, user_id, role_label, version) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 2)`,
+				"23514", "group_member_profiles_guard", []any{id("A"), binding("gOwnerA1", "A1"), id("A1"), id("gOwnerA1"), "Own A1"}, 0},
+			{"version not advanced", "crossUser", "A", "", `UPDATE app.group_member_profiles SET role_label = 'X' WHERE binding_id = $1::uuid`,
+				"23514", "group_member_profiles_guard", []any{binding("crossUser", "A3")}, 0},
+			{"an identical label", "crossUser", "A", "", upd, "23514", "group_member_profiles_guard", []any{binding("crossUser", "A3"), "Cross A3"}, 0},
+			{"101 code points", "crossUser", "A", "", upd, "23514", "group_member_profiles_label_valid",
+				[]any{binding("crossUser", "A3"), strings.Repeat("\u00e9", 101)}, 0},
+			{"100 code points", "crossUser", "A", "", upd, "", "", []any{binding("crossUser", "A3"), strings.Repeat("\u00e9", 100)}, 1},
+			{"a line feed", "crossUser", "A", "", upd, "23514", "group_member_profiles_label_valid", []any{binding("crossUser", "A3"), "a\nb"}, 0},
+			{"an edge space", "crossUser", "A", "", upd, "23514", "group_member_profiles_label_valid", []any{binding("crossUser", "A3"), " X"}, 0},
+			{"a peer updates an invisible row", "memberA2", "A", "", upd, "", "", []any{binding("crossUser", "A3"), "Peer"}, 0},
+			{"the Organization admin updates a member's row", "adminA", "A", "", upd, "", "", []any{binding("crossUser", "A3"), "Staff"}, 0},
+			{"the Group admin updates a member's row", "adminA2", "A", "", upd, "", "", []any{binding("memberA2", "A2"), "Updated A2"}, 1},
+			{"the member's own update", "crossUser", "A", "", upd, "", "", []any{binding("crossUser", "A3"), "Cross A3 again"}, 1},
+			{"a selected Group narrows writes", "gOwnerA1", "A", "A3", upd, "", "", []any{binding("adminA", "A1"), "Narrowed"}, 0},
+			{"a cleared label keeps its row", "crossUser", "A", "", `UPDATE app.group_member_profiles SET role_label = NULL, version = version + 1 WHERE binding_id = $1::uuid`,
+				"", "", []any{binding("crossUser", "A3")}, 1},
+			{"no DELETE path", "crossUser", "A", "", `DELETE FROM app.group_member_profiles WHERE binding_id = $1::uuid`, "42501", "",
+				[]any{binding("crossUser", "A3")}, 0},
+		}
+		for _, c := range raw {
+			as(c.actor, c.org, c.group)
+			st, cn, n := rlsStmtC(t, tx, c.sql, c.args...)
+			if st != c.state || cn != c.constraint || n != c.rows {
+				t.Errorf("raw write, %s: SQLSTATE %q constraint %q rows %d, want %q %q %d", c.name, st, cn, n, c.state, c.constraint, c.rows)
+			}
+		}
+
+		// The override on (ownerA enables it in this transaction): the oversight cards are unchanged and still read-only, and
+		// the Organization admin (who sees the member's binding either way, so the binding guard passes) is refused by the
+		// write policy (no write path).
+		if !w.applyOverride(t, tx, rlsContext{Actor: "adminA", Org: "A", Shape: "valid", Override: true}, ptr(id("adminA")), ptr(id("A")), ptr("")) {
+			return
+		}
+		var oversight []gmpCase
+		for _, c := range matrixCases {
+			if strings.HasPrefix(c.name, "S4 ") || strings.HasPrefix(c.name, "N3 Organization admin") {
+				oversight = append(oversight, c)
+			}
+		}
+		check("override on:", oversight)
+		for _, c := range []struct {
+			name, sql, state string
+			args             []any
+		}{
+			{"a member's row by the Organization admin", insert, "42501", []any{id("A"), binding("gOwnerA1", "A3"), id("A3"), id("gOwnerA1"), "Staff"}},
+			{"a member's update by the Organization admin", upd, "", []any{binding("crossUser", "A3"), "Staff"}},
+		} {
+			as("adminA", "A", "")
+			st, cn, n := rlsStmtC(t, tx, c.sql, c.args...)
+			if st != c.state || cn != "" || n != 0 {
+				t.Errorf("override on, %s: SQLSTATE %q constraint %q rows %d, want %q and no row", c.name, st, cn, n, c.state)
+			}
+		}
+	})
+
+	// O1 (C8): 201 current Group memberships of one subject in a separate committed Organization. The projection emits
+	// at most 201 rows (the 201st is the facade's overflow signal); the Organization owner's view is that bound, a selected
+	// Group shows exactly that one card, and a viewer that shares one Group gets exactly that card (unauthorized cards
+	// never count toward the bound).
+	oo, owner, peer, subject := rlsUUID(t), rlsUUID(t), rlsUUID(t), rlsUUID(t)
+	tag := strings.ReplaceAll(rlsUUID(t)[:8], "-", "")
+	for _, s := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO app.organizations (id, name) VALUES ($1::uuid, $2)`, []any{oo, "Oracle GMP overflow " + tag}},
+		{`INSERT INTO app.users (id, display_name) VALUES ($1::uuid, 'Oracle overflow owner'), ($2::uuid, 'Oracle overflow peer'),
+  ($3::uuid, 'Oracle overflow subject')`, []any{owner, peer, subject}},
+		{`INSERT INTO app.role_bindings (organization_id, subject_user_id, scope_type, scope_id, group_id, role, source) VALUES
+  ($1::uuid, $2::uuid, 'organization', $1::uuid, NULL, 'org_owner', 'membership'),
+  ($1::uuid, $3::uuid, 'organization', $1::uuid, NULL, 'org_member', 'membership'),
+  ($1::uuid, $4::uuid, 'organization', $1::uuid, NULL, 'org_member', 'membership')`, []any{oo, owner, peer, subject}},
+		{`INSERT INTO app.groups (id, organization_id, name, slug)
+SELECT gen_random_uuid(), $1::uuid, 'Overflow ' || i, 'gmp-overflow-' || $2::text || '-' || i FROM generate_series(1, 201) AS i`, []any{oo, tag}},
+		{`INSERT INTO app.role_bindings (organization_id, subject_user_id, scope_type, scope_id, group_id, role, source)
+SELECT g.organization_id, $2::uuid, 'group', g.id, g.id, 'group_member', 'membership' FROM app.groups g WHERE g.organization_id = $1::uuid`,
+			[]any{oo, subject}},
+		{`INSERT INTO app.role_bindings (organization_id, subject_user_id, scope_type, scope_id, group_id, role, source)
+SELECT g.organization_id, $2::uuid, 'group', g.id, g.id, 'group_member', 'membership' FROM app.groups g WHERE g.organization_id = $1::uuid
+ORDER BY g.id LIMIT 1`, []any{oo, peer}},
+	} {
+		if _, err := e.setup.Exec(ctx, s.sql, s.args...); err != nil {
+			t.Fatalf("overflow fixture: %v", err)
+		}
+	}
+	var first, middle string
+	if err := e.setup.QueryRow(ctx, `SELECT (SELECT id::text FROM app.groups WHERE organization_id = $1::uuid ORDER BY id LIMIT 1),
+  (SELECT id::text FROM app.groups WHERE organization_id = $1::uuid ORDER BY id OFFSET 100 LIMIT 1)`, oo).Scan(&first, &middle); err != nil {
+		t.Fatalf("overflow fixture: %v", err)
+	}
+	count := func(viewer, group string) (int, string) {
+		t.Helper()
+		var n int
+		var g string
+		rlsTx(t, rt, ptr(viewer), ptr(oo), ptr(group), nil, func(tx pgx.Tx) {
+			if err := tx.QueryRow(ctx, `SELECT count(*)::int, coalesce(min(group_id::text), '') FROM app.rls_group_member_cards($1::uuid)`,
+				subject).Scan(&n, &g); err != nil {
+				t.Fatalf("overflow cards: %v (SQLSTATE %s)", err, pgState(err))
+			}
+		})
+		return n, g
+	}
+	for _, c := range []struct {
+		name, viewer, group string
+		n                   int
+		g                   string
+	}{
+		{"the Organization owner sees the bound", owner, "", 201, first},
+		{"the subject itself sees the bound", subject, "", 201, first},
+		{"a selected Group shows exactly its card", owner, middle, 1, middle},
+		{"a viewer sharing one Group sees exactly that card", peer, "", 1, first},
+	} {
+		if n, g := count(c.viewer, c.group); n != c.n || g != c.g {
+			t.Errorf("O1 %s: %d cards (first Group expected: %t), want %d", c.name, n, g == c.g, c.n)
+		}
+		matrix++
+	}
+	fmt.Printf("RLS-GMP {\"matrix\":%d}\n", matrix)
 }
 
 // --- TestRLSPool ---------------------------------------------------------------------------------------------------------

@@ -159,6 +159,28 @@ func setup(t *testing.T) *env {
 	if startVersion != topVersion && startVersion != "5" {
 		t.Fatalf("TENANCY-SETUP: starting version %s is neither the embedded top version %s nor 5", startVersion, topVersion)
 	}
+	if strings.HasSuffix(out.String(), "current_version\t24\n") {
+		// G075: 00024's down refuses while any Group member profile row exists or audit.events holds a Group member profile
+		// action, operation, reason or resource: the disposable label rows and the audit history are purged through the
+		// attested superuser, then 24 steps down to 23.
+		purgeDomainState(t, cfg, `DELETE FROM app.group_member_profiles; `)
+		purgeAuditHistory(t, cfg)
+		out.Reset()
+		if err := full.Down(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t23\n") {
+			t.Fatalf("migrate down to 23: %v %q", err, out.String())
+		}
+	}
+	if strings.HasSuffix(out.String(), "current_version\t23\n") {
+		// G074: 00023's down refuses while any account profile or avatar row exists or audit.events holds a profile action,
+		// operation, reason or resource: the disposable profile rows (profiles first: the avatar reference is RESTRICT) and
+		// the audit history are purged through the attested superuser, then 23 steps down to 22.
+		purgeDomainState(t, cfg, `DELETE FROM app.account_profiles; DELETE FROM app.account_avatars; `)
+		purgeAuditHistory(t, cfg)
+		out.Reset()
+		if err := full.Down(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t22\n") {
+			t.Fatalf("migrate down to 22: %v %q", err, out.String())
+		}
+	}
 	if strings.HasSuffix(out.String(), "current_version\t22\n") {
 		// G071: 00022 adds only the default-tenant reader function; its down needs no data cleanup, then 22 steps down to 21.
 		out.Reset()

@@ -18,12 +18,15 @@ import (
 const MaxMembersPage = 100
 
 // Member is one row of a member page: the subject, its display name (nil when unset), its role in the scope and
-// whether its global user is disabled.
+// whether its global user is disabled. G074: DisplayName is the effective presentation name where the caller may read
+// the subject's account profile (else the provider name), and AvatarVersion the version of its current avatar there
+// (nil without one, or when the caller may not read the profile).
 type Member struct {
-	UserID      UserID
-	DisplayName *string
-	Role        string
-	Disabled    bool
+	UserID        UserID
+	DisplayName   *string
+	Role          string
+	Disabled      bool
+	AvatarVersion *int32
 }
 
 // Candidate is one Group invitation candidate: an enabled Organization member without a binding in the Group.
@@ -282,7 +285,7 @@ func scanMember(row pgx.Row) (Member, error) {
 	var m Member
 	var user pgtype.UUID
 	var status string
-	if err := row.Scan(&user, &m.DisplayName, &status, &m.Role); err != nil {
+	if err := row.Scan(&user, &m.DisplayName, &status, &m.Role, &m.AvatarVersion); err != nil {
 		return Member{}, err
 	}
 	m.UserID, m.Disabled = UserID(user.Bytes), status != userActive

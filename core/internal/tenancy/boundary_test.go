@@ -43,26 +43,32 @@ var pinnedServiceMethods = []string{
 // AbandonEnrollmentTx) with their id parser and state validator (ParseEnrollmentRequestID, RequestStatusValid), and, HTTP
 // slice, the public mode read (ReadPublicEnrollmentMode). G020 adds the label primitives (labels.go: the id and visibility
 // parsers, the name validator, the definition read, lock, page, insert, update and two-statement delete, and the
-// assignment read by target, insert and delete).
+// assignment read by target, insert and delete). G074 adds the account profile name primitives (profiles.go: the name
+// normalizer, the own read and lock, the first-row insert, the version-guarded name update and the gated projection read)
+// and the account avatar primitives (avatars.go: the key derivation, the empty first-row insert, the own profile read and
+// lock, the reference move, the avatar insert, read and three lifecycle updates, the reconcile selection, the allocation
+// gate and the gated avatar projection read). G075 adds the Group member profile primitives (group_profiles.go: the role
+// label normalizer, the card projection read, and the label lock, first-row insert and version-guarded update).
 var pinnedPackageFunctions = []string{
-	"AbandonEnrollmentTx", "AdmitEnrollmentTx", "AdmitRequestTx", "ChangeGroupSlugTx", "ChangeRoleTx", "ClaimInvitationTx",
+	"AbandonEnrollmentTx", "AdmitEnrollmentTx", "AdmitRequestTx", "AvatarGateTx", "AvatarStorageKey", "ChangeGroupSlugTx", "ChangeRoleTx", "ClaimInvitationTx",
 	"CodeOf", "CreateBusinessProfileTx", "CreateGroupTx", "DecideEnrollmentRequestTx", "DeleteLabelAssignmentTx",
 	"DeleteLabelDefinitionAssignmentsTx", "DeleteLabelDefinitionTx", "DigestEqual", "EnrollmentRequestTx", "EnrollmentRequestsPage",
-	"EnrollmentStateTx", "FinalizeObjectTx", "GroupsPage", "InitContext", "InsertBrandingTx", "InsertInvitationTx",
-	"InsertLabelAssignmentTx", "InsertLabelDefinitionTx", "InsertObjectTx", "InvitationCandidatesPage", "InvitationDigest",
-	"InvitationRoleValid", "InvitationTx", "InvitationsPage", "LabelAssignmentsByTarget", "LabelDefinitionTx",
-	"LabelDefinitionsPage", "LinkGroupBusinessProfileTx", "ListLogoUploadsTx", "LockBrandingTx", "LockLabelDefinitionTx",
-	"LockObjectTx", "LogRetirement", "MarkObjectDeletedTx", "MarkObjectDeletingTx", "MembersPage", "MyInvitationsPage",
-	"NewInvitationToken", "NewService", "NormalizeAddress", "NormalizeLabelTx", "ObjectStorageKey", "OwnOrganizationsPage",
-	"OwnerCount", "ParseAssociationID", "ParseBindingID", "ParseBusinessProfileID", "ParseEnrollmentMode", "ParseEnrollmentPolicy",
-	"ParseEnrollmentRequestID", "ParseGroupID", "ParseInvitationID", "ParseLabelDefinitionID", "ParseLabelVisibility",
-	"ParseObjectID", "ParseOrganizationID", "ParseUserID", "PendingInvitationCount", "ProfilesPage", "ReadBrandingTx",
-	"ReadEnrollmentPolicyTx", "ReadFacts", "ReadObjectTx", "ReadPublicBranding", "ReadPublicEnrollmentMode", "RemoveBindingTx",
-	"RenameGroupTx", "RequestEnrollmentTx", "RequestStatusValid", "ReservedSlugs", "RevokeEnrollmentApprovalTx",
-	"RevokeInvitationTx", "SelectableGroupsPage", "SetEnrollmentModeTx", "SetGroupManagementOverrideTx", "SetOrganizationPolicyTx",
-	"ShareLogoObjectTx", "SoleOwnerScopes", "SuggestGroupSlugTx", "UpdateBrandingTx", "UpdateBusinessProfileTx",
-	"UpdateLabelDefinitionTx", "ValidInvitationToken", "ValidateBusinessContext", "ValidateContentType", "ValidateLabelName",
-	"ValidateName", "ValidateSlug", "ValidateWebsite",
+	"EnrollmentStateTx", "FinalizeAvatarTx", "FinalizeObjectTx", "GroupMemberCardsTx", "GroupsPage", "InitContext", "InsertAvatarTx", "InsertBrandingTx",
+	"InsertEmptyProfileTx", "InsertGroupMemberLabelTx", "InsertInvitationTx",
+	"InsertLabelAssignmentTx", "InsertLabelDefinitionTx", "InsertObjectTx", "InsertProfileNameTx", "InvitationCandidatesPage",
+	"InvitationDigest", "InvitationRoleValid", "InvitationTx", "InvitationsPage", "LabelAssignmentsByTarget", "LabelDefinitionTx",
+	"LabelDefinitionsPage", "LinkGroupBusinessProfileTx", "ListLogoUploadsTx", "LockAvatarProfileTx", "LockBrandingTx", "LockGroupMemberLabelTx", "LockLabelDefinitionTx",
+	"LockObjectTx", "LockOwnProfileTx", "LogRetirement", "MarkAvatarDeletedTx", "MarkAvatarDeletingTx", "MarkAvatarUploadRefusedTx", "MarkAvatarUploadStartedTx", "MarkObjectDeletedTx", "MarkObjectDeletingTx", "MembersPage", "MyInvitationsPage",
+	"NewInvitationToken", "NewService", "NormalizeAddress", "NormalizeLabelTx", "NormalizeProfileName", "NormalizeRoleLabel", "ObjectStorageKey",
+	"OwnOrganizationsPage", "OwnerCount", "ParseAssociationID", "ParseBindingID", "ParseBusinessProfileID", "ParseEnrollmentMode",
+	"ParseEnrollmentPolicy", "ParseEnrollmentRequestID", "ParseGroupID", "ParseInvitationID", "ParseLabelDefinitionID",
+	"ParseLabelVisibility", "ParseObjectID", "ParseOrganizationID", "ParseUserID", "PendingInvitationCount", "ProfilesPage",
+	"ReadAvatarProfileTx", "ReadAvatarTx", "ReadBrandingTx", "ReadEnrollmentPolicyTx", "ReadFacts", "ReadObjectTx", "ReadOwnProfileTx", "ReadPublicBranding",
+	"ReadPublicEnrollmentMode", "RemoveBindingTx", "RenameGroupTx", "RequestEnrollmentTx", "RequestStatusValid", "ReservedSlugs",
+	"RevokeEnrollmentApprovalTx", "RevokeInvitationTx", "SelectableGroupsPage", "SetAvatarReferenceTx", "SetEnrollmentModeTx", "SetGroupManagementOverrideTx",
+	"SetOrganizationPolicyTx", "ShareLogoObjectTx", "SoleOwnerScopes", "StaleAvatarsTx", "SuggestGroupSlugTx", "UpdateBrandingTx",
+	"UpdateBusinessProfileTx", "UpdateGroupMemberLabelTx", "UpdateLabelDefinitionTx", "UpdateProfileNameTx", "ValidInvitationToken", "ValidateBusinessContext",
+	"ValidateContentType", "ValidateLabelName", "ValidateName", "ValidateSlug", "ValidateWebsite", "VisibleAvatarTx", "VisibleProfileTx",
 }
 
 // lockingStatements are the store.go statements that take row locks (G007 Plan r1 §4.1): the fact reads in their
@@ -111,10 +117,11 @@ func productionFiles(t *testing.T) (*token.FileSet, map[string]*ast.File) {
 		}
 		files[n] = f
 	}
-	if len(files) != 20 {
+	if len(files) != 23 {
 		t.Fatalf("production files: %d, want the 7 of G005 Plan r4 §4.1, the 3 of G006 Plan r2 §4.1, facts.go of G007 Plan r1 §3.7, "+
 			"objects.go of G009 Plan r1 §2, mcp.go of G014 Plan r8 §8, branding.go of G017 Plan r2 §5.1, onboarding.go of G018 Plan r5 §3, "+
-			"membership.go, invitations.go and fixture.go of G019 Plan r1 §3, enrollment.go of G058 Plan r3 §4.3 and labels.go of G020 Plan r2 §2", len(files))
+			"membership.go, invitations.go and fixture.go of G019 Plan r1 §3, enrollment.go of G058 Plan r3 §4.3, labels.go of G020 Plan r2 §2, "+
+			"profiles.go and avatars.go of G074 Plan r3.1 §3.5, §3.8 and group_profiles.go of G075 Plan r2 §3.4", len(files))
 	}
 	return fset, files
 }
@@ -262,8 +269,9 @@ func TestSQLBoundary(t *testing.T) {
 	}
 	// Every statement lives in store.go: no other production file holds a string literal naming a schema object.
 	for name, f := range files {
-		if name == "store.go" || name == "objects.go" || name == "branding.go" || name == "labels.go" {
-			continue // labels.go holds the G020 label statements (counted above; TestLabelStatements); objects.go holds the G009 stored-object statements (TestObjectSQLBoundary), branding.go the G017 branding statements (TestBrandingSQLBoundary)
+		if name == "store.go" || name == "objects.go" || name == "branding.go" || name == "labels.go" || name == "profiles.go" ||
+			name == "avatars.go" || name == "group_profiles.go" {
+			continue // group_profiles.go holds the G075 Group member profile statements (TestGroupProfileSQLBoundary); avatars.go holds the G074 avatar statements (TestAvatarSQLBoundary); labels.go holds the G020 label statements (counted above; TestLabelStatements); objects.go holds the G009 stored-object statements (TestObjectSQLBoundary), branding.go the G017 branding statements (TestBrandingSQLBoundary), profiles.go the G074 profile name statements (TestProfileSQLBoundary)
 		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING && !logOperationNames[lit.Value] &&
@@ -359,6 +367,8 @@ var fixtureCallerFiles = []string{
 	"internal/tenancy/access/objects_integration_test.go",
 	"internal/tenancy/access/objects_ordering_integration_test.go",
 	"internal/tenancy/access/ordering_integration_test.go",
+	"internal/tenancy/access/profile_avatar_integration_test.go", // G074 TestProfileAvatar: membership fixtures for the delivery cases
+	"internal/tenancy/access/profile_integration_test.go",        // G074 TestProfile: PRO-9/PRO-12 membership removals
 	"internal/tenancy/access/recovery_integration_test.go",
 	"internal/tenancy/access/rls_ordering_integration_test.go",
 	"internal/tenancy/business_profile_integration_test.go",
@@ -672,6 +682,252 @@ func TestBrandingSQLBoundary(t *testing.T) {
 		ast.Inspect(f, func(n ast.Node) bool {
 			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING && strings.Contains(lit.Value, "app.organization_branding") {
 				t.Errorf("%s names app.organization_branding", name)
+			}
+			return true
+		})
+	}
+}
+
+// profileStatements are the G074 profile name statements of profiles.go (Plan r3.1 §3.5): the own read (the user row
+// with its profile and current ready avatar), the own lock (FOR NO KEY UPDATE, the only locking statement), the
+// first-row insert of (user_id, name) and the version-guarded name update, each naming its user as $1, and the read of
+// the policy reader's gated projection. No statement deletes, writes another column or names an Organization: the
+// tables are global and row-level security admits the caller's own rows for writes.
+var profileStatements = map[string]string{
+	"sqlReadOwnProfile": "SELECT u.display_name, p.name, coalesce(p.version, 0), coalesce(p.avatar_version, 0), a.content_type " +
+		"FROM app.users u LEFT JOIN app.account_profiles p ON p.user_id = u.id " +
+		"LEFT JOIN app.account_avatars a ON a.id = p.avatar_object_id AND a.user_id = u.id AND a.state = 'ready' WHERE u.id = $1",
+	"sqlLockOwnProfile":    "SELECT name, version FROM app.account_profiles WHERE user_id = $1 FOR NO KEY UPDATE",
+	"sqlInsertProfileName": "INSERT INTO app.account_profiles (user_id, name) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING RETURNING version",
+	"sqlUpdateProfileName": "UPDATE app.account_profiles SET name = $3, version = version + 1 WHERE user_id = $1 AND version = $2 RETURNING version",
+	"sqlVisibleProfile":    "SELECT user_id, name, avatar_version, avatar_type FROM app.rls_account_profile($1)",
+}
+
+func TestProfileSQLBoundary(t *testing.T) {
+	_, files := productionFiles(t)
+	stmts := constStrings(t, files["profiles.go"])
+	n := 0
+	for name, sql := range stmts {
+		if !strings.HasPrefix(name, "sql") {
+			continue
+		}
+		n++
+		if want, ok := profileStatements[name]; !ok || sql != want {
+			t.Errorf("%s differs from its pinned text:\n got %s\nwant %s", name, sql, want)
+		}
+		if regexp.MustCompile(`\bDELETE\b|\borganization_id\b|\bavatar_object_id =|\bupdated_at =`).MatchString(sql) {
+			t.Errorf("%s deletes, names an Organization or writes a guard-owned column: %s", name, sql)
+		}
+		if regexp.MustCompile(`\bFOR (UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b`).MatchString(sql) && name != "sqlLockOwnProfile" {
+			t.Errorf("%s takes an unpinned row lock: %s", name, sql)
+		}
+	}
+	if n != len(profileStatements) {
+		t.Fatalf("profile statements: %d, want %d", n, len(profileStatements))
+	}
+	// No other file of the package names the profile relations, except avatars.go's pinned avatar statements
+	// (TestAvatarSQLBoundary) and store.go's two member pages (TestMemberProfileJoin).
+	for name, f := range files {
+		if name == "profiles.go" || name == "avatars.go" {
+			continue
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING && name != "store.go" &&
+				(strings.Contains(lit.Value, "app.account_profiles") || strings.Contains(lit.Value, "app.account_avatars") ||
+					strings.Contains(lit.Value, "rls_account_profile")) {
+				t.Errorf("%s names a profile relation", name)
+			}
+			return true
+		})
+	}
+}
+
+// memberProfileJoins are the only store.go statements naming a profile relation (G074 Plan r3.1 §3.9, §3.9a C4): the
+// two G019 member pages, each LEFT JOINing app.account_profiles under its own row-level security for the effective name
+// and the current avatar's version, with the version-22 predicates, cursor, filter and order unchanged.
+var memberProfileJoins = map[string]string{
+	"sqlOrganizationMembersPage": "SELECT m.user_id, coalesce(ap.name, u.display_name), u.status, m.role, " +
+		"CASE WHEN ap.avatar_object_id IS NOT NULL THEN ap.avatar_version END FROM app.organization_memberships m " +
+		"JOIN app.users u ON u.id = m.user_id LEFT JOIN app.account_profiles ap ON ap.user_id = m.user_id " +
+		"WHERE m.organization_id = $1 AND m.user_id > $2 " +
+		"AND ($3 = '' OR (m.role = $3 AND u.status = 'active')) ORDER BY m.user_id LIMIT $4",
+	"sqlGroupMembersPage": "SELECT m.user_id, coalesce(ap.name, u.display_name), u.status, m.role, " +
+		"CASE WHEN ap.avatar_object_id IS NOT NULL THEN ap.avatar_version END FROM app.group_memberships m " +
+		"JOIN app.users u ON u.id = m.user_id LEFT JOIN app.account_profiles ap ON ap.user_id = m.user_id " +
+		"WHERE m.organization_id = $1 AND m.group_id = $2 AND m.user_id > $3 " +
+		"AND ($4 = '' OR (m.role = $4 AND u.status = 'active')) ORDER BY m.user_id LIMIT $5",
+}
+
+// TestMemberProfileJoin (G074): store.go names app.account_profiles in exactly the two pinned member pages, never the
+// avatar table, the gated projection (other viewers' avatar metadata) or the policy reader's predicate directly (the
+// join is decided by account_profiles_select, not by the statement), and no other store.go literal names a profile
+// relation.
+func TestMemberProfileJoin(t *testing.T) {
+	_, files := productionFiles(t)
+	stmts := constStrings(t, files["store.go"])
+	var joined []string
+	for name, sql := range stmts {
+		if strings.Contains(sql, "app.account_avatars") || strings.Contains(sql, "rls_account_profile") ||
+			strings.Contains(sql, "rls_profile_visible") {
+			t.Errorf("%s names the avatar table, the gated projection or the relationship predicate: %s", name, sql)
+		}
+		if !strings.Contains(sql, "app.account_profiles") {
+			continue
+		}
+		joined = append(joined, name)
+		if want, ok := memberProfileJoins[name]; !ok || sql != want {
+			t.Errorf("%s differs from its pinned text:\n got %s\nwant %s", name, sql, want)
+		}
+	}
+	slices.Sort(joined)
+	if strings.Join(joined, ",") != "sqlGroupMembersPage,sqlOrganizationMembersPage" {
+		t.Fatalf("store.go statements naming app.account_profiles: %v, want the two member pages", joined)
+	}
+}
+
+// avatarStatements are the G074 account avatar statements of avatars.go (Plan r3.1 §3.8): the empty first-row insert,
+// the own profile read and its FOR NO KEY UPDATE lock (the only locking statement), the reference move, the avatar
+// insert, read and three lifecycle updates, the reconcile selection, the allocation gate and the gated avatar
+// projection read. Each names its user as $1; none deletes, names an Organization or writes a database- or guard-owned
+// column; the reconcile selection and the gate compare against the current reference null-safely (Plan r3.1 erratum:
+// IS DISTINCT FROM, never <>, so a NULL reference counts every unresolved row).
+var avatarStatements = []string{
+	"sqlAvatarGate", "sqlFinalizeAvatar", "sqlInsertAvatar", "sqlInsertEmptyProfile", "sqlLockAvatarProfile", "sqlMarkAvatarDeleted",
+	"sqlMarkAvatarDeleting", "sqlMarkAvatarUploadRefused", "sqlMarkAvatarUploadStarted", "sqlReadAvatarProfile", "sqlSelectAvatar", "sqlSetAvatarReference",
+	"sqlStaleAvatars", "sqlVisibleAvatar",
+}
+
+func TestAvatarSQLBoundary(t *testing.T) {
+	_, files := productionFiles(t)
+	stmts := constStrings(t, files["avatars.go"])
+	relation := regexp.MustCompile(`\bapp\.[a-z_]+`)
+	lock := regexp.MustCompile(`\bFOR (UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b`)
+	nullSafe := "id IS DISTINCT FROM (SELECT p.avatar_object_id FROM app.account_profiles p WHERE p.user_id = $1)"
+	var names []string
+	for name, sql := range stmts {
+		if !strings.HasPrefix(name, "sql") {
+			continue
+		}
+		names = append(names, name)
+		for _, rel := range relation.FindAllString(sql, -1) {
+			if rel != "app.account_avatars" && rel != "app.account_profiles" && rel != "app.rls_account_profile" {
+				t.Errorf("%s names %s", name, rel)
+			}
+		}
+		if !strings.Contains(sql, "user_id = $1") && !strings.Contains(sql, "VALUES ($1") && !strings.Contains(sql, "app.rls_account_profile($1)") {
+			t.Errorf("%s does not name its user as $1: %s", name, sql)
+		}
+		body, _, _ := strings.Cut(sql, " RETURNING ")
+		if regexp.MustCompile(`\bDELETE\b|\borganization_id\b|\b(storage_key|created_at|ready_at|deleting_at|deleted_at|updated_at|name) =`).MatchString(body) {
+			t.Errorf("%s deletes, names an Organization or writes a database- or guard-owned column: %s", name, body)
+		}
+		if strings.HasPrefix(sql, "UPDATE ") {
+			table, rest, _ := strings.Cut(strings.TrimPrefix(body, "UPDATE "), " SET ")
+			set, _, _ := strings.Cut(rest, " WHERE ")
+			allowed := map[string]bool{"state": true, "sha256": true, "upload_started_at": true}
+			if table == "app.account_profiles" {
+				allowed = map[string]bool{"avatar_object_id": true, "avatar_version": true, "version": true}
+			}
+			for _, a := range strings.Split(set, ", ") {
+				if c, _, _ := strings.Cut(a, " = "); !allowed[c] {
+					t.Errorf("%s writes %s", name, c)
+				}
+			}
+		}
+		if lock.MatchString(sql) && (name != "sqlLockAvatarProfile" || !strings.HasSuffix(sql, " FOR NO KEY UPDATE")) {
+			t.Errorf("%s takes an unpinned row lock: %s", name, sql)
+		}
+		if regexp.MustCompile(`\bid <> |avatar_object_id <> `).MatchString(sql) {
+			t.Errorf("%s compares the avatar reference with <> (not null-safe): %s", name, sql)
+		}
+	}
+	slices.Sort(names)
+	if strings.Join(names, ",") != strings.Join(avatarStatements, ",") {
+		t.Fatalf("avatar statements:\n got %v\nwant %v", names, avatarStatements)
+	}
+	for _, name := range []string{"sqlStaleAvatars", "sqlAvatarGate"} {
+		if !strings.Contains(stmts[name], nullSafe) || !strings.Contains(stmts[name], "state <> 'deleted'") {
+			t.Errorf("%s lacks the null-safe current-reference predicate or the tombstone filter: %s", name, stmts[name])
+		}
+	}
+	if !strings.HasSuffix(stmts["sqlStaleAvatars"], " ORDER BY created_at, id LIMIT 20") {
+		t.Errorf("sqlStaleAvatars is not bounded to the 20 oldest rows: %s", stmts["sqlStaleAvatars"])
+	}
+	if stmts["sqlLockAvatarProfile"] != stmts["sqlReadAvatarProfile"]+" FOR NO KEY UPDATE" {
+		t.Error("sqlLockAvatarProfile is not sqlReadAvatarProfile FOR NO KEY UPDATE")
+	}
+	// No other file of the package names the avatar relation (profiles.go's own read joins the current ready avatar).
+	for name, f := range files {
+		if name == "avatars.go" || name == "profiles.go" {
+			continue
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING && strings.Contains(lit.Value, "app.account_avatars") {
+				t.Errorf("%s names app.account_avatars", name)
+			}
+			return true
+		})
+	}
+}
+
+// groupProfileStatements are the G075 Group member profile statements of group_profiles.go (Plan r2 §3.2, §3.4): the card
+// read of the policy reader's projection (the Group name joined under the caller's own groups_select policy), the label
+// row lock (FOR NO KEY UPDATE, the only locking statement), the first-row insert of the membership's label and the
+// version-guarded label update. Each names its Organization as $1; none deletes, reads app.role_bindings or writes a
+// guard-owned column (updated_at) or a binding column on update.
+var groupProfileStatements = map[string]string{
+	"sqlGroupMemberCards": "SELECT c.group_id, g.name, c.role_label, c.can_edit, c.version FROM app.rls_group_member_cards($2) c " +
+		"LEFT JOIN app.groups g ON g.organization_id = $1 AND g.id = c.group_id ORDER BY c.group_id",
+	"sqlLockGroupMemberLabel": "SELECT role_label, version FROM app.group_member_profiles WHERE organization_id = $1 AND binding_id = $2 FOR NO KEY UPDATE",
+	"sqlInsertGroupMemberLabel": "INSERT INTO app.group_member_profiles (organization_id, binding_id, group_id, user_id, role_label) " +
+		"VALUES ($1, $2, $3, $4, $5) ON CONFLICT (binding_id) DO NOTHING RETURNING version",
+	"sqlUpdateGroupMemberLabel": "UPDATE app.group_member_profiles SET role_label = $4, version = version + 1 " +
+		"WHERE organization_id = $1 AND binding_id = $2 AND version = $3 RETURNING version",
+}
+
+// TestGroupProfileSQLBoundary (G075): group_profiles.go holds exactly the pinned statements; no other production file of
+// the package names the Group member profile table or the card projection.
+func TestGroupProfileSQLBoundary(t *testing.T) {
+	_, files := productionFiles(t)
+	stmts := constStrings(t, files["group_profiles.go"])
+	relation := regexp.MustCompile(`\bapp\.[a-z_]+`)
+	n := 0
+	for name, sql := range stmts {
+		if !strings.HasPrefix(name, "sql") {
+			continue
+		}
+		n++
+		if want, ok := groupProfileStatements[name]; !ok || sql != want {
+			t.Errorf("%s differs from its pinned text:\n got %s\nwant %s", name, sql, want)
+		}
+		for _, rel := range relation.FindAllString(sql, -1) {
+			if rel != "app.group_member_profiles" && rel != "app.rls_group_member_cards" && rel != "app.groups" {
+				t.Errorf("%s names %s", name, rel)
+			}
+		}
+		if !strings.Contains(sql, "organization_id = $1") && !strings.Contains(sql, "VALUES ($1") {
+			t.Errorf("%s does not name its Organization as $1: %s", name, sql)
+		}
+		body, _, _ := strings.Cut(sql, " RETURNING ")
+		if regexp.MustCompile(`\bDELETE\b|\bupdated_at =|\b(binding_id|organization_id|group_id|user_id) = \$[0-9], `).MatchString(body) ||
+			(strings.HasPrefix(sql, "UPDATE ") && !strings.Contains(body, " SET role_label = $4, version = version + 1 WHERE ")) {
+			t.Errorf("%s deletes or writes a guard-owned or binding column: %s", name, body)
+		}
+		if regexp.MustCompile(`\bFOR (UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b`).MatchString(sql) && name != "sqlLockGroupMemberLabel" {
+			t.Errorf("%s takes an unpinned row lock: %s", name, sql)
+		}
+	}
+	if n != len(groupProfileStatements) {
+		t.Fatalf("Group member profile statements: %d, want %d", n, len(groupProfileStatements))
+	}
+	for name, f := range files {
+		if name == "group_profiles.go" {
+			continue
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING &&
+				(strings.Contains(lit.Value, "group_member_profiles") || strings.Contains(lit.Value, "rls_group_member_cards")) {
+				t.Errorf("%s names a Group member profile relation", name)
 			}
 			return true
 		})

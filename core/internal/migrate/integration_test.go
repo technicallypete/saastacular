@@ -217,6 +217,26 @@ var labelDrops = []string{
 	"DROP FUNCTION IF EXISTS audit.capture_label_assignments()",
 }
 
+// profileDrops remove the owner-side objects of 00023_account_profiles.sql (G074) without CASCADE: the profile table, then
+// the avatar table it references (their policies, guard and capture triggers, keys, index and grants go with them; they
+// reference users), then the two owner-owned guards and the capture. The widened audit constraints and events_attribute
+// go with audit.events and auditDrops; rlsReset drops the policy reader's two readers (the replaced invitation-candidate
+// body and E1 go with their owners' drops).
+var profileDrops = []string{
+	"DROP TABLE IF EXISTS app.account_profiles", "DROP TABLE IF EXISTS app.account_avatars",
+	"DROP FUNCTION IF EXISTS app.account_profiles_guard()", "DROP FUNCTION IF EXISTS app.account_avatars_guard()",
+	"DROP FUNCTION IF EXISTS audit.capture_account_profiles()",
+}
+
+// groupProfileDrops remove the owner-side objects of 00024_group_member_profiles.sql (G075) without CASCADE: the Group
+// member profile table (its policies, guard and capture triggers, keys and grants go with it; it references role_bindings,
+// organizations, groups and users), then the owner-owned guard and the capture. The widened audit constraints and
+// events_attribute go with audit.events and auditDrops; rlsReset drops the policy reader's card projection.
+var groupProfileDrops = []string{
+	"DROP TABLE IF EXISTS app.group_member_profiles", "DROP FUNCTION IF EXISTS app.group_member_profiles_guard()",
+	"DROP FUNCTION IF EXISTS audit.capture_group_member_profiles()",
+}
+
 // signupDrops remove the owner-side objects of 00018_platform_signup.sql (G062): the signup table (its policies, keys,
 // index and grants go with it; it references users and organizations) and the provision writer's audit USAGE. The
 // login_transactions columns and constraints, the provision-writer policies on organizations, role_bindings, users and
@@ -277,8 +297,10 @@ func reset(t *testing.T, cfg Config) {
 	// trigger and the helper policies sit on app tables). G058: the 00016 owner-side objects go before them (the
 	// departure trigger sits on app.role_bindings; the two tables reference organizations and users).
 	// G062: the 00018 signup table goes first (it references organizations and users). G020: the 00020 label tables and
-	// functions go before it (the tables reference organizations and groups).
-	stmts0 := slices.Concat(labelDrops, signupDrops(cfg), enrollmentDrops, membershipDrops(cfg),
+	// functions go before it (the tables reference organizations and groups). G074: the 00023 profile tables and functions
+	// go first (the tables reference users). G075: the 00024 Group member profile table and functions go before them (the
+	// table references role_bindings, organizations, groups and users).
+	stmts0 := slices.Concat(groupProfileDrops, profileDrops, labelDrops, signupDrops(cfg), enrollmentDrops, membershipDrops(cfg),
 		[]string{"ALTER TABLE IF EXISTS app.sessions DROP CONSTRAINT IF EXISTS sessions_organization_fkey"},
 		brandingDrops, domainDrops, mcpDrops, auditDrops(cfg), storedObjectDrops, retentionDrops)
 	for _, stmt := range stmts0 {
@@ -337,6 +359,10 @@ func rlsReset(t *testing.T, cfg Config, r *Runner) {
 		"DROP FUNCTION IF EXISTS app.invitation_claim_group(uuid, bytea)",
 		"DROP FUNCTION IF EXISTS app.rls_user_enabled_lock(uuid, text, uuid)",
 		"SET LOCAL ROLE " + pr,
+		// G075: the 00024 card projection (no object depends on it once groupProfileDrops ran).
+		"DROP FUNCTION IF EXISTS app.rls_group_member_cards(uuid)",
+		// G074: the 00023 relationship predicate and gated projection (no object depends on them once profileDrops ran).
+		"DROP FUNCTION IF EXISTS app.rls_account_profile(uuid)", "DROP FUNCTION IF EXISTS app.rls_profile_visible(uuid)",
 		// G058: the 00016 public mode reader (no object depends on it).
 		"DROP FUNCTION IF EXISTS app.rls_enrollment_mode(uuid)",
 		// G019: the five 00015 policy-reader readers (no object depends on them once membershipDrops ran).
@@ -863,6 +889,33 @@ func metadataThroughVersion22(t *testing.T, cfg Config, r *Runner) {
 	metadataThroughVersion(t, cfg, r, "22")
 }
 
+// profileRelations are the 5 relations of 00023_account_profiles.sql (G074): the two tables, their primary keys and the
+// avatar table's (user_id, state) index.
+var profileRelations = []string{"i:account_avatars_pkey", "i:account_avatars_user_state_idx", "i:account_profiles_pkey",
+	"r:account_avatars", "r:account_profiles"}
+
+// metadataThroughVersion23 is the version-23 form (G074): the version-22 objects plus the profile relations (94); in
+// schema app the two owner-owned guards and the policy reader's relationship predicate and gated projection (the
+// invitation-candidate body and E1 are replaced under their names and owners); in schema audit the profile capture
+// (events_attribute is replaced in place). TestProfileCatalog names the rest.
+func metadataThroughVersion23(t *testing.T, cfg Config, r *Runner) {
+	t.Helper()
+	metadataThroughVersion(t, cfg, r, "23")
+}
+
+// groupProfileRelations are the 3 relations of 00024_group_member_profiles.sql (G075): the table, its primary key and
+// its one-per-membership unique key.
+var groupProfileRelations = []string{"i:group_member_profiles_one_per_membership", "i:group_member_profiles_pkey",
+	"r:group_member_profiles"}
+
+// metadataThroughVersion24 is the version-24 form (G075): the version-23 objects plus the Group member profile relations
+// (97); in schema app the owner-owned guard and the policy reader's card projection; in schema audit the Group member
+// profile capture (events_attribute is replaced in place). The 00024 postconditions name the rest.
+func metadataThroughVersion24(t *testing.T, cfg Config, r *Runner) {
+	t.Helper()
+	metadataThroughVersion(t, cfg, r, "24")
+}
+
 func metadataThroughVersion(t *testing.T, cfg Config, r *Runner, version string) {
 	t.Helper()
 	o, pr, ar, cw := cfg.OwnerRole(), cfg.Database+"_policy_reader", cfg.Database+"_auth_reader", cfg.Database+"_claim_writer"
@@ -870,48 +923,72 @@ func metadataThroughVersion(t *testing.T, cfg Config, r *Runner, version string)
 	extra := slices.Concat(storedObjectRelations, mcpRelations, domainRelations12, brandingRelations, membershipRelations,
 		enrollmentRelations)
 	guard, signupReader, signupBodies, labelBodies, tenantReader := "", "", "", "", ""
-	if version == "17" || version == "18" || version == "19" || version == "20" || version == "21" || version == "22" {
+	profileGuards, profileReader, profileVisible := "", "", ""
+	groupGuard, groupCards := "", ""
+	if version == "17" || version == "18" || version == "19" || version == "20" || version == "21" || version == "22" || version == "23" ||
+		version == "24" {
 		guard = ",organizations_group_override_guard:" + o
 	}
-	if version == "18" || version == "19" || version == "20" || version == "21" || version == "22" {
+	if version == "18" || version == "19" || version == "20" || version == "21" || version == "22" || version == "23" || version == "24" {
 		extra = append(extra, signupRelations...)
 		signupReader = ",auth_resolve_signup:" + ar
 		signupBodies = ",signup_challenge_complete:" + pw + ",signup_challenge_issue:" + pw + ",signup_provision_organization:" + pw
 	}
-	if version == "20" || version == "21" || version == "22" {
+	if version == "20" || version == "21" || version == "22" || version == "23" || version == "24" {
 		extra = append(extra, labelRelations...)
 		labelBodies = ",label_assignments_keys_immutable:" + o + ",label_definitions_bound:" + o + ",label_definitions_keys_immutable:" + o
 	}
-	if version == "21" || version == "22" {
+	if version == "21" || version == "22" || version == "23" || version == "24" {
 		extra = append(extra, platformLabelRelations...)
 		signupBodies += ",signup_slug_taken:" + ar
 	}
-	if version == "22" {
+	if version == "22" || version == "23" || version == "24" {
 		// G071: no relation; the auth reader's default-tenant reader (byte order: after organization_domains_guard).
 		tenantReader = ",organization_id_by_slug:" + ar
 	}
-	metadataRelationsOnly(t, cfg, r, version, "auth_logout_ref:"+ar+",auth_principal_subject:"+ar+",auth_resolve_enrollment:"+ar+
+	if version == "23" || version == "24" {
+		// G074: the profile relations, the two guards (before auth_logout_ref) and the policy reader's projection (before
+		// rls_dependent_group_bindings) and predicate (after rls_profile_eligible).
+		extra = append(extra, profileRelations...)
+		profileGuards = "account_avatars_guard:" + o + ",account_profiles_guard:" + o + ","
+		profileReader = ",rls_account_profile:" + pr
+		profileVisible = ",rls_profile_visible:" + pr
+	}
+	if version == "24" {
+		// G075: the Group member profile relations, the owner-owned guard (after group_business_profiles_keys_immutable) and
+		// the policy reader's card projection (after rls_group_invitation_candidates).
+		extra = append(extra, groupProfileRelations...)
+		groupGuard = ",group_member_profiles_guard:" + o
+		groupCards = ",rls_group_member_cards:" + pr
+	}
+	metadataRelationsOnly(t, cfg, r, version, profileGuards+"auth_logout_ref:"+ar+",auth_principal_subject:"+ar+",auth_resolve_enrollment:"+ar+
 		",auth_resolve_session:"+ar+signupReader+",branding_overrides_valid:"+o+",business_profiles_keys_immutable:"+o+",ctx_group:"+o+
 		",ctx_login_binding:"+o+",ctx_org:"+o+",ctx_user:"+o+",enrollment_admit:"+cw+",enrollment_history_backfill:"+o+
 		",enrollment_lock_organization:"+cw+",enrollment_readiness_set:"+o+",enrollment_request:"+cw+
 		",enrollment_requests_immutable:"+o+",enrollment_restrict_on_decision:"+o+
-		",enrollment_restrict_on_departure:"+o+",group_business_profiles_keys_immutable:"+o+",groups_bootstrap_owner:"+o+
+		",enrollment_restrict_on_departure:"+o+",group_business_profiles_keys_immutable:"+o+groupGuard+",groups_bootstrap_owner:"+o+
 		",groups_keys_immutable:"+o+",hostname_state:"+ar+",invitation_claim_group:"+cw+",invitation_claim_organization:"+cw+
 		",invitations_bound:"+o+",invitations_keys_immutable:"+o+",is_organization_member:"+ar+labelBodies+",mcp_connections_guard:"+o+
 		",organization_branding_guard:"+o+",organization_domains_guard:"+o+tenantReader+",organizations_enrollment_guard:"+o+guard+
 		",organizations_keys_immutable:"+o+
-		",organizations_slug_guard:"+o+",public_branding:"+ar+",retention_eligible:"+o+
-		",rls_dependent_group_bindings:"+pr+",rls_enrollment_mode:"+pr+",rls_group_invitation_candidates:"+pr+
+		",organizations_slug_guard:"+o+",public_branding:"+ar+",retention_eligible:"+o+profileReader+
+		",rls_dependent_group_bindings:"+pr+",rls_enrollment_mode:"+pr+",rls_group_invitation_candidates:"+pr+groupCards+
 		",rls_group_role:"+pr+",rls_invitation_pending:"+cw+",rls_org_role:"+pr+
-		",rls_own_organizations:"+pr+",rls_owner_count:"+pr+",rls_profile_eligible:"+pr+",rls_sole_owner_scopes:"+pr+
+		",rls_own_organizations:"+pr+",rls_owner_count:"+pr+",rls_profile_eligible:"+pr+profileVisible+",rls_sole_owner_scopes:"+pr+
 		",rls_user_enabled_lock:"+cw+",role_bindings_authority_guard:"+o+",role_bindings_keys_immutable:"+o+signupBodies+
 		",stored_objects_guard:"+o, extra...)
 	// Slice 1b: + the two enrollment captures (policy/readiness and backfill); request slice: + the request capture.
 	fns := append(slices.Clone(auditFunctions), "capture_invitations", "capture_mcp_connections", "capture_organization_branding",
 		"capture_organization_domains", "capture_enrollment_restrictions", "capture_organization_enrollment",
 		"capture_enrollment_requests")
-	if version == "20" || version == "21" || version == "22" {
+	if version == "20" || version == "21" || version == "22" || version == "23" || version == "24" {
 		fns = append(fns, "capture_label_assignments", "capture_label_definitions")
+	}
+	if version == "23" || version == "24" {
+		fns = append(fns, "capture_account_profiles") // G074
+	}
+	if version == "24" {
+		fns = append(fns, "capture_group_member_profiles") // G075
 	}
 	slices.Sort(fns)
 	auditObjects(t, r, "i:events_pkey,i:events_tenant_time_idx,r:events|"+strings.Join(fns, ","))
@@ -1057,7 +1134,8 @@ func TestMigrationLifecycle(t *testing.T) {
 			"applied\t00013_organization_branding.sql\napplied\t00014_group_onboarding.sql\n"+
 			"applied\t00015_membership_invitations.sql\napplied\t00016_organization_enrollment.sql\n"+
 			"applied\t00017_group_authority.sql\napplied\t00018_platform_signup.sql\napplied\t00019_mcp_connection_names.sql\n"+
-			"applied\t00020_labels.sql\napplied\t00021_platform_labels.sql\napplied\t00022_default_tenant.sql\ncurrent_version\t22\n" {
+			"applied\t00020_labels.sql\napplied\t00021_platform_labels.sql\napplied\t00022_default_tenant.sql\n"+
+			"applied\t00023_account_profiles.sql\napplied\t00024_group_member_profiles.sql\ncurrent_version\t24\n" {
 			t.Fatalf("up: %q", out)
 		}
 		// Versions 5 and 6 add no relation: the same 35 objects as version 4 (the G007 policy flag is a column; G008's
@@ -1090,7 +1168,13 @@ func TestMigrationLifecycle(t *testing.T) {
 		// Version 21 (G057) adds the partial unique platform-label index (89) and the auth reader's slug-availability
 		// reader; app.hostname_state and the provisioning body are replaced under their names and owners.
 		// Version 22 (G071) adds no relation (89): the auth reader's default-tenant reader app.organization_id_by_slug.
-		metadataThroughVersion22(t, cfg, normal)
+		// Version 23 (G074) adds the two account profile tables, their keys and one index (94), two owner-owned guards, the
+		// policy reader's relationship predicate and gated projection and the profile capture; the invitation-candidate body,
+		// E1 and events_attribute are replaced in place.
+		// Version 24 (G075) adds the Group member profile table, its key and one-per-membership key (97), the owner-owned
+		// guard, the policy reader's card projection and the Group member profile capture; events_attribute is replaced in
+		// place.
+		metadataThroughVersion24(t, cfg, normal)
 		groupAuthorityAtVersion17(t, normal)
 		assertP(t, cfg, normal, rt)
 		s1 = snapshot(t, normal)
@@ -1134,7 +1218,7 @@ FROM pg_roles r WHERE r.rolname = current_user`, cfg.OwnerRole(), cfg.MigratorRo
 
 	t.Run("07 synthetic down restores the reviewed state", func(t *testing.T) {
 		out := run(t, "down", func(ctx context.Context, b *bytes.Buffer) error { return combined.Down(ctx, b) })
-		if out != "rolled_back\t90000001_synthetic_ddl_probe.sql\ncurrent_version\t22\n" {
+		if out != "rolled_back\t90000001_synthetic_ddl_probe.sql\ncurrent_version\t24\n" {
 			t.Fatalf("synthetic down: %q", out)
 		}
 		if got := snapshot(t, normal); got != s1 {
@@ -1145,7 +1229,7 @@ FROM pg_roles r WHERE r.rolname = current_user`, cfg.OwnerRole(), cfg.MigratorRo
 
 	t.Run("08 reapply", func(t *testing.T) {
 		out := run(t, "reapply", func(ctx context.Context, b *bytes.Buffer) error { return normal.Reapply(ctx, b) })
-		if out != "rolled_back\t00022_default_tenant.sql\napplied\t00022_default_tenant.sql\ncurrent_version\t22\n" {
+		if out != "rolled_back\t00024_group_member_profiles.sql\napplied\t00024_group_member_profiles.sql\ncurrent_version\t24\n" {
 			t.Fatalf("reapply: %q", out)
 		}
 		if got := snapshot(t, normal); got != s1 {
@@ -1156,6 +1240,22 @@ FROM pg_roles r WHERE r.rolname = current_user`, cfg.OwnerRole(), cfg.MigratorRo
 
 	t.Run("09 down to zero keeps only metadata; up restores", func(t *testing.T) {
 		out := run(t, "down", func(ctx context.Context, b *bytes.Buffer) error { return normal.Down(ctx, b) })
+		if out != "rolled_back\t00024_group_member_profiles.sql\ncurrent_version\t23\n" {
+			t.Fatalf("down from 24: %q", out)
+		}
+		metadataThroughVersion23(t, cfg, normal)
+		groupAuthorityAtVersion17(t, normal)
+		assertP(t, cfg, normal, rt)
+
+		out = run(t, "down", func(ctx context.Context, b *bytes.Buffer) error { return normal.Down(ctx, b) })
+		if out != "rolled_back\t00023_account_profiles.sql\ncurrent_version\t22\n" {
+			t.Fatalf("down from 23: %q", out)
+		}
+		metadataThroughVersion22(t, cfg, normal)
+		groupAuthorityAtVersion17(t, normal)
+		assertP(t, cfg, normal, rt)
+
+		out = run(t, "down", func(ctx context.Context, b *bytes.Buffer) error { return normal.Down(ctx, b) })
 		if out != "rolled_back\t00022_default_tenant.sql\ncurrent_version\t21\n" {
 			t.Fatalf("down from 22: %q", out)
 		}
@@ -1308,7 +1408,8 @@ FROM pg_roles r WHERE r.rolname = current_user`, cfg.OwnerRole(), cfg.MigratorRo
 			"applied\t00013_organization_branding.sql\napplied\t00014_group_onboarding.sql\n"+
 			"applied\t00015_membership_invitations.sql\napplied\t00016_organization_enrollment.sql\n"+
 			"applied\t00017_group_authority.sql\napplied\t00018_platform_signup.sql\napplied\t00019_mcp_connection_names.sql\n"+
-			"applied\t00020_labels.sql\napplied\t00021_platform_labels.sql\napplied\t00022_default_tenant.sql\ncurrent_version\t22\n" {
+			"applied\t00020_labels.sql\napplied\t00021_platform_labels.sql\napplied\t00022_default_tenant.sql\n"+
+			"applied\t00023_account_profiles.sql\napplied\t00024_group_member_profiles.sql\ncurrent_version\t24\n" {
 			t.Fatalf("up again: %q", out)
 		}
 		if got := snapshot(t, normal); got != s1 {

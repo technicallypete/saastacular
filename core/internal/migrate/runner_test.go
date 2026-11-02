@@ -127,14 +127,15 @@ func TestNormalSetIsTheReviewedSet(t *testing.T) {
 		"00006_row_level_security.sql,00007_stored_objects.sql,00008_audit_events.sql,00009_retention_maintenance.sql,"+
 		"00010_mcp_connections.sql,00011_organization_domains.sql,00012_session_binding_and_claim_exclusivity.sql,00013_organization_branding.sql,"+
 		"00014_group_onboarding.sql,00015_membership_invitations.sql,00016_organization_enrollment.sql,00017_group_authority.sql,"+
-		"00018_platform_signup.sql,00019_mcp_connection_names.sql,00020_labels.sql,00021_platform_labels.sql,00022_default_tenant.sql" {
+		"00018_platform_signup.sql,00019_mcp_connection_names.sql,00020_labels.sql,00021_platform_labels.sql,00022_default_tenant.sql,"+
+		"00023_account_profiles.sql,00024_group_member_profiles.sql" {
 		t.Fatalf("normal migration set = %v, want [00001_baseline.sql 00002_identity.sql 00003_tenancy.sql 00004_business_profiles.sql "+
 			"00005_organization_policy.sql 00006_row_level_security.sql 00007_stored_objects.sql 00008_audit_events.sql "+
 			"00009_retention_maintenance.sql 00010_mcp_connections.sql 00011_organization_domains.sql "+
 			"00012_session_binding_and_claim_exclusivity.sql 00013_organization_branding.sql 00014_group_onboarding.sql "+
 			"00015_membership_invitations.sql 00016_organization_enrollment.sql 00017_group_authority.sql "+
 			"00018_platform_signup.sql 00019_mcp_connection_names.sql 00020_labels.sql 00021_platform_labels.sql "+
-			"00022_default_tenant.sql]", names)
+			"00022_default_tenant.sql 00023_account_profiles.sql 00024_group_member_profiles.sql]", names)
 	}
 	synthetic, err := fs.Glob(syntheticFS(t), "*.sql")
 	if err != nil || len(synthetic) != 1 {
@@ -309,16 +310,16 @@ func TestProviderAcceptsProtectedStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The normal set lists versions 1..22 (G017: 00013_organization_branding; G018: 00014_group_onboarding; G019:
+	// The normal set lists versions 1..24 (G017: 00013_organization_branding; G018: 00014_group_onboarding; G019:
 	// 00015_membership_invitations; G058: 00016_organization_enrollment; G060: 00017_group_authority; G062:
 	// 00018_platform_signup; G063: 00019_mcp_connection_names; G020: 00020_labels; G057: 00021_platform_labels; G071:
-	// 00022_default_tenant).
-	if srcs := p.ListSources(); len(srcs) != 22 || srcs[0].Version != 1 || srcs[1].Version != 2 || srcs[2].Version != 3 ||
+	// 00022_default_tenant; G074: 00023_account_profiles; G075: 00024_group_member_profiles).
+	if srcs := p.ListSources(); len(srcs) != 24 || srcs[0].Version != 1 || srcs[1].Version != 2 || srcs[2].Version != 3 ||
 		srcs[3].Version != 4 || srcs[4].Version != 5 || srcs[5].Version != 6 || srcs[6].Version != 7 ||
 		srcs[7].Version != 8 || srcs[8].Version != 9 || srcs[9].Version != 10 || srcs[10].Version != 11 || srcs[11].Version != 12 ||
 		srcs[12].Version != 13 || srcs[13].Version != 14 || srcs[14].Version != 15 || srcs[15].Version != 16 || srcs[16].Version != 17 ||
 		srcs[17].Version != 18 || srcs[18].Version != 19 || srcs[19].Version != 20 || srcs[20].Version != 21 ||
-		srcs[21].Version != 22 {
+		srcs[21].Version != 22 || srcs[22].Version != 23 || srcs[23].Version != 24 {
 		t.Fatalf("sources = %v", srcs)
 	}
 }

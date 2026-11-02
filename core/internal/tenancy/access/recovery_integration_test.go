@@ -6,8 +6,14 @@
 //     the real G009 facade (private MinIO), split by a recorded database timestamp T_mid; prints RECOVERY-SEED; the old
 //     authentication material is written only to RECOVERY_OLD_DIR (a run-owned named volume), never to logs.
 //   - TestRecoveryPost (RD-P): the six post-checkpoint restriction kinds on the source; prints RECOVERY-POST.
-//   - TestRecoveryVerify (RD-G V1-V9): on the restored, invalidated and replayed target, as the actual runtime role through
-//     the guarded facade.
+//   - TestRecoveryVerify (RD-G V1-V10): on the restored, invalidated and replayed target, as the actual runtime role
+//     through the guarded facade.
+//
+// G074 (Plan r3.1 §3.12, A8): Seed also sets memberA2's explicit name and avatar X1 and ownerB's avatar Y1 through the
+// facade (identity-owned avatars/ objects, captured with the user-id owner in format g013-backup/2); Post removes X1 and
+// replaces Y1 with Y2 (two terminal avatar.delete restrictions for the next ledger sync; Y2 is post-checkpoint data);
+// V10 proves that neither withdrawn avatar resurfaces on the replayed target, the name override is restored and a fresh
+// upload succeeds.
 //   - TestRecoveryRepair (MD-R): pending and deleting repair through the authorized guarded delete (RECOVERY_REPAIR_STEP).
 //
 // The environment keeps the identity namespace row (unlike setupIT) and fixes the fake WorkOS issuer, so restored
@@ -59,6 +65,8 @@ type recIDs struct {
 	TMid                                                         string
 	RemovedBinding, DowngradedBinding                            map[string]string
 	PostDone                                                     bool
+	AvatarX1, AvatarY1, AvatarY2, DigestX1, DigestY1, NameA2     string
+	AvatarVerX1, AvatarVerY1                                     int32
 }
 
 // setupRecovery is setupObjects without the namespace-row reset and with the fixed issuer. login is the sign-in fixture
@@ -89,7 +97,7 @@ func setupRecovery(t *testing.T, ids *recIDs) *objEnv {
 		t.Fatalf("open migrator: %v", err)
 	}
 	var out bytes.Buffer
-	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t22\n") {
+	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t24\n") {
 		t.Fatalf("migrate up: %v %q", err, out.String())
 	}
 	_ = r.Close()
@@ -200,6 +208,71 @@ func (e *objEnv) recDelete(t *testing.T, cred string, org tenancy.OrganizationID
 	return res
 }
 
+// recScope opens one request scope of the objects facade for cred (its credential for org) and resolves the
+// Organization-only context; the scope ends at cleanup.
+func (e *objEnv) recScope(t *testing.T, cred string, org tenancy.OrganizationID) (context.Context, *TenantContext) {
+	t.Helper()
+	rctx, _ := recBegin(t, e.osvc, cred, org)
+	return rctx, resolve(t, e.osvc, rctx, org, tenancy.GroupID{})
+}
+
+// recOwn reads cred's own profile view through the facade (G074).
+func (e *objEnv) recOwn(t *testing.T, cred string, org tenancy.OrganizationID) AccountProfileView {
+	t.Helper()
+	rctx, tc := e.recScope(t, cred, org)
+	v, err := e.osvc.GetOwnAccountProfile(rctx, tc)
+	if err != nil {
+		t.Fatalf("own profile: %v", err)
+	}
+	return v
+}
+
+// recAvatar sets name (when not empty) and then data as the avatar of cred's user through the facade in org (G074), each
+// write at the current version, and returns the new current avatar's id, the digest of its stored (normalized) bytes and
+// its avatar version.
+func (e *objEnv) recAvatar(t *testing.T, cred string, org tenancy.OrganizationID, name string, data []byte) (string, string, int32) {
+	t.Helper()
+	v := e.recOwn(t, cred, org)
+	if name != "" {
+		rctx, tc := e.recScope(t, cred, org)
+		var err error
+		if v, err = e.osvc.UpdateAccountProfileName(rctx, tc, v.Version, &name); err != nil {
+			t.Fatalf("name: %v", err)
+		}
+	}
+	rctx, tc := e.recScope(t, cred, org)
+	v, err := e.osvc.SetAccountAvatar(rctx, tc, v.Version, bytes.NewReader(data), int64(len(data)))
+	if err != nil || v.Avatar == nil {
+		t.Fatalf("avatar: %+v %v", v, err)
+	}
+	var id, sum string
+	if err := e.setup.QueryRow(context.Background(), `SELECT a.id::text, encode(a.sha256, 'hex') FROM app.account_profiles p
+JOIN app.account_avatars a ON a.id = p.avatar_object_id WHERE p.user_id = $1::text::uuid AND a.state = 'ready'`, v.UserID.String()).Scan(&id, &sum); err != nil {
+		t.Fatalf("avatar row: %v", err)
+	}
+	return id, sum, v.Avatar.Version
+}
+
+// recAvatarState is the state of avatar row id ("absent" when there is none).
+func (e *objEnv) recAvatarState(t *testing.T, id string) string {
+	t.Helper()
+	var st string
+	if err := e.setup.QueryRow(context.Background(), `SELECT coalesce((SELECT state FROM app.account_avatars WHERE id = $1::text::uuid), 'absent')`,
+		id).Scan(&st); err != nil {
+		t.Fatalf("avatar state: %v", err)
+	}
+	return st
+}
+
+func mustUser(t *testing.T, s string) tenancy.UserID {
+	t.Helper()
+	u, err := tenancy.ParseUserID(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
 func recOldDir(t *testing.T) string {
 	t.Helper()
 	d := os.Getenv("RECOVERY_OLD_DIR")
@@ -297,6 +370,10 @@ func TestRecoverySeed(t *testing.T) {
 	e.seed(t, objFixture{id: del, org: orgA, group: a1.ID, creator: users["memberA1"].id, state: tenancy.ObjectDeleting, ct: "text/plain", data: payload(128, "rec-deleting")})
 	e.seed(t, objFixture{id: pend, org: orgA, group: a1.ID, creator: users["memberA1"].id, state: tenancy.ObjectPending, ct: "text/plain"})
 	ids.Deleting, ids.Pending = del.String(), pend.String()
+	// G074: memberA2's explicit name and avatar X1, ownerB's avatar Y1, through the facade (identity-owned objects).
+	ids.NameA2 = "Recovery memberA2 chosen"
+	ids.AvatarX1, ids.DigestX1, ids.AvatarVerX1 = e.recAvatar(t, at["memberA2"], orgA, ids.NameA2, avatarPNG(t, 61))
+	ids.AvatarY1, ids.DigestY1, ids.AvatarVerY1 = e.recAvatar(t, at["ownerB"], orgB, "", avatarPNG(t, 62))
 	// Authentication before the checkpoint: disabled0 disabled; one session revoked by logout.
 	if err := e.id.DisableUser(ctx, users["disabled0"].id.String()); err != nil {
 		t.Fatal(err)
@@ -417,6 +494,21 @@ func TestRecoveryPost(t *testing.T) {
 	if r := e.recDelete(t, owner, orgA, ids.ObjA); r.Outcome != DeleteOutcomeDeleted {
 		t.Fatalf("delete A object: %v", r.Outcome)
 	}
+	// G074: memberA2 removes X1 and ownerB replaces Y1 with Y2. Both withdrawals are terminal (the withdrawn published rows
+	// keep ready_at, so the next ledger sync records exactly two avatar.delete entries); Y2 is ready and no restriction.
+	mA2 := e.recOrgSignIn(t, orgA, ids.Subjects["memberA2"], "Recovery memberA2 post") // G016 A2: issued for A
+	rctx, tc = e.recScope(t, mA2, orgA)
+	if v, err := e.osvc.RemoveAccountAvatar(rctx, tc, e.recOwn(t, mA2, orgA).Version); err != nil || v.Avatar != nil {
+		t.Fatalf("remove X1: %+v %v", v, err)
+	}
+	orgB := mustOrg(t, ids.OrgB)
+	oB := e.recOrgSignIn(t, orgB, ids.Subjects["ownerB"], "Recovery ownerB post") // G016 A2: issued for B
+	ids.AvatarY2, _, _ = e.recAvatar(t, oB, orgB, "", avatarPNG(t, 63))
+	for _, id := range []string{ids.AvatarX1, ids.AvatarY1} {
+		if st := e.recAvatarState(t, id); st != "deleted" {
+			t.Fatalf("withdrawn avatar %s: %s, want deleted", id, st)
+		}
+	}
 	ids.RemovedBinding = map[string]string{"organization": ids.OrgA, "subject": ids.Users["memberA1"], "scope_type": "group", "scope_id": ids.A1, "role": "group_member"}
 	ids.DowngradedBinding = map[string]string{"organization": ids.OrgA, "subject": ids.Users["gadminA2"], "scope_type": "group", "scope_id": ids.A2,
 		"from_role": "group_admin", "to_role": "group_member"}
@@ -434,7 +526,7 @@ func recDenied(t *testing.T, what string, err error) {
 	}
 }
 
-// TestRecoveryVerify (RD-G V1-V9) on the restored target.
+// TestRecoveryVerify (RD-G V1-V10) on the restored target.
 func TestRecoveryVerify(t *testing.T) {
 	ids := recLoadIDs(t)
 	cpEnd, err := time.Parse(retTimeLayout, os.Getenv("RECOVERY_CHECKPOINT_END"))
@@ -679,10 +771,14 @@ WHERE b.organization_id IN ($2::uuid, $3::uuid)`, mustJSON(ids.Users), ids.OrgA,
 	})
 
 	t.Run("V9 replay events and attribution", func(t *testing.T) {
-		got := one(`SELECT coalesce(string_agg(format('%s:%s:%s', action, actor_kind, CASE WHEN actor_user_id = $3::uuid THEN 'ownerA' ELSE coalesce(actor_user_id::text, '-') END),
-  ',' ORDER BY action COLLATE "C"), '') FROM audit.events WHERE occurred_at > $1 AND occurred_at < $2`, cpEnd, verifyStart, ids.Users["ownerA"])
+		// G074: the two replayed avatar withdrawals each add one profile.updated (avatar_removed) with the owning user as
+		// actor; the rows are ordered by their whole text, so the two profile.updated rows have a fixed order.
+		got := one(`SELECT coalesce(string_agg(r, ',' ORDER BY r COLLATE "C"), '') FROM (SELECT format('%s:%s:%s', action, actor_kind,
+  CASE actor_user_id WHEN $3::uuid THEN 'ownerA' WHEN $4::uuid THEN 'memberA2' WHEN $5::uuid THEN 'ownerB' ELSE coalesce(actor_user_id::text, '-') END) AS r
+  FROM audit.events WHERE occurred_at > $1 AND occurred_at < $2) q`, cpEnd, verifyStart, ids.Users["ownerA"], ids.Users["memberA2"], ids.Users["ownerB"])
 		want := "business_profile.unlinked:unknown:-,membership.removed:unknown:-,membership.role_changed:unknown:-,object.delete_started:user:ownerA," +
-			"object.deleted:user:ownerA,organization.policy_changed:unknown:-,revocation.unaudited:unknown:-"
+			"object.deleted:user:ownerA,organization.policy_changed:unknown:-,profile.updated:user:memberA2,profile.updated:user:ownerB," +
+			"revocation.unaudited:unknown:-"
 		if got != want {
 			t.Errorf("events between the checkpoint and verification %q, want %q", got, want)
 		}
@@ -692,6 +788,55 @@ WHERE b.organization_id IN ($2::uuid, $3::uuid)`, mustJSON(ids.Users), ids.OrgA,
 		if one(`SELECT count(*)::text FROM audit.events WHERE action = 'revocation.unaudited' AND subject_user_id = $1::uuid AND resource_id = $1::uuid
   AND reason = 'disabled' AND actor_kind = 'unknown' AND occurred_at > $2`, ids.Users["disable1"], cpEnd) != "1" {
 			t.Error("the revocation.unaudited record for disable1 is missing or misshaped")
+		}
+	})
+
+	t.Run("V10 replayed avatar withdrawals never resurface; the name override is restored", func(t *testing.T) {
+		mA2, oB := mustUser(t, ids.Users["memberA2"]), mustUser(t, ids.Users["ownerB"])
+		memberA2 := fresh("memberA2", orgA)
+		v := e.recOwn(t, memberA2, orgA)
+		if v.Avatar != nil || v.Name == nil || *v.Name != ids.NameA2 || v.EffectiveName != ids.NameA2 {
+			t.Errorf("memberA2's own view %+v: want no avatar and the restored name override %q", v, ids.NameA2)
+		}
+		if b := e.recOwn(t, ownerB, orgB); b.Avatar != nil {
+			t.Errorf("ownerB's own view %+v: want no avatar", b)
+		}
+		if got := one(`SELECT avatar_version::text FROM app.account_profiles WHERE user_id = $1::uuid`, ids.Users["ownerB"]); got != fmt.Sprint(ids.AvatarVerY1+1) {
+			t.Errorf("ownerB avatar_version %s, want %d (advanced past the checkpoint)", got, ids.AvatarVerY1+1)
+		}
+		for _, c := range []struct{ id, want string }{{ids.AvatarX1, "deleted"}, {ids.AvatarY1, "deleted"}, {ids.AvatarY2, "absent"}} {
+			if st := e.recAvatarState(t, c.id); st != c.want {
+				t.Errorf("avatar row %s: %s, want %s", c.id, st, c.want)
+			}
+		}
+		for _, k := range []struct {
+			u  tenancy.UserID
+			id string
+		}{{mA2, ids.AvatarX1}, {oB, ids.AvatarY1}, {oB, ids.AvatarY2}} {
+			if e.avatarPresent(t, k.u, k.id) {
+				t.Errorf("avatar bytes avatars/%s/%s are present", k.u, k.id)
+			}
+		}
+		// Guarded reads: the checkpoint version and every other version are not_found for both subjects.
+		for _, c := range []struct {
+			cred string
+			org  tenancy.OrganizationID
+			u    tenancy.UserID
+			ver  int32
+		}{{memberA2, orgA, mA2, ids.AvatarVerX1}, {ownerB, orgB, oB, ids.AvatarVerY1}} {
+			for ver := int32(1); ver <= c.ver+2; ver++ {
+				rctx, tc := e.recScope(t, c.cred, c.org)
+				if _, _, err := e.osvc.GetAccountAvatar(rctx, tc, c.u, ver); CodeOf(err) != CodeNotFound {
+					t.Errorf("GetAccountAvatar(%s, v%d): %v, want not_found", c.u, ver, err)
+				}
+			}
+		}
+		// A fresh upload succeeds on the replayed target: the tombstones do not block the allocation gate.
+		_, sum, ver := e.recAvatar(t, memberA2, orgA, "", avatarPNG(t, 64))
+		rctx, tc := e.recScope(t, memberA2, orgA)
+		a, data, err := e.osvc.GetAccountAvatar(rctx, tc, mA2, ver)
+		if err != nil || a.Version != ver || digest(data) != sum {
+			t.Errorf("fresh avatar read: %+v %v", a, err)
 		}
 	})
 }

@@ -250,7 +250,7 @@ func setupMCP(t *testing.T) *mcpEnv {
 		t.Fatalf("open migrator: %v", err)
 	}
 	var out bytes.Buffer
-	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t22\n") {
+	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t24\n") {
 		t.Fatalf("migrate up: %v %q", err, out.String())
 	}
 	_ = r.Close()

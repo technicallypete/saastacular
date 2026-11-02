@@ -1,9 +1,11 @@
 // Package objectstore is core's owned object-storage provider boundary (G009; docs/foundation/OBJECT-STORAGE.md).
 //
 // The Store interface is provider-neutral: Put, Get, Delete, SignedGetURL and Metadata (Head) of exactly one
-// server-derived key. It accepts only Key values of the form objects/<organization uuid>/<object uuid>, carries the
-// object's binding metadata, and reports failures as a closed set of errors without provider or SDK text. It makes
-// no authorization decision: only core/internal/tenancy/access imports it (U-ACCESS-BOUNDARY), after its guard.
+// server-derived key. It accepts only Key values of two families, objects/<organization uuid>/<object uuid> (G009) and
+// avatars/<user uuid>/<avatar uuid> (G074: identity-owned account avatars, never presigned), carries the object's
+// binding metadata, and reports failures as a closed set of errors without provider or SDK text. It makes no
+// authorization decision: only core/internal/tenancy/access imports it (U-ACCESS-BOUNDARY), after its guard. The key
+// path names the owning Organization or user; it is never the authorization boundary.
 package objectstore
 
 import (
@@ -11,6 +13,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -26,19 +29,34 @@ var (
 const uuidPattern = `[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`
 
 var (
-	keyRe  = regexp.MustCompile(`^objects/` + uuidPattern + `/` + uuidPattern + `$`)
+	keyRe  = regexp.MustCompile(`^(objects|avatars)/` + uuidPattern + `/` + uuidPattern + `$`)
 	uuidRe = regexp.MustCompile(`^` + uuidPattern + `$`)
 )
 
-// Key is a validated provider key: objects/<organization uuid>/<object uuid>, lowercase canonical UUIDs only. The zero
-// Key is invalid and refused by every Store method before any request.
+const zeroUUID = "00000000-0000-0000-0000-000000000000"
+
+// Family is a key's family: the Organization-bound G009 objects or the identity-owned G074 avatars.
+type Family string
+
+// The key families.
+const (
+	FamilyObjects Family = "objects"
+	FamilyAvatars Family = "avatars"
+)
+
+// Key is a validated provider key: objects/<organization uuid>/<object uuid> or avatars/<user uuid>/<avatar uuid>,
+// lowercase canonical UUIDs only, neither of them zero. The zero Key is invalid and refused by every Store method before
+// any request.
 type Key struct{ s string }
 
 // ParseKey validates a key. Traversal, encoded separators, uppercase, other prefixes and every other form are refused
 // with ErrInvalid.
 func ParseKey(s string) (Key, error) {
-	if !keyRe.MatchString(s) || s[len("objects/"):len("objects/")+36] == "00000000-0000-0000-0000-000000000000" ||
-		s[len(s)-36:] == "00000000-0000-0000-0000-000000000000" {
+	if !keyRe.MatchString(s) {
+		return Key{}, ErrInvalid
+	}
+	owner, _, _ := strings.Cut(s[strings.IndexByte(s, '/')+1:], "/")
+	if owner == zeroUUID || s[len(s)-36:] == zeroUUID {
 		return Key{}, ErrInvalid
 	}
 	return Key{s: s}, nil
@@ -49,23 +67,59 @@ func NewKey(organization, object string) (Key, error) {
 	return ParseKey("objects/" + organization + "/" + object)
 }
 
+// NewAvatarKey derives the key of an account avatar from its user and avatar UUIDs (canonical lowercase strings).
+func NewAvatarKey(user, object string) (Key, error) {
+	return ParseKey("avatars/" + user + "/" + object)
+}
+
 // String returns the key.
 func (k Key) String() string { return k.s }
 
-// Valid reports whether k came from ParseKey or NewKey.
+// Valid reports whether k came from ParseKey, NewKey or NewAvatarKey.
 func (k Key) Valid() bool { return k.s != "" }
 
-// Binding is the object's identity as stored with its bytes (user metadata object-id, organization-id and group-id):
-// canonical lowercase UUIDs, Group empty for an Organization object. Reads and the post-upload verification compare it
-// with the metadata row.
+// Family returns the key's family ("" for the zero Key).
+func (k Key) Family() Family {
+	switch {
+	case strings.HasPrefix(k.s, "objects/"):
+		return FamilyObjects
+	case strings.HasPrefix(k.s, "avatars/"):
+		return FamilyAvatars
+	}
+	return ""
+}
+
+// Binding is the object's identity as stored with its bytes (user metadata object-id, organization-id, group-id and,
+// G074, user-id): canonical lowercase UUIDs with exactly one owner, either an Organization (Group optional, User empty)
+// for an objects/ key or a User (Organization and Group empty) for an avatars/ key. Reads and the post-upload
+// verification compare it with the metadata row.
 type Binding struct {
 	Object       string
 	Organization string
 	Group        string
+	User         string
 }
 
 func (b Binding) valid() bool {
-	return uuidRe.MatchString(b.Object) && uuidRe.MatchString(b.Organization) && (b.Group == "" || uuidRe.MatchString(b.Group))
+	if !uuidRe.MatchString(b.Object) {
+		return false
+	}
+	if b.User != "" {
+		return uuidRe.MatchString(b.User) && b.Organization == "" && b.Group == ""
+	}
+	return uuidRe.MatchString(b.Organization) && (b.Group == "" || uuidRe.MatchString(b.Group))
+}
+
+// fits reports whether the binding's owner kind is the key family's: an Organization binding for objects/, a user
+// binding for avatars/.
+func (b Binding) fits(k Key) bool {
+	switch k.Family() {
+	case FamilyObjects:
+		return b.User == ""
+	case FamilyAvatars:
+		return b.User != ""
+	}
+	return false
 }
 
 // Info is what the provider reports for a stored object: its exact length and binding.

@@ -21,11 +21,13 @@ import (
 // The production files of the package (Plan r1 §8; G009 Plan r1 §2 adds the three storage files; G011 adds audit.go;
 // G014 adds mcp.go; G016 adds domains.go; G019 adds invitations.go, membership.go, ownership.go and retirement.go for the
 // membership, ownership, invitation and retirement operations; G058 adds enrollment.go for the enrollment admission;
-// G020 adds labels.go, the guarded label operations, and labels_targets.go, the closed label target registry).
-// Sorted, as the comparison is against the sorted names.
-var accessFiles = []string{"access.go", "audit.go", "authority.go", "branding.go", "context.go", "domains.go", "enrollment.go", "errors.go", "facade.go", "invitations.go", "labels.go", "labels_targets.go",
+// G020 adds labels.go, the guarded label operations, and labels_targets.go, the closed label target registry; G074 adds
+// profile.go, the guarded account profile name and read operations, and profile_avatar.go, the guarded account avatar
+// operations; G075 adds group_profile.go, the guarded Group member card read and label write). Sorted, as the comparison
+// is against the sorted names.
+var accessFiles = []string{"access.go", "audit.go", "authority.go", "branding.go", "context.go", "domains.go", "enrollment.go", "errors.go", "facade.go", "group_profile.go", "invitations.go", "labels.go", "labels_targets.go",
 	"log.go", "mcp.go", "membership.go", "objects.go", "objects_io.go", "objects_policy.go", "onboarding.go", "ownership.go", "policy.go",
-	"retirement.go", "tx.go"}
+	"profile.go", "profile_avatar.go", "retirement.go", "tx.go"}
 
 // Imports a production file may use.
 var accessImports = map[string]bool{
@@ -61,11 +63,19 @@ var (
 		"const DeleteOutcomeDeletionPending", "const EnrollmentStatusAdmitted", "const EnrollmentStatusNone", "const MaxRetirementBlockers", "const MemberFilterOwnerCandidates",
 		"func CodeOf", "func NewService", "func NewServiceWithObjects", "func ParseBusinessProfileID", "func ParseGroupID",
 		"func RequireBinding", "func RequireCapability", "func RequireContext", "func RequireMembership",
-		"type AcceptOutcome", "type AuditCursor", "type AuditEvent", "type AuditPage", "type AuditReadRequest",
+		// G074 (Plan r3.1 §3.5, §3.7): the retry delay of a repairable avatar HOLD.
+		"func RetryAfterOf",
+		"type AcceptOutcome",
+		// G074 (Plan r3.1 §3.5): the account profile views.
+		"type AccountAvatar", "type AccountProfile", "type AccountProfileView",
+		"type AuditCursor", "type AuditEvent", "type AuditPage", "type AuditReadRequest",
 		"type BrandingLogo", "type BrandingUpdate", "type BrandingView", "type BusinessContext", "type BusinessProfileID",
 		"type BusinessProfileSummary", "type Candidate", "type CandidatePage", "type Capability", "type Code",
 		"type ConnectionContext", "type DeleteOutcome", "type DeleteResult", "type DomainClaim", "type DomainView",
-		"type EnrollmentAdmission", "type EnrollmentPublic", "type EnrollmentRequestPage", "type EnrollmentRequestView", "type EnrollmentStatus", "type Error", "type Facts", "type GroupAuthorityView", "type GroupID", "type GroupOnboarding", "type GroupPage", "type Invitation",
+		"type EnrollmentAdmission", "type EnrollmentPublic", "type EnrollmentRequestPage", "type EnrollmentRequestView", "type EnrollmentStatus", "type Error", "type Facts", "type GroupAuthorityView", "type GroupID",
+		// G075 (Plan r2 §3.4): the Group member card and the card list.
+		"type GroupMemberCard", "type GroupMemberCards",
+		"type GroupOnboarding", "type GroupPage", "type Invitation",
 		"type InvitationPage", "type IssuedInvitation",
 		// G020 (Plan r2 §4.1): the label facade's selector, views, page and delete result.
 		"type LabelAssignmentView", "type LabelDefinitionPage", "type LabelDefinitionView", "type LabelDeleteResult",
@@ -87,21 +97,21 @@ var (
 		"Service.CompleteGroupOnboardingWithNewProfile", "Service.CompleteGroupOnboardingWithProfile",
 		"Service.ConsumeOrganizationInvitation", "Service.CreateGroup", "Service.CreateLabelDefinition", "Service.CreateMCPConnection",
 		"Service.DecideEnrollmentRequest", "Service.DeleteBrandingUpload", "Service.DeleteLabelDefinition", "Service.DeleteObject", "Service.DemoteOwner",
-		"Service.EnrollmentStatus", "Service.GetBranding",
+		"Service.EnrollmentStatus", "Service.GetAccountAvatar", "Service.GetAccountProfile", "Service.GetBranding",
 		"Service.GetBusinessProfile", "Service.GetBusinessProfileView", "Service.GetConnectionContext", "Service.GetEnrollmentPolicy", "Service.GetGroup",
 		"Service.GetGroupAuthority", "Service.GetGroupOnboarding", "Service.GetInvitation", "Service.GetObject", "Service.GetOrganization",
-		"Service.GetOrganizationPolicy", "Service.IssueInvitation", "Service.LeaveScope", "Service.ListBusinessProfiles",
-		"Service.ListDomains", "Service.ListEnrollmentRequests", "Service.ListGroups", "Service.ListInvitationCandidates", "Service.ListInvitations",
+		"Service.GetOrganizationPolicy", "Service.GetOwnAccountProfile", "Service.IssueInvitation", "Service.LeaveScope", "Service.ListBusinessProfiles",
+		"Service.ListDomains", "Service.ListEnrollmentRequests", "Service.ListGroupMemberCards", "Service.ListGroups", "Service.ListInvitationCandidates", "Service.ListInvitations",
 		"Service.ListLabelAssignments", "Service.ListLabelDefinitions",
 		"Service.ListMCPConnections", "Service.ListMembers", "Service.ListMyInvitations", "Service.ListSelectableGroups",
 		"Service.ObjectMetadata", "Service.PromoteToOwner", "Service.PublicBranding", "Service.PublicBrandingLogo", "Service.PublicEnrollment",
 		"Service.PutObject", "Service.ReadAuditEvents", "Service.RecordDomainCheck", "Service.RecordResourceMismatch",
-		"Service.RecordWithdrawal", "Service.RemoveBrandingLogo", "Service.RemoveDomain", "Service.RemoveMember",
+		"Service.RecordWithdrawal", "Service.RemoveAccountAvatar", "Service.RemoveBrandingLogo", "Service.RemoveDomain", "Service.RemoveMember",
 		"Service.RenameGroup", "Service.RenameMCPConnection", "Service.RequestEnrollment", "Service.ResetBranding", "Service.Resolve", "Service.RetireUser", "Service.RetirementEligibility",
 		"Service.RetryWithdrawal", "Service.RevokeEnrollmentApproval", "Service.RevokeInvitation", "Service.RotateChallenge", "Service.SelectConnectionGroup",
-		"Service.SelfMembership", "Service.SetBrandingLogo", "Service.SetGroupManagementOverride", "Service.SetOrganizationPolicy",
+		"Service.SelfMembership", "Service.SetAccountAvatar", "Service.SetBrandingLogo", "Service.SetGroupManagementOverride", "Service.SetGroupMemberLabel", "Service.SetOrganizationPolicy",
 		"Service.SetOrganizationSlug", "Service.SignedGetURL", "Service.SuggestGroupSlug", "Service.TransferOwnership", "Service.UnassignLabel",
-		"Service.UpdateBranding", "Service.UpdateBusinessProfile", "Service.UpdateEnrollmentPolicy", "Service.UpdateLabelDefinition", "SignedURL.GoString", "SignedURL.LogValue",
+		"Service.UpdateAccountProfileName", "Service.UpdateBranding", "Service.UpdateBusinessProfile", "Service.UpdateEnrollmentPolicy", "Service.UpdateLabelDefinition", "SignedURL.GoString", "SignedURL.LogValue",
 		"SignedURL.String", "SignedURL.URL", "TenantContext.Group", "TenantContext.Organization", "TenantContext.Subject",
 	}
 )
@@ -310,8 +320,10 @@ func TestProductionImporters(t *testing.T) {
 		for _, imp := range f.Imports {
 			p, _ := strconv.Unquote(imp.Path.Value)
 			switch {
-			case p == "core/internal/tenancy/access" && dir != "internal/mcp" && dir != "internal/domains/api" && dir != "internal/branding/api" && dir != "internal/onboarding/api" && dir != "internal/membership/api" && dir != "internal/enrollment/api" && dir != "internal/labels/api":
-				t.Errorf("%s imports the access package (only core/internal/mcp, core/internal/domains/api, core/internal/branding/api, core/internal/onboarding/api, core/internal/membership/api, core/internal/enrollment/api and core/internal/labels/api may; G014, G016, G017, G018, G019, G058, G020)", rel)
+			case p == "core/internal/tenancy/access" && dir != "internal/mcp" && dir != "internal/domains/api" && dir != "internal/branding/api" && dir != "internal/onboarding/api" && dir != "internal/membership/api" && dir != "internal/enrollment/api" && dir != "internal/labels/api" && dir != "internal/profile/api":
+				t.Errorf("%s imports the access package (only core/internal/mcp, core/internal/domains/api, core/internal/branding/api, core/internal/onboarding/api, core/internal/membership/api, core/internal/enrollment/api, core/internal/labels/api and core/internal/profile/api may; G014, G016, G017, G018, G019, G058, G020, G074)", rel)
+			case p == "core/internal/profile/api" && dir != "cmd/server":
+				t.Errorf("%s imports core/internal/profile/api (only cmd/server may; G074)", rel)
 			case p == "core/internal/labels/api" && dir != "cmd/server":
 				t.Errorf("%s imports core/internal/labels/api (only cmd/server may; G020)", rel)
 			case p == "core/internal/enrollment/api" && dir != "cmd/server":
@@ -333,8 +345,8 @@ func TestProductionImporters(t *testing.T) {
 				t.Errorf("%s imports core/internal/domains/api (only cmd/server may; G016)", rel)
 			case p == "core/internal/tenancy" && dir != "internal/tenancy/access":
 				t.Errorf("%s imports core/internal/tenancy (only the access package may)", rel)
-			case p == "core/internal/objectstore" && dir != "internal/tenancy/access" && dir != "internal/branding/api":
-				t.Errorf("%s imports core/internal/objectstore (only the access package and, to build the store from the loaded settings, core/internal/branding/api may; G009, G017)", rel)
+			case p == "core/internal/objectstore" && dir != "internal/tenancy/access" && dir != "internal/branding/api" && dir != "internal/profile/api":
+				t.Errorf("%s imports core/internal/objectstore (only the access package and, to build the store from the loaded settings, core/internal/branding/api and core/internal/profile/api may; G009, G017, G074)", rel)
 			case strings.HasPrefix(p, "github.com/aws/") && dir != "internal/objectstore" && dir != "internal/health" && dir != "cmd/server":
 				t.Errorf("%s imports %s (only objectstore, health and cmd/server may use the AWS SDK; G009)", rel, p)
 			}
@@ -666,8 +678,29 @@ func TestRLSBoundary(t *testing.T) {
 					strings.Count(code, "CREATE FUNCTION app.") == 1 &&
 					len(regexp.MustCompile(`(?i)\bCREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+app\.`).FindAllString(code, -1)) == 1 &&
 					strings.Count(code, "CREATE FUNCTION app.organization_id_by_slug(") == 1
+				// G074: 00023 declares exactly six DEFINER bodies (Plan r3.1 §3.2): its up creates the policy reader's
+				// rls_profile_visible and rls_account_profile and replaces, under their names, owners and ACLs, the policy reader's
+				// rls_group_invitation_candidates and the auth reader's E1; its down restores the version-22 bodies of both (the
+				// two new readers are dropped). The only other app functions are its two owner-owned invoker guards.
+				g074Profiles := e.Name() == "00023_account_profiles.sql" && strings.Count(code, "SECURITY DEFINER") == 6 &&
+					strings.Count(code, "CREATE FUNCTION app.rls_profile_visible(") == 1 &&
+					strings.Count(code, "CREATE FUNCTION app.rls_account_profile(") == 1 &&
+					strings.Count(code, "CREATE OR REPLACE FUNCTION app.rls_group_invitation_candidates(") == 2 &&
+					strings.Count(code, "CREATE OR REPLACE FUNCTION app.auth_resolve_session(") == 2 &&
+					strings.Count(code, "CREATE FUNCTION app.account_avatars_guard()") == 1 &&
+					strings.Count(code, "CREATE FUNCTION app.account_profiles_guard()") == 1 &&
+					len(regexp.MustCompile(`(?i)\bCREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+app\.`).FindAllString(code, -1)) == 8
+				// G075: 00024 declares exactly one DEFINER body (Plan r2 §3.2): its up creates the policy reader's card
+				// projection rls_group_member_cards; its down drops it. The only other app function is its owner-owned
+				// invoker guard; the attribution it replaces lives in schema audit.
+				g075GroupProfiles := e.Name() == "00024_group_member_profiles.sql" && strings.Count(code, "SECURITY DEFINER") == 1 &&
+					strings.Count(code, "CREATE FUNCTION app.rls_group_member_cards(") == 1 &&
+					strings.Count(code, "CREATE FUNCTION app.group_member_profiles_guard()") == 1 &&
+					strings.Count(code, "CREATE OR REPLACE FUNCTION audit.events_attribute()") == 2 &&
+					len(regexp.MustCompile(`(?i)\bCREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+app\.`).FindAllString(code, -1)) == 2
 				if e.Name() != "00006_row_level_security.sql" && !replacedE1 && !g016Readers && !g016Binding && !g017Branding && !g018Eligible &&
-					!g019Membership && !g058Enrollment && !g060Authority && !g062Signup && !g057Platform && !g071DefaultTenant {
+					!g019Membership && !g058Enrollment && !g060Authority && !g062Signup && !g057Platform && !g071DefaultTenant && !g074Profiles &&
+					!g075GroupProfiles {
 					t.Errorf("%s declares a SECURITY DEFINER function", e.Name())
 				}
 				found = true

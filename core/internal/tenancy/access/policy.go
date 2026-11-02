@@ -2,11 +2,12 @@ package access
 
 import "core/internal/tenancy"
 
-// Capability is one of the twenty-two closed capabilities (the eleven of Spec R3, G016 organization.manage_domains, G017
-// organization.manage_branding, G018 group.create and group.complete_onboarding, G019 organization.manage_owners,
-// group.manage_owners, organization.leave and group.leave, and G020 label.organization.manage, label.group.manage and
-// label.group.read). It is evaluated only inside this package: no allow result, capability check or evaluator is
-// exported.
+// Capability is one of the twenty-seven closed capabilities (the eleven of Spec R3, G016 organization.manage_domains,
+// G017 organization.manage_branding, G018 group.create and group.complete_onboarding, G019 organization.manage_owners,
+// group.manage_owners, organization.leave and group.leave, G020 label.organization.manage, label.group.manage and
+// label.group.read, G074 account_profile.read and account_profile.manage_self, and G075 group_member_profile.read,
+// group_member_profile.manage_self and group_member_profile.manage). It is evaluated only inside this package: no allow
+// result, capability check or evaluator is exported.
 type Capability string
 
 // The capabilities (Spec R3).
@@ -46,6 +47,20 @@ const (
 	capLabelOrganizationManage Capability = "label.organization.manage"
 	capLabelGroupManage        Capability = "label.group.manage"
 	capLabelGroupRead          Capability = "label.group.read"
+	// G074 (Plan r3.1 §3.5): global account profiles. Both are every current Organization membership role in
+	// Organization-only or selected-Group context (Organization scope, role-level). account_profile.read confers no
+	// profile the relationship predicate (app.rls_profile_visible) does not admit; account_profile.manage_self is a
+	// liveness and membership gate for the caller's own row, which SQL alone lets it write.
+	capAccountProfileRead       Capability = "account_profile.read"
+	capAccountProfileManageSelf Capability = "account_profile.manage_self"
+	// G075 (Plan r2 §3.4, C4): Group member profiles. group_member_profile.read is every current Organization role
+	// (Organization scope, role-level; it confers no card app.rls_group_member_cards does not admit).
+	// group_member_profile.manage_self is any own role in the exact Group (the member's own label);
+	// group_member_profile.manage is the exact Group's own group_owner or group_admin (another member's label). Labels are
+	// Group member metadata: Organization owners/admins and the G060 override confer no write.
+	capGroupMemberProfileRead       Capability = "group_member_profile.read"
+	capGroupMemberProfileManageSelf Capability = "group_member_profile.manage_self"
+	capGroupMemberProfileManage     Capability = "group_member_profile.manage"
 )
 
 // Reason is a closed internal reason code. It appears only in access.decision records, never in an error.
@@ -123,10 +138,11 @@ type Facts = tenancy.Facts
 func capabilityKind(c Capability) (TargetKind, bool) {
 	switch c {
 	case capOrganizationRead, capOrganizationManageMembers, capOrganizationManagePolicy, capAuditRead, capOrganizationManageDomains,
-		capOrganizationManageBranding, capGroupCreate, capOrganizationManageOwners, capOrganizationLeave, capLabelOrganizationManage:
+		capOrganizationManageBranding, capGroupCreate, capOrganizationManageOwners, capOrganizationLeave, capLabelOrganizationManage,
+		capAccountProfileRead, capAccountProfileManageSelf, capGroupMemberProfileRead:
 		return kindOrganization, true
 	case capGroupRead, capGroupUpdate, capGroupManageMembers, capGroupCompleteOnboarding, capGroupManageOwners, capGroupLeave,
-		capLabelGroupManage, capLabelGroupRead:
+		capLabelGroupManage, capLabelGroupRead, capGroupMemberProfileManageSelf, capGroupMemberProfileManage:
 		return kindGroup, true
 	case capProfileRead, capProfileUpdate, capProfileSelect, capProfilePrivileged:
 		return kindProfile, true
@@ -290,6 +306,19 @@ func decide(cap Capability, ctx contextSelection, f Facts, t Target) (bool, Reas
 		return allowIf(orgRole == tenancy.OrgOwner)
 	case capOrganizationLeave:
 		return allowIf(orgRole.Valid())
+	case capAccountProfileRead, capAccountProfileManageSelf:
+		// G074: every Organization role; the profile row rule is the predicate's (read) or SQL's self-only policies (write).
+		return allowIf(orgRole.Valid())
+	case capGroupMemberProfileRead:
+		// G075: every Organization role; the cards are the projection's (app.rls_group_member_cards), never the matrix's.
+		return allowIf(orgRole.Valid())
+	case capGroupMemberProfileManageSelf:
+		// G075 (P1): the member's own label, any own role of the exact Group; an Organization role alone has none.
+		return allowIf(roles[t.Group].Valid())
+	case capGroupMemberProfileManage:
+		// G075 (P1): another member's label, the exact Group's own owner/admin only; orgAdmin and orgMgr are never consulted.
+		gr := roles[t.Group]
+		return allowIf(gr == tenancy.GroupOwner || gr == tenancy.GroupAdmin)
 	case capGroupManageOwners:
 		// Own only: an Organization owner or admin without the Group's owner binding is denied (Spec R1).
 		return allowIf(roles[t.Group] == tenancy.GroupOwner)
@@ -432,8 +461,9 @@ func eligible(req ToolRequirement, sel contextSelection, f Facts) bool {
 		if orgAdmin && f.Policy.GroupManagementOverride {
 			return true
 		}
-	case capLabelGroupManage, capLabelGroupRead:
-		// G020: no Organization path (Group content; the override is irrelevant): only the Group-derived paths below.
+	case capLabelGroupManage, capLabelGroupRead, capGroupMemberProfileManageSelf, capGroupMemberProfileManage:
+		// G020, G075: no Organization path (Group content and Group member labels; the override is irrelevant): only the
+		// Group-derived paths below.
 	}
 	// The Group-derived paths, decided by decide on each candidate Group or its linked profile.
 	roles, ok := groupRoles(sel, f)

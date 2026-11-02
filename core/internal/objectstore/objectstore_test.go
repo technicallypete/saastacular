@@ -14,14 +14,15 @@ import (
 	"time"
 )
 
-// U-OBJ-KEY and U-OBJ-ADAPTER (G009 Plan r1 §5.1): key validation, and the adapter's request shape, error
-// classification and presign shape against httptest servers. These classify; they are never provider evidence (the
-// real MinIO cases are B-OBJ-IT).
+// U-OBJ-KEY and U-OBJ-ADAPTER (G009 Plan r1 §5.1; G074 Plan r3.1 §3.8): key validation of both families, and the
+// adapter's request shape, error classification and presign shape against httptest servers. These classify; they are
+// never provider evidence (the real MinIO cases are B-OBJ-IT and G074's TestProfile/PRO-AV-0).
 
 const (
 	orgA = "11111111-2222-4333-8444-555555555555"
 	objA = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 	grpA = "99999999-8888-4777-8666-555555555555"
+	usrA = "77777777-6666-4555-8444-333333333333" // G074: an avatar's owning user
 	// canary is provider text that must never escape an error.
 	canary = "Cx5providertextcanary"
 )
@@ -45,6 +46,51 @@ func TestKeys(t *testing.T) {
 		if _, err := ParseKey(bad); !errors.Is(err, ErrInvalid) {
 			t.Errorf("ParseKey(%q): %v, want ErrInvalid", bad, err)
 		}
+	}
+	if k.Family() != FamilyObjects || (Key{}).Family() != "" {
+		t.Errorf("families: %q, zero %q", k.Family(), (Key{}).Family())
+	}
+	// G074: the identity-owned avatars/<user>/<avatar> family, with the same canonical-form rules.
+	a, err := NewAvatarKey(usrA, objA)
+	if err != nil || a.String() != "avatars/"+usrA+"/"+objA || !a.Valid() || a.Family() != FamilyAvatars {
+		t.Fatalf("NewAvatarKey: %v %v", a, err)
+	}
+	if p, err := ParseKey("avatars/" + usrA + "/" + objA); err != nil || p != a {
+		t.Errorf("ParseKey(avatar): %v %v", p, err)
+	}
+	for _, bad := range []string{
+		"avatars/", "avatars/" + usrA, "avatars/" + usrA + "/", "avatars/" + usrA + "/" + objA + "/x", "avatars/../" + objA,
+		"avatars/" + usrA + "/../" + objA, "avatars/" + usrA + "%2F" + objA, "avatars/7777777A-6666-4555-8444-33333333333B/" + objA,
+		"Avatars/" + usrA + "/" + objA, "avatar/" + usrA + "/" + objA, "/avatars/" + usrA + "/" + objA, "avatars//" + objA,
+		"avatars/00000000-0000-0000-0000-000000000000/" + objA, "avatars/" + usrA + "/00000000-0000-0000-0000-000000000000",
+		"avatars/" + usrA + "/" + objA + "\n", "objectsavatars/" + usrA + "/" + objA,
+	} {
+		if _, err := ParseKey(bad); !errors.Is(err, ErrInvalid) {
+			t.Errorf("ParseKey(%q): %v, want ErrInvalid", bad, err)
+		}
+	}
+	// Exactly one owner: an Organization (Group optional) or a user, never both, never neither; and the owner kind is the
+	// key family's.
+	for _, c := range []struct {
+		b  Binding
+		ok bool
+	}{
+		{Binding{Object: objA, Organization: orgA}, true},
+		{Binding{Object: objA, Organization: orgA, Group: grpA}, true},
+		{Binding{Object: objA, User: usrA}, true},
+		{Binding{Object: objA}, false},
+		{Binding{Object: objA, Organization: orgA, User: usrA}, false},
+		{Binding{Object: objA, Group: grpA, User: usrA}, false},
+		{Binding{Object: objA, User: "x"}, false},
+		{Binding{Object: "x", User: usrA}, false},
+	} {
+		if c.b.valid() != c.ok {
+			t.Errorf("binding %+v: valid %t, want %t", c.b, !c.ok, c.ok)
+		}
+	}
+	user, org := Binding{Object: objA, User: usrA}, Binding{Object: objA, Organization: orgA}
+	if !user.fits(a) || org.fits(a) || !org.fits(k) || user.fits(k) || user.fits(Key{}) || org.fits(Key{}) {
+		t.Error("a binding's owner kind is not tied to the key family")
 	}
 }
 
@@ -79,7 +125,11 @@ func newFakeS3(t *testing.T) *fakeS3 {
 			return
 		}
 		w.Header().Set("x-amz-meta-object-id", objA)
-		w.Header().Set("x-amz-meta-organization-id", orgA)
+		if strings.Contains(r.URL.Path, "/avatars/") {
+			w.Header().Set("x-amz-meta-user-id", usrA)
+		} else {
+			w.Header().Set("x-amz-meta-organization-id", orgA)
+		}
 		if st < 300 && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 			w.Header().Set("Content-Length", "3")
 		}
@@ -233,6 +283,36 @@ func TestAdapterRequestShape(t *testing.T) {
 	if n := f.requests.Load() - before; n != 0 {
 		t.Errorf("%d requests for invalid inputs", n)
 	}
+
+	// G074: an avatars/ Put carries user-id (never organization-id or group-id) and reads its binding back.
+	f.status.Store(200)
+	akey, _ := NewAvatarKey(usrA, objA)
+	if err := s.Put(ctx, akey, strings.NewReader("abc"), 3, "image/png", Binding{Object: objA, User: usrA}); err != nil {
+		t.Fatal(err)
+	}
+	r = f.last.Load().(*http.Request)
+	if r.Method != http.MethodPut || r.URL.Path != "/bucket/"+akey.String() || r.Header.Get("X-Amz-Meta-Object-Id") != objA ||
+		r.Header.Get("X-Amz-Meta-User-Id") != usrA || r.Header.Get("X-Amz-Meta-Organization-Id") != "" ||
+		r.Header.Get("X-Amz-Meta-Group-Id") != "" || r.Header.Get("Content-Disposition") != "attachment" {
+		t.Errorf("avatar put request: %s %s %v", r.Method, r.URL.Path, r.Header)
+	}
+	if info, err := s.Metadata(ctx, akey); err != nil || info.Size != 3 || info.Binding != (Binding{Object: objA, User: usrA}) {
+		t.Errorf("avatar head: %+v %v", info, err)
+	}
+	// A binding of the other owner kind never reaches the provider.
+	before = f.requests.Load()
+	for _, err := range []error{
+		s.Put(ctx, akey, strings.NewReader("abc"), 3, "image/png", Binding{Object: objA, Organization: orgA}),
+		s.Put(ctx, key, strings.NewReader("abc"), 3, "text/plain", Binding{Object: objA, User: usrA}),
+		s.Put(ctx, akey, strings.NewReader("abc"), 3, "image/png", Binding{Object: objA, Organization: orgA, User: usrA}),
+	} {
+		if err != ErrInvalid {
+			t.Errorf("mismatched binding: %v", err)
+		}
+	}
+	if n := f.requests.Load() - before; n != 0 {
+		t.Errorf("%d requests for mismatched bindings", n)
+	}
 }
 
 func TestPresignShape(t *testing.T) {
@@ -257,6 +337,11 @@ func TestPresignShape(t *testing.T) {
 		q.Get("response-cache-control") != "no-store" || q.Get("X-Amz-Signature") == "" || !strings.Contains(q.Get("X-Amz-SignedHeaders"), "host") ||
 		q.Get("X-Amz-Algorithm") != "AWS4-HMAC-SHA256" {
 		t.Errorf("presigned URL shape: host %s path %s query keys %v", u.Host, u.Path, keysOf(q))
+	}
+	// G074 C7: an avatars/ key is never presigned.
+	akey, _ := NewAvatarKey(usrA, objA)
+	if raw, err := s.SignedGetURL(ctx, akey, 120*time.Second, "image/png"); err != ErrInvalid || raw != "" {
+		t.Errorf("avatar presign: %q %v, want ErrInvalid", raw, err)
 	}
 }
 

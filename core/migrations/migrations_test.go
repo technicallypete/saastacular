@@ -41,7 +41,7 @@ func TestEveryMigrationIsVersionedAndReversible(t *testing.T) {
 	}
 }
 
-// The migration set is exactly 00001-00022 (G071 adds 00022_default_tenant.sql; G057 adds 00021_platform_labels.sql; G020 adds 00020_labels.sql; G063 adds 00019_mcp_connection_names.sql; G062 adds 00018_platform_signup.sql; G060 adds 00017_group_authority.sql; G008 adds 00006_row_level_security.sql, G009 00007_stored_objects.sql, G011
+// The migration set is exactly 00001-00024 (G075 adds 00024_group_member_profiles.sql; G074 adds 00023_account_profiles.sql; G071 adds 00022_default_tenant.sql; G057 adds 00021_platform_labels.sql; G020 adds 00020_labels.sql; G063 adds 00019_mcp_connection_names.sql; G062 adds 00018_platform_signup.sql; G060 adds 00017_group_authority.sql; G008 adds 00006_row_level_security.sql, G009 00007_stored_objects.sql, G011
 // 00008_audit_events.sql, G013 00009_retention_maintenance.sql, G014 00010_mcp_connections.sql, G016
 // 00011_organization_domains.sql and its security amendment 00012_session_binding_and_claim_exclusivity.sql, G017
 // 00013_organization_branding.sql, G018 00014_group_onboarding.sql, G019 00015_membership_invitations.sql, G058 00016_organization_enrollment.sql after the
@@ -53,7 +53,7 @@ func TestMigrationSet(t *testing.T) {
 		"00010_mcp_connections.sql,00011_organization_domains.sql,00012_session_binding_and_claim_exclusivity.sql," +
 		"00013_organization_branding.sql,00014_group_onboarding.sql,00015_membership_invitations.sql,00016_organization_enrollment.sql," +
 		"00017_group_authority.sql,00018_platform_signup.sql,00019_mcp_connection_names.sql,00020_labels.sql,00021_platform_labels.sql," +
-		"00022_default_tenant.sql"
+		"00022_default_tenant.sql,00023_account_profiles.sql,00024_group_member_profiles.sql"
 	if got := strings.Join(files(t), ","); got != want {
 		t.Fatalf("migrations = %s, want %s", got, want)
 	}
@@ -642,5 +642,258 @@ func TestSessionBindingMigrationShape(t *testing.T) {
 		if body(prevUp, c.marker) != body(rawDown, c.marker) {
 			t.Errorf("down does not restore the exact %s body of %s", c.marker, c.file)
 		}
+	}
+}
+
+// The account profile migration (G074 Plan r3.1 §3.1-§3.6, §3.9a) is additive: exactly two tables and one index, two
+// owner-owned SECURITY INVOKER guards and one capture with the pinned search_path, nine permissive command-specific
+// policies, and no DELETE, TRUNCATE, REFERENCES, TRIGGER or retention grant, role, LEAKPROOF, BYPASSRLS, FOR ALL,
+// RESTRICTIVE, exception block or DML. The capture records identifiers only. E1 differs from the 00012 body by the
+// profile join alone; the invitation-candidate body keeps the 00017 admission checks and page query verbatim. The down
+// section refuses under NO FORCE, then restores the exact version-22 bodies: E1 (00012), the invitation candidates
+// (00017), the attribution and the four catalog constraints (00020).
+func TestAccountProfilesMigrationShape(t *testing.T) {
+	read := func(name string) string {
+		t.Helper()
+		b, err := fs.ReadFile(FS, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	rawUp, rawDown, ok := strings.Cut(read("00023_account_profiles.sql"), "-- +goose Down")
+	if !ok {
+		t.Fatal("no down section")
+	}
+	strip := regexp.MustCompile(`--[^\n]*`)
+	up, down := strip.ReplaceAllString(rawUp, " "), strip.ReplaceAllString(rawDown, " ")
+	for _, re := range []string{
+		`(?i)\b(CREATE|DROP)\s+(VIEW|SEQUENCE|TYPE|EXTENSION|SCHEMA|ROLE)\b`,
+		`(?i)\bINSERT\s+INTO\s+app\.|\bUPDATE\s+app\.|\bDELETE\s+FROM\b|\bTRUNCATE\b`,
+		`(?i)\bLEAKPROOF\b|\bBYPASSRLS\b|\bFOR\s+ALL\b|\bAS\s+RESTRICTIVE\b|\bNO\s+FORCE\b|DISABLE\s+TRIGGER|EXCEPTION\s+WHEN`,
+		`(?i)\bGRANT\b[^;']*\b(DELETE|TRUNCATE|REFERENCES|TRIGGER|ALL)\b`, `(?i)\bGRANT\b[^;]*_retention`,
+	} {
+		if m := regexp.MustCompile(re).FindString(up); m != "" {
+			t.Errorf("00023 up contains %q", m)
+		}
+	}
+	var created []string
+	for _, m := range regexp.MustCompile(`(?i)\bCREATE\s+(TABLE|INDEX|TRIGGER)\s+(app\.)?([a-z_]+)`).FindAllStringSubmatch(up, -1) {
+		created = append(created, m[1]+":"+m[3])
+	}
+	if strings.Join(created, ",") != "TABLE:account_avatars,INDEX:account_avatars_user_state_idx,TABLE:account_profiles,"+
+		"TRIGGER:account_avatars_guard,TRIGGER:account_profiles_guard,TRIGGER:audit_capture_account_profiles" {
+		t.Errorf("created objects = %v", created)
+	}
+	if n := len(regexp.MustCompile(`(?i)\bCREATE\s+FUNCTION\s+[a-z_]+\.[a-z_]+\(\)\s+RETURNS\s+trigger\s+LANGUAGE\s+plpgsql\s+SET\s+search_path\s+=\s+pg_catalog,\s+pg_temp\s+AS`).FindAllString(up, -1)); n != 3 {
+		t.Errorf("%d new invoker trigger functions with the pinned search_path, want 3", n)
+	}
+	if n := strings.Count(up, "CREATE POLICY "); n != 9 {
+		t.Errorf("%d CREATE POLICY statements, want 9", n)
+	}
+	if !strings.Contains(up, "storage_key  text        GENERATED ALWAYS AS ('avatars/' || user_id::text || '/' || id::text) STORED") {
+		t.Error("the provider key is not the generated avatars/<user>/<id> column")
+	}
+	// The capture writes identifiers only: two inserts, the user as subject and resource, never the name or the object.
+	if strings.Count(up, "INSERT INTO audit.events") != 2 ||
+		strings.Count(up, "INSERT INTO audit.events (action, outcome, reason, subject_user_id, resource_type, resource_id)") != 2 ||
+		strings.Count(up, "NEW.user_id, 'account_profile', NEW.user_id)") != 2 {
+		t.Error("the profile capture records something other than the user's identifiers")
+	}
+	// Bodies: E1 differs from 00012 by the profile join alone; the invitation candidates keep the 00017 text verbatim.
+	body := func(src, marker string) string {
+		t.Helper()
+		i := strings.Index(src, marker)
+		if i < 0 {
+			t.Fatalf("%q not found", marker)
+		}
+		return src[i+strings.Index(src[i:], "AS $$") : i+strings.Index(src[i:], "END $$")]
+	}
+	prevUp := func(file string) string {
+		t.Helper()
+		u, _, _ := strings.Cut(read(file), "-- +goose Down")
+		return u
+	}
+	const e1 = "app.auth_resolve_session(p_hash bytea, p_at timestamptz, p_origin text)"
+	const picker = "app.rls_group_invitation_candidates(p_group uuid, p_after uuid, p_limit integer)"
+	e1v12 := body(prevUp("00012_session_binding_and_claim_exclusivity.sql"), e1)
+	want := strings.Replace(strings.Replace(e1v12, "s.user_id, u.display_name,", "s.user_id, coalesce(ap.name, u.display_name),", 1),
+		"JOIN app.users u ON u.id = s.user_id\n", "JOIN app.users u ON u.id = s.user_id LEFT JOIN app.account_profiles ap ON ap.user_id = u.id\n", 1)
+	if got := body(rawUp, e1); want == e1v12 || got != want {
+		t.Error("E1 at version 23 is not the 00012 body with the profile join")
+	}
+	pickerV17 := body(prevUp("00017_group_authority.sql"), picker)
+	pickerV23 := body(rawUp, picker)
+	admission := pickerV17[:strings.Index(pickerV17, "  RETURN QUERY\n")]
+	page := pickerV17[strings.Index(pickerV17, "  SELECT us.id, us.display_name") : strings.Index(pickerV17, "  LIMIT least(p_limit, 101);")+len("  LIMIT least(p_limit, 101)")]
+	if !strings.HasPrefix(pickerV23, admission) || !strings.Contains(pickerV23, "  FROM (\n"+page+"\n  ) c LEFT JOIN app.account_profiles ap ON ap.user_id = c.id\n  ORDER BY c.id;") ||
+		!strings.Contains(pickerV23, "CASE WHEN app.rls_profile_visible(c.id) THEN coalesce(ap.name, c.display_name) ELSE c.display_name END") ||
+		strings.Contains(pickerV23, "account_avatars") || strings.Contains(pickerV23, "avatar_") {
+		t.Error("the invitation-candidate body does not keep the 00017 admission and page query under the gated projection")
+	}
+	// Down: the refusal under NO FORCE, FORCE restored before any shape change, then the exact version-22 bodies.
+	for _, d := range []string{
+		"ALTER TABLE app.account_profiles NO FORCE ROW LEVEL SECURITY;", "ALTER TABLE app.account_avatars NO FORCE ROW LEVEL SECURITY;",
+		"refusing to roll back 00023:", "ALTER TABLE audit.events FORCE ROW LEVEL SECURITY;",
+		"DROP TABLE app.account_profiles;", "DROP TABLE app.account_avatars;", "DROP FUNCTION app.rls_profile_visible(uuid);",
+		"DROP FUNCTION app.rls_account_profile(uuid);", "DROP FUNCTION audit.capture_account_profiles();",
+	} {
+		if !strings.Contains(down, d) {
+			t.Errorf("down lacks %q", d)
+		}
+	}
+	if i, j := strings.Index(down, "ALTER TABLE audit.events FORCE ROW LEVEL SECURITY;"), strings.Index(down, "CREATE OR REPLACE FUNCTION"); i < 0 || j < i {
+		t.Error("down changes shapes before its refusal restores FORCE")
+	}
+	if body(prevUp("00012_session_binding_and_claim_exclusivity.sql"), e1) != body(rawDown, e1) || pickerV17 != body(rawDown, picker) {
+		t.Error("down does not restore the exact 00012 E1 or 00017 invitation-candidate body")
+	}
+	attr := func(s string) string {
+		t.Helper()
+		i := strings.Index(s, "audit.events_attribute() RETURNS trigger")
+		if i < 0 {
+			t.Fatal("events_attribute body not found")
+		}
+		return s[i : i+strings.Index(s[i:], "END $$;")]
+	}
+	catalog := func(s string) string {
+		t.Helper()
+		i := strings.Index(s, "ALTER TABLE audit.events DROP CONSTRAINT events_action_valid")
+		if i < 0 {
+			t.Fatal("catalog constraints not found")
+		}
+		return s[i : i+strings.Index(s[i:], "'label'));")]
+	}
+	v20 := prevUp("00020_labels.sql")
+	if attr(v20) != attr(rawDown) || catalog(v20) != catalog(rawDown) {
+		t.Error("down does not restore the exact 00020 attribution body or catalog constraints")
+	}
+	if attr(rawUp) == attr(v20) || !strings.Contains(attr(rawUp), "WHEN NEW.action = 'profile.updated' THEN") {
+		t.Error("the version-23 attribution body does not admit profile.updated")
+	}
+}
+
+// The Group member profile migration (G075 Plan r2 §3.1-§3.3, §3.6) is additive: exactly one table (with its primary
+// key and one-per-membership key, no other index), one owner-owned SECURITY INVOKER guard and one capture with the
+// pinned search_path, one policy-reader projection, four permissive command-specific policies, exactly one ON DELETE
+// CASCADE (the binding key onto app.role_bindings), and no DELETE, TRUNCATE, REFERENCES, TRIGGER or retention grant,
+// role, LEAKPROOF, BYPASSRLS, FOR ALL, RESTRICTIVE, exception block or DML. The capture records identifiers only. The
+// projection is gated by the G074 relationship predicate, reads no override and is bounded to 201 rows. The attribution
+// and the catalog are the 00023 ones plus exactly the G075 values; the down section refuses under NO FORCE, then restores
+// the exact 00023 attribution and catalog constraints.
+func TestGroupMemberProfilesMigrationShape(t *testing.T) {
+	read := func(name string) string {
+		t.Helper()
+		b, err := fs.ReadFile(FS, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	rawUp, rawDown, ok := strings.Cut(read("00024_group_member_profiles.sql"), "-- +goose Down")
+	if !ok {
+		t.Fatal("no down section")
+	}
+	strip := regexp.MustCompile(`--[^\n]*`)
+	up, down := strip.ReplaceAllString(rawUp, " "), strip.ReplaceAllString(rawDown, " ")
+	for _, re := range []string{
+		`(?i)\b(CREATE|DROP)\s+(VIEW|SEQUENCE|TYPE|EXTENSION|SCHEMA|ROLE|INDEX)\b`,
+		`(?i)\bINSERT\s+INTO\s+app\.|\bUPDATE\s+app\.|\bDELETE\s+FROM\b|\bTRUNCATE\b`,
+		`(?i)\bLEAKPROOF\b|\bBYPASSRLS\b|\bFOR\s+ALL\b|\bAS\s+RESTRICTIVE\b|\bNO\s+FORCE\b|DISABLE\s+TRIGGER|EXCEPTION\s+WHEN`,
+		`(?i)\bGRANT\b[^;']*\b(DELETE|TRUNCATE|REFERENCES|TRIGGER|ALL)\b`, `(?i)\bGRANT\b[^;]*_retention`,
+	} {
+		if m := regexp.MustCompile(re).FindString(up); m != "" {
+			t.Errorf("00024 up contains %q", m)
+		}
+	}
+	var created []string
+	for _, m := range regexp.MustCompile(`(?i)\bCREATE\s+(TABLE|INDEX|TRIGGER)\s+(app\.)?([a-z_]+)`).FindAllStringSubmatch(up, -1) {
+		created = append(created, m[1]+":"+m[3])
+	}
+	if strings.Join(created, ",") != "TABLE:group_member_profiles,TRIGGER:group_member_profiles_guard,TRIGGER:audit_capture_group_member_profiles" {
+		t.Errorf("created objects = %v", created)
+	}
+	if n := len(regexp.MustCompile(`(?i)\bCREATE\s+FUNCTION\s+[a-z_]+\.[a-z_]+\(\)\s+RETURNS\s+trigger\s+LANGUAGE\s+plpgsql\s+SET\s+search_path\s+=\s+pg_catalog,\s+pg_temp\s+AS`).FindAllString(up, -1)); n != 2 {
+		t.Errorf("%d new invoker trigger functions with the pinned search_path, want 2", n)
+	}
+	if n := strings.Count(up, "CREATE POLICY "); n != 4 {
+		t.Errorf("%d CREATE POLICY statements, want 4", n)
+	}
+	if strings.Count(up, "ON DELETE CASCADE") != 1 ||
+		!strings.Contains(up, "CONSTRAINT group_member_profiles_binding_fkey FOREIGN KEY (binding_id) REFERENCES app.role_bindings (id) ON DELETE CASCADE") {
+		t.Error("the binding key is not the one ON DELETE CASCADE foreign key onto app.role_bindings")
+	}
+	if !strings.Contains(up, "char_length(role_label) BETWEEN 1 AND 100") {
+		t.Error("the label CHECK does not bound the label to 100 code points")
+	}
+	// The capture writes identifiers only: one insert, the binding as resource and the member as subject, never the label.
+	if strings.Count(up, "INSERT INTO audit.events") != 1 ||
+		!strings.Contains(up, "INSERT INTO audit.events (action, outcome, reason, organization_id, group_id, subject_user_id, resource_type, resource_id)\n"+
+			"    VALUES ('group_member_profile.updated', 'success', 'role_label_changed', NEW.organization_id, NEW.group_id, NEW.user_id,\n"+
+			"            'group_member_profile', NEW.binding_id);") {
+		t.Error("the group member profile capture records something other than the membership's identifiers")
+	}
+	// The projection: the policy reader's one definer body, gated by the relationship predicate, bounded, never reading
+	// the override or app.groups.
+	i := strings.Index(up, "CREATE FUNCTION app.rls_group_member_cards(")
+	if i < 0 {
+		t.Fatal("the card projection is missing")
+	}
+	cards := up[i : i+strings.Index(up[i:], "END $$")]
+	if strings.Count(up, "SECURITY DEFINER") != 1 || !strings.Contains(cards, "STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$") ||
+		!strings.Contains(cards, "NOT app.rls_profile_visible(p_subject)") || !strings.HasSuffix(strings.TrimSpace(cards), "LIMIT 201;") ||
+		!strings.Contains(cards, "(g IS NULL OR sb.scope_id = g)") || strings.Contains(cards, "override") || strings.Contains(cards, "app.groups") {
+		t.Error("the card projection is not the gated, context-narrowed, bounded policy-reader body")
+	}
+	body := func(src, marker, end string) string {
+		t.Helper()
+		i := strings.Index(src, marker)
+		if i < 0 {
+			t.Fatalf("%q not found", marker)
+		}
+		return src[i : i+strings.Index(src[i:], end)]
+	}
+	prevUp, _, _ := strings.Cut(read("00023_account_profiles.sql"), "-- +goose Down")
+	const attrMarker, catMarker = "audit.events_attribute() RETURNS trigger", "ALTER TABLE audit.events DROP CONSTRAINT events_action_valid"
+	attr23 := body(prevUp, attrMarker, "END $$;")
+	cat23 := body(prevUp, catMarker, "'account_profile'));") + "'account_profile'));"
+	// The attribution is the 00023 body plus the trigger-owned action and its shape rule, nothing else.
+	wantAttr := strings.Replace(attr23, "    'profile.updated');", "    'profile.updated', 'group_member_profile.updated');", 1)
+	wantAttr = strings.Replace(wantAttr, "    WHEN NEW.action = 'auth.sign_in' THEN\n",
+		"    WHEN NEW.action = 'group_member_profile.updated' THEN\n"+
+			"      NEW.outcome = 'success' AND plain AND NEW.role IS NULL AND NEW.previous_role IS NULL AND NEW.organization_id IS NOT NULL\n"+
+			"      AND NEW.organization_id = o AND NEW.group_id IS NOT NULL AND NEW.subject_user_id IS NOT NULL\n"+
+			"      AND NEW.resource_type = 'group_member_profile' AND NEW.resource_id IS NOT NULL AND NEW.actor_kind = 'user'\n"+
+			"      AND NEW.reason = 'role_label_changed'\n"+
+			"    WHEN NEW.action = 'auth.sign_in' THEN\n", 1)
+	if got := body(rawUp, attrMarker, "END $$;"); wantAttr == attr23 || got != wantAttr {
+		t.Error("the version-24 attribution body is not the 00023 body plus exactly the group_member_profile.updated rule")
+	}
+	// The catalog is the 00023 one plus exactly one action, one reason, two operations and one resource type.
+	wantCat := strings.Replace(cat23, "                    'profile.updated',\n", "                    'profile.updated', 'group_member_profile.updated',\n", 1)
+	wantCat = strings.Replace(wantCat, "'name_changed', 'avatar_set', 'avatar_removed')),",
+		"'name_changed', 'avatar_set', 'avatar_removed',\n                    'role_label_changed')),", 1)
+	wantCat = strings.Replace(wantCat, "'profile.avatar.set', 'profile.avatar.remove')),",
+		"'profile.avatar.set', 'profile.avatar.remove',\n                    'profile.groups.list', 'profile.group_label.update')),", 1)
+	wantCat = strings.Replace(wantCat, "                     'account_profile'));", "                     'account_profile', 'group_member_profile'));", 1)
+	if got := body(rawUp, catMarker, "'group_member_profile'));") + "'group_member_profile'));"; wantCat == cat23 || got != wantCat {
+		t.Error("the version-24 catalog is not the 00023 catalog plus exactly the G075 values")
+	}
+	// Down: the refusal under NO FORCE, FORCE restored before any shape change, then the exact 00023 bodies.
+	for _, d := range []string{
+		"ALTER TABLE app.group_member_profiles NO FORCE ROW LEVEL SECURITY;", "ALTER TABLE audit.events NO FORCE ROW LEVEL SECURITY;",
+		"refusing to roll back 00024:", "ALTER TABLE audit.events FORCE ROW LEVEL SECURITY;", "DROP TABLE app.group_member_profiles;",
+		"DROP FUNCTION app.group_member_profiles_guard();", "DROP FUNCTION audit.capture_group_member_profiles();",
+		"DROP FUNCTION app.rls_group_member_cards(uuid);",
+	} {
+		if !strings.Contains(down, d) {
+			t.Errorf("down lacks %q", d)
+		}
+	}
+	if i, j := strings.Index(down, "ALTER TABLE audit.events FORCE ROW LEVEL SECURITY;"), strings.Index(down, "DROP TABLE"); i < 0 || j < i {
+		t.Error("down changes shapes before its refusal restores FORCE")
+	}
+	if body(rawDown, attrMarker, "END $$;") != attr23 || body(rawDown, catMarker, "'account_profile'));")+"'account_profile'));" != cat23 {
+		t.Error("down does not restore the exact 00023 attribution body or catalog constraints")
 	}
 }

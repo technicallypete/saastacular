@@ -188,12 +188,20 @@ const (
 	// only; ascending keyset page after $1, NULL: from the start, at most $2 <= 100 rows; Result addendum A1-01).
 	sqlOwnOrganizationsPage = `SELECT organization_id FROM app.rls_own_organizations($1, $2)`
 	// Member pages: one keyset statement each over the projection joined to the co-member users rows (users_select);
-	// $3 (or $4) '' lists every member, a role lists only the enabled holders of that role (owner_candidates).
-	sqlOrganizationMembersPage = `SELECT m.user_id, u.display_name, u.status, m.role FROM app.organization_memberships m ` +
-		`JOIN app.users u ON u.id = m.user_id WHERE m.organization_id = $1 AND m.user_id > $2 ` +
+	// $3 (or $4) '' lists every member, a role lists only the enabled holders of that role (owner_candidates). G074 (Plan
+	// r3.1 §3.9, §3.9a C4): the member's global account profile is LEFT JOINed under its own row-level security
+	// (account_profiles_select: the caller's own row, or a subject the relationship predicate admits now), so the name is
+	// the effective one where visible and the provider name otherwise, and the avatar version (NULL without a current
+	// avatar or for an invisible subject) never reaches a viewer who may not read the profile.
+	sqlOrganizationMembersPage = `SELECT m.user_id, coalesce(ap.name, u.display_name), u.status, m.role, ` +
+		`CASE WHEN ap.avatar_object_id IS NOT NULL THEN ap.avatar_version END FROM app.organization_memberships m ` +
+		`JOIN app.users u ON u.id = m.user_id LEFT JOIN app.account_profiles ap ON ap.user_id = m.user_id ` +
+		`WHERE m.organization_id = $1 AND m.user_id > $2 ` +
 		`AND ($3 = '' OR (m.role = $3 AND u.status = 'active')) ORDER BY m.user_id LIMIT $4`
-	sqlGroupMembersPage = `SELECT m.user_id, u.display_name, u.status, m.role FROM app.group_memberships m ` +
-		`JOIN app.users u ON u.id = m.user_id WHERE m.organization_id = $1 AND m.group_id = $2 AND m.user_id > $3 ` +
+	sqlGroupMembersPage = `SELECT m.user_id, coalesce(ap.name, u.display_name), u.status, m.role, ` +
+		`CASE WHEN ap.avatar_object_id IS NOT NULL THEN ap.avatar_version END FROM app.group_memberships m ` +
+		`JOIN app.users u ON u.id = m.user_id LEFT JOIN app.account_profiles ap ON ap.user_id = m.user_id ` +
+		`WHERE m.organization_id = $1 AND m.group_id = $2 AND m.user_id > $3 ` +
 		`AND ($4 = '' OR (m.role = $4 AND u.status = 'active')) ORDER BY m.user_id LIMIT $5`
 	// The least-disclosing Group invitation picker (D-13): the definer reader returns enabled Organization members that
 	// hold no binding in the Group, after the cursor (NULL: from the start), at most least($3, 101) rows.

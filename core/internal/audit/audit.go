@@ -80,6 +80,15 @@ const (
 	LabelDeleted    Action = "label.deleted"
 	LabelAssigned   Action = "label.assigned"
 	LabelUnassigned Action = "label.unassigned"
+	// G074 (00023; Plan r3.1 §3.6): a global account profile's explicit name or current avatar reference changed
+	// (audit_capture_account_profiles): no Organization or Group, the user as resource and subject, the context user as
+	// actor (the shape rule requires actor = subject); reason name_changed, avatar_set or avatar_removed, one event per
+	// changed aspect; never the name, the digest, the object id or the key.
+	ProfileUpdated Action = "profile.updated"
+	// G075 (00024; Plan r2 §3.6): a Group member's optional descriptive role label was set, replaced or cleared
+	// (audit_capture_group_member_profiles): the Organization and Group, the binding as resource, the member as subject,
+	// the context user as actor; reason role_label_changed; never the label text.
+	GroupMemberProfileUpdated Action = "group_member_profile.updated"
 
 	AuthSignIn            Action = "auth.sign_in"
 	AccessDenied          Action = "access.denied"
@@ -93,8 +102,8 @@ const (
 	AccessOverrideUsed Action = "access.override_used"
 )
 
-// TriggerActions are the 45 actions only a capture trigger records (G063 adds mcp.connection_renamed; G020 the five
-// label.* actions).
+// TriggerActions are the 47 actions only a capture trigger records (G063 adds mcp.connection_renamed; G020 the five
+// label.* actions; G074 profile.updated; G075 group_member_profile.updated).
 var TriggerActions = []Action{
 	OrganizationCreated, OrganizationRenamed, OrganizationPolicyChanged, GroupCreated, GroupRenamed, GroupSlugChanged,
 	MembershipGranted, MembershipRoleChanged, MembershipRemoved, BusinessProfileCreated, BusinessProfileUpdated,
@@ -105,6 +114,7 @@ var TriggerActions = []Action{
 	EnrollmentPolicyChanged, EnrollmentReadinessChanged, EnrollmentRestrictionBackfill,
 	EnrollmentRequested, EnrollmentDecided, EnrollmentRevoked, MCPConnectionRenamed,
 	LabelCreated, LabelUpdated, LabelDeleted, LabelAssigned, LabelUnassigned,
+	ProfileUpdated, GroupMemberProfileUpdated,
 }
 
 // CoreActions are the 7 actions only Append records (G060 adds access.override_used).
@@ -231,9 +241,15 @@ const (
 	// G020 (00020): the two label.updated reasons.
 	ReasonLabelRenamed           Reason = "renamed"
 	ReasonLabelVisibilityChanged Reason = "visibility_changed"
+	// G074 (00023): the three profile.updated reasons.
+	ReasonProfileNameChanged   Reason = "name_changed"
+	ReasonProfileAvatarSet     Reason = "avatar_set"
+	ReasonProfileAvatarRemoved Reason = "avatar_removed"
+	// G075 (00024): the group_member_profile.updated reason.
+	ReasonRoleLabelChanged Reason = "role_label_changed"
 )
 
-// Reasons is the closed reason set (81).
+// Reasons is the closed reason set (85).
 var Reasons = []Reason{
 	ReasonProfileEditEnabled, ReasonProfileEditDisabled,
 	ReasonLogout, ReasonLogoutAll, ReasonProviderLogout, ReasonDisabled, ReasonSuperseded,
@@ -257,6 +273,8 @@ var Reasons = []Reason{
 	ReasonSignupAuthenticated, ReasonTenantCreated, ReasonSignupOriginRejected, ReasonSignupUserMismatch,
 	ReasonSignupInvalid, ReasonIntentUsed, ReasonSlugTaken, ReasonContinuationInvalid, ReasonSignupContextMismatch,
 	ReasonLabelRenamed, ReasonLabelVisibilityChanged,
+	ReasonProfileNameChanged, ReasonProfileAvatarSet, ReasonProfileAvatarRemoved,
+	ReasonRoleLabelChanged,
 }
 
 // Operation is the guarded operation of an access.denied event.
@@ -353,9 +371,18 @@ const (
 	OpLabelAssignmentList   Operation = "label.assignment.list"
 	OpLabelAssign           Operation = "label.assign"
 	OpLabelUnassign         Operation = "label.unassign"
+	// G074: the guarded account profile operations (00023 widens events_operation_valid).
+	OpProfileGet          Operation = "profile.get"
+	OpProfileUpdate       Operation = "profile.update"
+	OpProfileAvatarGet    Operation = "profile.avatar.get"
+	OpProfileAvatarSet    Operation = "profile.avatar.set"
+	OpProfileAvatarRemove Operation = "profile.avatar.remove"
+	// G075 (00024 widens events_operation_valid again): the Group member profile operations.
+	OpProfileGroupsList       Operation = "profile.groups.list"
+	OpProfileGroupLabelUpdate Operation = "profile.group_label.update"
 )
 
-// Operations is the closed operation set (80).
+// Operations is the closed operation set (87).
 var Operations = []Operation{
 	OpAccessResolve, OpOrganizationGet, OpOrganizationGetPolicy, OpOrganizationSetPolicy, OpGroupGet, OpGroupRename,
 	OpGroupChangeSlug, OpBusinessProfileGet, OpBusinessProfileUpdate, OpObjectPut, OpObjectGet, OpObjectMetadata,
@@ -376,6 +403,8 @@ var Operations = []Operation{
 	OpSignupAbandon,
 	OpLabelDefinitionList, OpLabelDefinitionCreate, OpLabelDefinitionUpdate, OpLabelDefinitionDelete, OpLabelAssignmentList,
 	OpLabelAssign, OpLabelUnassign,
+	OpProfileGet, OpProfileUpdate, OpProfileAvatarGet, OpProfileAvatarSet, OpProfileAvatarRemove,
+	OpProfileGroupsList, OpProfileGroupLabelUpdate,
 }
 
 // ResourceType is the kind of an event's resource.
@@ -395,12 +424,15 @@ const (
 	ResourceInvitation      ResourceType = "invitation"          // G019
 	ResourceEnrollmentReq   ResourceType = "enrollment_request"  // G058
 	ResourceLabel           ResourceType = "label"               // G020: the label definition
+	ResourceAccountProfile  ResourceType = "account_profile"     // G074: the global account profile (its user's id)
+
+	ResourceGroupMemberProfile ResourceType = "group_member_profile" // G075: a member's Group profile (its binding's id)
 )
 
-// ResourceTypes is the closed resource-type set (12).
+// ResourceTypes is the closed resource-type set (14).
 var ResourceTypes = []ResourceType{ResourceOrganization, ResourceGroup, ResourceRoleBinding, ResourceBusinessProfile,
 	ResourceUser, ResourceSession, ResourceStoredObject, ResourceMCPConnection, ResourceDomain, ResourceInvitation,
-	ResourceEnrollmentReq, ResourceLabel}
+	ResourceEnrollmentReq, ResourceLabel, ResourceAccountProfile, ResourceGroupMemberProfile}
 
 // The actor kinds the database derives (never supplied).
 const (

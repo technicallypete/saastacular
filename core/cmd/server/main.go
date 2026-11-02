@@ -26,7 +26,10 @@
 // Groups) live under /internal/v1/labels and /internal/v1/groups/{id}/labels.
 // G071: the optional default-tenant root alias (DEFAULT_TENANT_SLUG, selected
 // and pinned once at startup) and the multi-tenant root presentation
-// (PLATFORM_ROOT_PAGE) reach web through the host resolution answer.
+// (PLATFORM_ROOT_PAGE) reach web through the host resolution answer. G074:
+// global account profiles (the own profile, the explicit name, the avatar
+// upload and removal, and the relationship-gated profile and avatar reads)
+// live under /internal/v1/profiles, over the owned object store.
 //
 // "server healthcheck [--url URL]" is the container healthcheck.
 package main
@@ -63,6 +66,7 @@ import (
 	membershipapi "core/internal/membership/api"
 	"core/internal/observability"
 	onboardingapi "core/internal/onboarding/api"
+	profileapi "core/internal/profile/api"
 	"core/internal/signup"
 	signupapi "core/internal/signup/api"
 )
@@ -259,6 +263,15 @@ func run() error {
 		return errors.New("invalid configuration: labels")
 	}
 	labh.Register(mux)
+
+	// G074: the global account profile routes, with their own access facade over the owned object store built from the
+	// loaded settings (as branding's); avatar bytes are read only through the session-authorized, relationship-gated route.
+	profh, err := profileapi.New(profileapi.Config{Pool: pool, Identity: idSvc, Resolver: resolver, ObjectStore: cfg.ObjectStore,
+		AppEnv: cfg.AppEnv, Logger: logger})
+	if err != nil {
+		return errors.New("invalid configuration: OBJECT_STORE_ENDPOINT")
+	}
+	profh.Register(mux)
 
 	// G058: the callback-time enrollment admission, composed with its own access facade and bound into identity once
 	// before serving (a failed binding stops startup; unbound, every admission is identity_unavailable), and the

@@ -230,10 +230,11 @@ func setupIT(t *testing.T) *itEnv {
 		t.Fatalf("open migrator: %v", err)
 	}
 	var out bytes.Buffer
-	// G011: the audit triggers are active for B-POLICY-IT, B-RLS-IT and B-OBJ-IT. G013/G014/G016/G017/G018/G019/G058/G060/G062/G063/G020/G057/G071:
-	// the latest version is 22, so they (and G010's attack suite) also run with the retention policies and grants, the MCP connection objects,
-	// the membership guard, policies and invitation table, the organization enrollment tables and functions, and the platform labels present.
-	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t22\n") {
+	// G011: the audit triggers are active for B-POLICY-IT, B-RLS-IT and B-OBJ-IT. G013/G014/G016/G017/G018/G019/G058/G060/G062/G063/G020/G057/G071/G074/G075:
+	// the latest version is 24, so they (and G010's attack suite) also run with the retention policies and grants, the MCP connection objects,
+	// the membership guard, policies and invitation table, the organization enrollment tables and functions, the platform labels, the
+	// account profiles and the Group member profiles present.
+	if err := r.Up(ctx, &out); err != nil || !strings.HasSuffix(out.String(), "current_version\t24\n") {
 		t.Fatalf("migrate up: %v %q", err, out.String())
 	}
 	_ = r.Close()
@@ -1496,9 +1497,11 @@ func TestAccessPolicy(t *testing.T) {
 		}
 		e.setFlag(t, w.A, true)
 		// G018 adds 6+6+5+5 cells per capability (286 -> 330); G019's four capabilities likewise (330 -> 418); G020's three
-		// label capabilities likewise (418 -> 484; this loop has no override-on tables, so not the unit matrix's 6+6+5+5+6+5).
-		if cells != 484 {
-			t.Errorf("asserted %d cells, want 484", cells)
+		// label capabilities likewise (418 -> 484; this loop has no override-on tables, so not the unit matrix's 6+6+5+5+6+5);
+		// G074's two profile capabilities likewise (484 -> 528); G075's three Group member profile capabilities likewise
+		// (528 -> 594).
+		if cells != 594 {
+			t.Errorf("asserted %d cells, want 594", cells)
 		}
 		// B is foreign: the A-owner's facts never reach B's Group or profile.
 		rctx, _ := beginAs(t, svc, ctx, subjects[string(tenancy.OrgOwner)], w.A)

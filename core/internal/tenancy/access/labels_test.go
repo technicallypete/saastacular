@@ -43,8 +43,9 @@ func TestLabelPolicy(t *testing.T) {
 				t.Errorf("readCapability(%s) = %s, want %s", c, r, want)
 			}
 		}
-		if len(allCapabilities) != 22 {
-			t.Errorf("%d capabilities, want 22", len(allCapabilities))
+		// G074: + account_profile.read and account_profile.manage_self; G075: + the three group_member_profile capabilities.
+		if len(allCapabilities) != 27 {
+			t.Errorf("%d capabilities, want 27", len(allCapabilities))
 		}
 	})
 	t.Run("not_found versus forbidden on the same facts", func(t *testing.T) {

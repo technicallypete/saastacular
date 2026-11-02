@@ -103,7 +103,24 @@ var oracleCapabilities = []oracleCapKind{
 	{"label.organization.manage", "organization"},
 	{"label.group.manage", "group"},
 	{"label.group.read", "group"},
+	// G074 (Plan r3.1 §3.5): account_profile.read and account_profile.manage_self, every Organization role on the active
+	// Organization in either context (the profile row rule is SQL's, never the matrix's).
+	{"account_profile.read", "organization"},
+	{"account_profile.manage_self", "organization"},
+	// G075 (Plan r2 §3.4, C4): group_member_profile.read, every Organization role on the active Organization in either
+	// context (the cards are the projection's, never the matrix's); group_member_profile.manage_self, any own role of the
+	// exact Group; group_member_profile.manage, the exact Group's own owner or admin. An Organization role alone, with or
+	// without the G060 override, writes no label.
+	{"group_member_profile.read", "organization"},
+	{"group_member_profile.manage_self", "group"},
+	{"group_member_profile.manage", "group"},
 }
+
+// oracleMemberHeld are the Organization capabilities that the one valid org_member binding of a fixture holds on its
+// own, whatever unknown or foreign Group fact sits next to it: G019's organization.leave (its own departure), G074's
+// account_profile.read and account_profile.manage_self and G075's group_member_profile.read (every Organization role).
+var oracleMemberHeld = map[string]bool{"organization.leave": true, "account_profile.read": true, "account_profile.manage_self": true,
+	"group_member_profile.read": true}
 
 // oracleColumns are the six roles of Spec R3 in column order, as the core/internal/tenancy role constants.
 var oracleColumns = []string{
@@ -147,6 +164,11 @@ var oracleOrgOnlyFlagOn = []oracleRow{
 	{"A A D D D D", "label.organization.manage"},
 	{"D D D A A D", "label.group.manage"},
 	{"D D D A A A", "label.group.read"},
+	{"A A A A A A", "account_profile.read"},
+	{"A A A A A A", "account_profile.manage_self"},
+	{"A A A A A A", "group_member_profile.read"},
+	{"D D D A A A", "group_member_profile.manage_self"},
+	{"D D D A A D", "group_member_profile.manage"},
 }
 
 // oracleOrgOnlyFlagOff is the primary scenario in Organization-only context with the flag false.
@@ -174,6 +196,11 @@ var oracleOrgOnlyFlagOff = []oracleRow{
 	{"A A D D D D", "label.organization.manage"},
 	{"D D D A A D", "label.group.manage"},
 	{"D D D A A A", "label.group.read"},
+	{"A A A A A A", "account_profile.read"},
+	{"A A A A A A", "account_profile.manage_self"},
+	{"A A A A A A", "group_member_profile.read"},
+	{"D D D A A A", "group_member_profile.manage_self"},
+	{"D D D A A D", "group_member_profile.manage"},
 }
 
 // oracleSelectedFlagOn is the primary scenario in the selected-Group context g1 with the flag true.
@@ -201,6 +228,11 @@ var oracleSelectedFlagOn = []oracleRow{
 	{"A A X D D D", "label.organization.manage"},
 	{"D D X A A D", "label.group.manage"},
 	{"D D X A A A", "label.group.read"},
+	{"A A X A A A", "account_profile.read"},
+	{"A A X A A A", "account_profile.manage_self"},
+	{"A A X A A A", "group_member_profile.read"},
+	{"D D X A A A", "group_member_profile.manage_self"},
+	{"D D X A A D", "group_member_profile.manage"},
 }
 
 // oracleSelectedFlagOff is the primary scenario in the selected-Group context g1 with the flag false.
@@ -228,6 +260,11 @@ var oracleSelectedFlagOff = []oracleRow{
 	{"A A X D D D", "label.organization.manage"},
 	{"D D X A A D", "label.group.manage"},
 	{"D D X A A A", "label.group.read"},
+	{"A A X A A A", "account_profile.read"},
+	{"A A X A A A", "account_profile.manage_self"},
+	{"A A X A A A", "group_member_profile.read"},
+	{"D D X A A A", "group_member_profile.manage_self"},
+	{"D D X A A D", "group_member_profile.manage"},
 }
 
 // G060 oracleOrgOnlyFlagOnOverride is the Organization-only, flag-true scenario with the Organization's Group-management
@@ -257,6 +294,11 @@ var oracleOrgOnlyFlagOnOverride = []oracleRow{
 	{"A A D D D D", "label.organization.manage"},
 	{"D D D A A D", "label.group.manage"},
 	{"D D D A A A", "label.group.read"},
+	{"A A A A A A", "account_profile.read"},
+	{"A A A A A A", "account_profile.manage_self"},
+	{"A A A A A A", "group_member_profile.read"},
+	{"D D D A A A", "group_member_profile.manage_self"},
+	{"D D D A A D", "group_member_profile.manage"},
 }
 
 // G060 oracleSelectedFlagOffOverride is the selected-g1, flag-false scenario with the override enabled.
@@ -284,6 +326,11 @@ var oracleSelectedFlagOffOverride = []oracleRow{
 	{"A A X D D D", "label.organization.manage"},
 	{"D D X A A D", "label.group.manage"},
 	{"D D X A A A", "label.group.read"},
+	{"A A X A A A", "account_profile.read"},
+	{"A A X A A A", "account_profile.manage_self"},
+	{"A A X A A A", "group_member_profile.read"},
+	{"D D X A A A", "group_member_profile.manage_self"},
+	{"D D X A A D", "group_member_profile.manage"},
 }
 
 // oracleTable is one primary table with its context mode (selected means the selected Group g1), flag value and (G060)
@@ -824,7 +871,7 @@ func oracleNaturalTarget(t testing.TB, capability string) Target {
 			return oracleP(oraclePrf1)
 		}
 	}
-	t.Fatalf("oracle: %q is not one of the 22 capabilities", capability)
+	t.Fatalf("oracle: %q is not one of the 27 capabilities", capability)
 	return Target{}
 }
 
@@ -947,8 +994,8 @@ func TestOracleTables(t *testing.T) {
 	if !slices.Equal(oracleColumns, wantColumns) {
 		t.Fatalf("columns %q, want %q", oracleColumns, wantColumns)
 	}
-	if len(oracleCapabilities) != 22 {
-		t.Fatalf("%d capabilities, want 22 (Spec R3's 11 plus G016 organization.manage_domains, G017 organization.manage_branding, G018 group.create and group.complete_onboarding, G019 organization.manage_owners, group.manage_owners, organization.leave and group.leave and G020 label.organization.manage, label.group.manage and label.group.read)", len(oracleCapabilities))
+	if len(oracleCapabilities) != 27 {
+		t.Fatalf("%d capabilities, want 27 (Spec R3's 11 plus G016 organization.manage_domains, G017 organization.manage_branding, G018 group.create and group.complete_onboarding, G019 organization.manage_owners, group.manage_owners, organization.leave and group.leave, G020 label.organization.manage, label.group.manage and label.group.read, G074 account_profile.read and account_profile.manage_self and G075 group_member_profile.read, group_member_profile.manage_self and group_member_profile.manage)", len(oracleCapabilities))
 	}
 	tables := oraclePrimaryTables()
 	for _, tbl := range tables {
@@ -1080,6 +1127,11 @@ func TestOracleMatrix(t *testing.T) {
 	// label.organization.manage (G020)             Y          Y          -           -            -            -
 	// label.group.manage (G020; no override)       -          -          -           own          own          -
 	// label.group.read (G020; no override)         -          -          -           own          own          own
+	// account_profile.read (G074)                  Y          Y          Y           Y            Y            Y
+	// account_profile.manage_self (G074)           Y          Y          Y           Y            Y            Y
+	// group_member_profile.read (G075)             Y          Y          Y           Y            Y            Y
+	// group_member_profile.manage_self (G075)      -          -          -           own          own          own
+	// group_member_profile.manage (G075)           -          -          -           own          own          -
 	//
 	// The literal tables above restate these cells for concrete subjects: by pin Q8(a) a Group-role column also holds
 	// org_member, so its organization.read cell is A through org_member.
@@ -1108,9 +1160,11 @@ func TestOracleMatrix(t *testing.T) {
 	// 114 cells in each Organization-only table and 95 in each selected table, where org_member is not asserted (G018: the
 	// two capabilities add 6+6+5+5 cells each, 286 -> 330; G019: the four capabilities add 6+6+5+5 each, 330 -> 418;
 	// G060: the two override-on tables add 114 + 95, 418 -> 627; G020: the three label capabilities add 6+6+5+5+6+5 each,
-	// with explicit deny cells for every Organization-role cell of label.group.* in the override-on tables, 627 -> 726).
-	if asserted != 726 {
-		t.Fatalf("asserted %d primary cells, want 726", asserted)
+	// with explicit deny cells for every Organization-role cell of label.group.* in the override-on tables, 627 -> 726;
+	// G074: the two account profile capabilities add 6+6+5+5+6+5 each, 726 -> 792; G075: the three Group member profile
+	// capabilities add 6+6+5+5+6+5 each, 792 -> 891).
+	if asserted != 891 {
+		t.Fatalf("asserted %d primary cells, want 891", asserted)
 	}
 }
 
@@ -1307,8 +1361,8 @@ func TestOracleUnknownInputs(t *testing.T) {
 			name := fmt.Sprintf("group-binding/%d/%q/%q/%s", i, bindings[0].Role, bindings[0].Source, c.name)
 			// G019 (Plan r1 §1.3): the fixture keeps exactly one valid org_member binding in A, whose own
 			// organization.leave is allowed; the unknown or inconsistent Group fact neither denies nor widens it. Every
-			// other capability denies.
-			want := c.name == "organization.leave"
+			// other capability denies. G074: the two account profile capabilities are held by that org_member too.
+			want := oracleMemberHeld[c.name]
 			t.Run(name, func(t *testing.T) {
 				f := oracleSubjectFacts(t, string(tenancy.OrgMember), oracleFlagOn)
 				f.GroupBindings = bindings
@@ -1350,7 +1404,7 @@ func TestOracleCrossOrganization(t *testing.T) {
 		// G018 group.create path.
 		if c.name != "organization.read" && c.name != "group.create" {
 			run("org-member-in-A-and-owner-in-B", memberAndOwnerInB, target, c.name)
-			if c.name != "organization.leave" {
+			if !oracleMemberHeld[c.name] {
 				run("group-binding-claiming-B", groupOwnerInB, target, c.name)
 				continue
 			}
@@ -1448,7 +1502,7 @@ func TestToolEligibility(t *testing.T) {
 			}
 		}
 	}
-	if n != len(oracleCapabilities)*len(subjects)*3*2*2 { // G020: twenty-two capabilities
+	if n != len(oracleCapabilities)*len(subjects)*3*2*2 { // G075: twenty-seven capabilities
 		t.Fatalf("%d eligibility cases", n)
 	}
 
@@ -1510,6 +1564,14 @@ func TestToolEligibility(t *testing.T) {
 		{"label.group.manage", "org_admin+g1admin+ovr", oracleGrp1, oracleFlagOn, false, oracleAllow},
 		{"label.group.manage", "org_admin+g1admin+ovr", oracleGrp3, oracleFlagOn, false, oracleDeny},
 		{"label.group.read", "g1owner-no-org", oracleOrgOnly, oracleFlagOn, false, oracleDeny},
+		// G075: group_member_profile.read is role-level for every Organization role; the two label-write capabilities follow
+		// decide's explicit Group path only (no Organization path; the override is irrelevant).
+		{"group_member_profile.read", "org_member", oracleOrgOnly, oracleFlagOn, false, oracleAllow},
+		{"group_member_profile.manage", "org_admin+ovr", oracleOrgOnly, oracleFlagOn, false, oracleDeny},
+		{"group_member_profile.manage", "group_admin", oracleOrgOnly, oracleFlagOn, false, oracleAllow},
+		{"group_member_profile.manage", "group_member", oracleGrp1, oracleFlagOn, false, oracleDeny},
+		{"group_member_profile.manage_self", "group_member", oracleGrp1, oracleFlagOn, false, oracleAllow},
+		{"group_member_profile.manage_self", "org_owner+ovr", oracleOrgOnly, oracleFlagOn, false, oracleDeny},
 	} {
 		req, _ := RequireCapability(p.capability)
 		complete := facts(p.subject, p.flagOn, p.unlinked)
@@ -1575,8 +1637,9 @@ func TestToolEligibility(t *testing.T) {
 		t.Error("the zero requirement is eligible")
 	}
 
-	// The capability names are closed: the twenty-two canonical values only (G019 made group.manage_owners canonical; G020
-	// adds the three label capabilities).
+	// The capability names are closed: the twenty-seven canonical values only (G019 made group.manage_owners canonical; G020
+	// adds the three label capabilities; G074 the two account profile capabilities; G075 the three Group member profile
+	// capabilities).
 	for _, u := range oracleUnknownCapabilities {
 		if r, err := RequireCapability(u); err == nil || CodeOf(err) != CodeInvalidInput || r != (ToolRequirement{}) {
 			t.Errorf("RequireCapability(%q) = %+v, %v; want invalid_input", u, r, err)

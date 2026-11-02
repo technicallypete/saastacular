@@ -45,6 +45,7 @@ const (
 	metaObject       = "object-id"
 	metaOrganization = "organization-id"
 	metaGroup        = "group-id"
+	metaUser         = "user-id" // G074: the owning user of an avatars/ object
 )
 
 // EndpointProblems checks the endpoint transport rules (G009 Plan r1 §4.7) and returns one problem per violated rule,
@@ -158,15 +159,21 @@ func unsignedPayload(o *s3.Options) {
 }
 
 // Put streams exactly size bytes of body to key with an explicit Content-Length, the binding metadata and
-// Content-Disposition: attachment. A provider refusal is ErrDenied or ErrInvalid; any other failure, including a body
-// read error or cancellation, is ErrOutcomeUnknown (the object may exist).
+// Content-Disposition: attachment. The binding's owner kind must be the key family's (an Organization for objects/, a
+// user for avatars/). A provider refusal is ErrDenied or ErrInvalid; any other failure, including a body read error or
+// cancellation, is ErrOutcomeUnknown (the object may exist).
 func (c *S3) Put(ctx context.Context, key Key, body io.Reader, size int64, contentType string, b Binding) error {
-	if !key.Valid() || size < 0 || !b.valid() || body == nil || contentType == "" {
+	if !key.Valid() || size < 0 || !b.valid() || !b.fits(key) || body == nil || contentType == "" {
 		return ErrInvalid
 	}
-	meta := map[string]string{metaObject: b.Object, metaOrganization: b.Organization}
-	if b.Group != "" {
-		meta[metaGroup] = b.Group
+	meta := map[string]string{metaObject: b.Object}
+	if b.User != "" {
+		meta[metaUser] = b.User
+	} else {
+		meta[metaOrganization] = b.Organization
+		if b.Group != "" {
+			meta[metaGroup] = b.Group
+		}
 	}
 	_, err := c.data.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(c.bucket), Key: aws.String(key.s), Body: body, ContentLength: aws.Int64(size),
@@ -230,9 +237,9 @@ func (c *S3) Metadata(ctx context.Context, key Key) (Info, error) {
 
 // SignedGetURL presigns a GET of key for ttl over the signing endpoint, offline: the response overrides are
 // attachment, the stored content type and no-store, and nothing comes from the caller's request. The URL is a bearer
-// secret.
+// secret. An avatars/ key is never presigned (G074 C7: delivery re-checks the relationship on every read).
 func (c *S3) SignedGetURL(ctx context.Context, key Key, ttl time.Duration, contentType string) (string, error) {
-	if !key.Valid() || ttl <= 0 || contentType == "" {
+	if !key.Valid() || key.Family() != FamilyObjects || ttl <= 0 || contentType == "" {
 		return "", ErrInvalid
 	}
 	req, err := c.presign.PresignGetObject(ctx, &s3.GetObjectInput{
@@ -254,7 +261,7 @@ func binding(m map[string]string) Binding {
 		}
 		return ""
 	}
-	return Binding{Object: get(metaObject), Organization: get(metaOrganization), Group: get(metaGroup)}
+	return Binding{Object: get(metaObject), Organization: get(metaOrganization), Group: get(metaGroup), User: get(metaUser)}
 }
 
 // status returns the HTTP status of a provider response error, or 0.

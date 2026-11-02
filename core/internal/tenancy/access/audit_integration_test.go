@@ -1386,6 +1386,24 @@ func TestAudit(t *testing.T) {
 	t.Run("AT-INV every catalog action observed from real calls", func(t *testing.T) {
 		rctx, otc := tc(t, e.osvc, w.owner, w.orgA, tenancy.GroupID{})
 		w.since(t)
+		// G075 (Plan r2 §3.6, §5 AT-INV): group_member_profile.updated from a real facade label edit. The Group admin of g1
+		// labels the member there (the binding as resource, the member as subject, the editor as actor, never the text);
+		// the member's g1 removal below cascades the label away without a label event. The Go audit catalog
+		// (core/internal/audit) lists the action as of 00024 (a Plan r2 delta: mechanical parity with the database catalog), so
+		// the catalog pin below is 54/47 and this observed action counts as a catalog action.
+		var invGMPBinding string
+		if err := e.setup.QueryRow(ctx, `SELECT id::text FROM app.role_bindings WHERE subject_user_id = $1::text::uuid AND scope_type = 'group'
+  AND scope_id = $2::text::uuid AND source = 'membership'`, w.member.id.String(), w.g1.ID.String()).Scan(&invGMPBinding); err != nil {
+			t.Fatal(err)
+		}
+		w.label(invGMPBinding, "invgmp")
+		gmpCtx, gmpTC := tc(t, e.osvc, w.gadmin, w.orgA, tenancy.GroupID{})
+		invGMPLabel := "Audit inventory role label"
+		if card, err := e.osvc.SetGroupMemberLabel(gmpCtx, gmpTC, w.g1.ID, w.member.id, 0, &invGMPLabel); err != nil || card.Version != 1 {
+			t.Fatalf("group member label edit: version %d, %v", card.Version, err)
+		}
+		w.wantRows(t, "group member profile producer", w.rows(t, "action = 'group_member_profile.updated'"),
+			"group_member_profile.updated|success|role_label_changed|-|user|gadmin|A|g1|group_member_profile|invgmp|member|-|-|-")
 		// The remaining producers: Organization rename and policy, membership change and removal, profile update and
 		// unlink, and slug change.
 		if _, err := e.model.RenameOrganization(ctx, w.orgB, "Audit B Renamed"); err != nil {
@@ -1413,6 +1431,19 @@ func TestAudit(t *testing.T) {
 		}
 		if err := e.model.RemoveGroupMembership(ctx, w.orgA, w.g1.ID, w.member.id); err != nil {
 			t.Fatal(err)
+		}
+		// G075: the removal took the member's g1 label with it (the membership-keyed cascade) and recorded no label event;
+		// no audit row carries the label text.
+		var gmpLeft, gmpLeaks int
+		if err := e.setup.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.group_member_profiles WHERE binding_id = $1::text::uuid)::int,
+  (SELECT count(*) FROM audit.events e WHERE position($2 in e::text) > 0)::int`, invGMPBinding, invGMPLabel).Scan(&gmpLeft, &gmpLeaks); err != nil {
+			t.Fatal(err)
+		}
+		if gmpLeft != 0 || gmpLeaks != 0 {
+			t.Errorf("after the member's g1 removal: %d label rows (want 0), %d audit rows with the label text (want 0)", gmpLeft, gmpLeaks)
+		}
+		if got := w.rows(t, "action = 'group_member_profile.updated'"); len(got) != 1 {
+			t.Errorf("group member profile rows after the removal: %q, want only the edit (the cascade records none)", texts(got))
 		}
 		if err := e.model.UnlinkGroupBusinessProfile(ctx, w.orgA, w.g1.ID, w.prof.ID); err != nil {
 			t.Fatal(err)
@@ -1574,6 +1605,26 @@ func TestAudit(t *testing.T) {
 		if leaks != 0 {
 			t.Errorf("%d audit rows carry an invitation token or address", leaks)
 		}
+		// G074 (Plan r3.1 §3.6; EP-1 A3): the member's own name edit through the facade, from its TENANT-ORG transaction,
+		// records one global profile.updated (no Organization or Group; the member as actor, subject and resource; reason
+		// name_changed; never the name). An identical repeat, even on a stale version, writes nothing.
+		profileName := "Audit inventory profile name"
+		pv, err := e.osvc.UpdateAccountProfileName(mctx, mtc, 0, &profileName)
+		if err != nil || pv.Version != 1 || pv.Name == nil || *pv.Name != profileName || pv.EffectiveName != profileName {
+			t.Fatalf("profile name edit: %+v %v", pv, err)
+		}
+		if again, err := e.osvc.UpdateAccountProfileName(mctx, mtc, 0, &profileName); err != nil || again.Version != 1 {
+			t.Fatalf("identical profile name edit: version %d, %v", again.Version, err)
+		}
+		w.wantRows(t, "profile producer", w.rows(t, "action = 'profile.updated'"),
+			"profile.updated|success|name_changed|-|user|member|-|-|account_profile|member|member|-|-|-")
+		if err := e.setup.QueryRow(ctx, `SELECT count(*) FROM audit.events e WHERE occurred_at > $1 AND position($2 in e::text) > 0`,
+			w.mark, profileName).Scan(&leaks); err != nil {
+			t.Fatal(err)
+		}
+		if leaks != 0 {
+			t.Errorf("%d audit rows carry a profile name", leaks)
+		}
 		note(w.rows(t, ""))
 		// The fixtures created before this subtest's windows (Organizations, Groups, grants, profiles, links, users
 		// and sessions) are part of the same run: count them from their Organization and subjects.
@@ -1584,8 +1635,10 @@ func TestAudit(t *testing.T) {
 		// from AT-LAB's real facade calls in A (noted there and again by the A-wide read above). Label rows that other
 		// tests of this package commit into the shared database (TestRLSIsolation's and TestIsolationAttacks' superuser
 		// fixtures) belong to their own Organizations and stay outside both reads, so they neither add nor hide an action.
-		if nt, na := len(audit.TriggerActions), len(audit.TriggerActions)+len(audit.CoreActions); nt != 45 || na != 52 {
-			t.Errorf("catalog: %d trigger actions of %d, want 45 of 52", nt, na)
+		// G074: 53 actions, 46 trigger-owned; profile.updated is observed from the member's name edit above (window read).
+		// G075: 54 actions, 47 trigger-owned; group_member_profile.updated is observed from the real label edit above.
+		if nt, na := len(audit.TriggerActions), len(audit.TriggerActions)+len(audit.CoreActions); nt != 47 || na != 54 {
+			t.Errorf("catalog: %d trigger actions of %d, want 47 of 54", nt, na)
 		}
 		var obs []string
 		for a := range observed {
@@ -1602,6 +1655,303 @@ func TestAudit(t *testing.T) {
 		fmt.Println("AUDIT-INV " + string(b))
 		if len(missing) != 0 {
 			t.Errorf("actions never observed: %v", missing)
+		}
+	})
+
+	// G074 (Plan r3.1 §3.6, §5 AT-PRO): the profile producer through the real facade and the facade's own avatar statements:
+	// one global profile.updated per changed aspect (reasons name_changed, avatar_set, avatar_removed), the user as actor,
+	// subject and resource whichever tenant context wrote it, nothing for a no-op, never a name; the rows are never
+	// tenant-readable; a forged direct append and a core Append of the trigger-owned action are refused; an audit fault
+	// refuses the write. multi is the subject (AT-INV's member already holds a profile row).
+	t.Run("AT-PRO profile producer: reasons, attribution, no-op silence, global rows, forgeries and audit faults", func(t *testing.T) {
+		zeroG := tenancy.GroupID{}
+		actx, atc := tc(t, e.osvc, w.multi, w.orgA, zeroG)
+		bctx, btc := tc(t, e.osvc, w.multi, w.orgB, zeroG)
+		row := func(reason string) string {
+			return "profile.updated|success|" + reason + "|-|user|multi|-|-|account_profile|multi|multi|-|-|-"
+		}
+		profileName := func(what string) string { return fmt.Sprintf("Audit %s profile name %d", what, itSeq.Add(1)) }
+		first, second, fromB, faulted := profileName("first"), profileName("second"), profileName("host B"), profileName("faulted")
+		v, err := e.osvc.GetOwnAccountProfile(actx, atc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		edit := func(c context.Context, ptc *TenantContext, name *string) {
+			t.Helper()
+			nv, err := e.osvc.UpdateAccountProfileName(c, ptc, v.Version, name)
+			if err != nil {
+				t.Fatalf("profile name edit: %v", err)
+			}
+			v = nv
+		}
+		w.since(t)
+		edit(actx, atc, &first)
+		edit(actx, atc, &first) // no-op
+		edit(actx, atc, &second)
+		edit(bctx, btc, &fromB) // from Organization B's context: still global
+		edit(actx, atc, nil)    // clear
+		edit(actx, atc, nil)    // no-op
+		// The facade's avatar statements (Plan r3.1 §3.8 S1, S4, R1, R3) in multi's TENANT-ORG context: a reference set and
+		// removed records avatar_set and avatar_removed; the avatar row transitions record nothing.
+		av := rlsUUID(t)
+		func() {
+			tx, err := e.pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			if err := tenancy.InitContext(ctx, tx, w.multi.id, w.orgA, zeroG); err != nil {
+				t.Fatal(err)
+			}
+			m := w.multi.id.String()
+			for _, s := range []struct {
+				sql  string
+				args []any
+			}{
+				{`INSERT INTO app.account_avatars (id, user_id, byte_size, content_type) VALUES ($1::text::uuid, $2::text::uuid, 10, 'image/png')`, []any{av, m}},
+				{`UPDATE app.account_avatars SET state = 'ready', sha256 = sha256('at-pro'::bytea) WHERE id = $1::text::uuid`, []any{av}},
+				{`UPDATE app.account_profiles SET avatar_object_id = $2::text::uuid, avatar_version = avatar_version + 1, version = version + 1
+WHERE user_id = $1::text::uuid`, []any{m, av}},
+				{`UPDATE app.account_profiles SET avatar_object_id = NULL, avatar_version = avatar_version + 1, version = version + 1
+WHERE user_id = $1::text::uuid`, []any{m}},
+				{`UPDATE app.account_avatars SET state = 'deleting' WHERE id = $1::text::uuid`, []any{av}},
+				{`UPDATE app.account_avatars SET state = 'deleted' WHERE id = $1::text::uuid`, []any{av}},
+			} {
+				if tag, err := tx.Exec(ctx, s.sql, s.args...); err != nil || tag.RowsAffected() != 1 {
+					t.Fatalf("avatar statement: %v (%d rows)", err, tag.RowsAffected())
+				}
+			}
+			if err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		// The raw avatar statements advanced the row version twice; take the current one for the edits that follow.
+		if v, err = e.osvc.GetOwnAccountProfile(actx, atc); err != nil {
+			t.Fatal(err)
+		}
+		got := w.rows(t, "action = 'profile.updated'")
+		note(got)
+		w.wantRows(t, "profile producer", got, row("name_changed"), row("name_changed"), row("name_changed"), row("name_changed"),
+			row("avatar_set"), row("avatar_removed"))
+		// Global rows are never tenant-readable: neither the owner's audit read of A nor a runtime read in multi's own
+		// contexts returns them.
+		octx, otc := tc(t, e.osvc, w.owner, w.orgA, zeroG)
+		page, err := e.osvc.ReadAuditEvents(octx, otc, AuditReadRequest{Limit: 100})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, ev := range page.Events {
+			if ev.Action == audit.ProfileUpdated {
+				t.Error("the Organization owner's audit read returns a global profile.updated row")
+			}
+		}
+		for _, org := range []tenancy.OrganizationID{w.orgA, w.orgB} {
+			func() {
+				tx, err := e.pool.Begin(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = tx.Rollback(ctx) }()
+				if err := tenancy.InitContext(ctx, tx, w.multi.id, org, zeroG); err != nil {
+					t.Fatal(err)
+				}
+				var n int
+				if err := tx.QueryRow(ctx, `SELECT count(*)::int FROM audit.events WHERE action = 'profile.updated'`).Scan(&n); err != nil || n != 0 {
+					t.Errorf("the runtime reads %d profile.updated rows in multi's context (%v)", n, err)
+				}
+			}()
+		}
+		// Forgeries: a direct append of the trigger-owned action is refused by the attribution trigger, a core Append
+		// before any statement.
+		func() {
+			tx, err := e.pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			if _, err := tx.Exec(ctx, `SELECT set_config('app.user_id', $1, true), set_config('app.organization_id', $2, true)`,
+				w.multi.id.String(), w.orgA.String()); err != nil {
+				t.Fatal(err)
+			}
+			_, err = tx.Exec(ctx, `INSERT INTO audit.events (action, outcome, reason, subject_user_id, resource_type, resource_id)
+VALUES ('profile.updated', 'success', 'name_changed', $1::text::uuid, 'account_profile', $1::text::uuid)`, w.multi.id.String())
+			if p := pgErr(err); p == nil || p.Code != "42501" || p.ConstraintName != "audit_event_source" {
+				t.Errorf("forged profile.updated append: %v, want 42501 audit_event_source", err)
+			}
+		}()
+		if err := func() error {
+			tx, err := e.pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			return audit.Append(ctx, tx, audit.Event{Action: audit.ProfileUpdated, Outcome: audit.Success, Reason: audit.ReasonProfileNameChanged,
+				ResourceType: audit.ResourceAccountProfile, ResourceID: audit.UUID(w.multi.id), Subject: audit.UUID(w.multi.id)})
+		}(); !errors.Is(err, audit.ErrRefused) {
+			t.Errorf("core Append of profile.updated: %v, want refused", err)
+		}
+		// An audit fault on the profile rows refuses the name edit with neither the change nor an event; the paired
+		// positive afterwards commits with its event.
+		w.since(t)
+		remove := w.fault(t, "action <> 'profile.updated'")
+		_, ferr := e.osvc.UpdateAccountProfileName(actx, atc, v.Version, &faulted)
+		remove()
+		if ferr == nil {
+			t.Error("the name edit under a profile audit fault succeeded")
+		}
+		if cur, err := e.osvc.GetOwnAccountProfile(actx, atc); err != nil || cur.Version != v.Version || cur.Name != nil {
+			t.Errorf("after the faulted edit: version %d (want %d), name set %t, %v", cur.Version, v.Version, cur.Name != nil, err)
+		}
+		if got := w.rows(t, "action = 'profile.updated'"); len(got) != 0 {
+			t.Errorf("profile events under the fault: %q", texts(got))
+		}
+		edit(actx, atc, &faulted)
+		w.wantRows(t, "edit after the fault", w.rows(t, "action = 'profile.updated'"), row("name_changed"))
+		var leaks int
+		if err := e.setup.QueryRow(ctx, `SELECT count(*)::int FROM audit.events e
+  WHERE position($1 in e::text) > 0 OR position($2 in e::text) > 0 OR position($3 in e::text) > 0 OR position($4 in e::text) > 0`,
+			first, second, fromB, faulted).Scan(&leaks); err != nil {
+			t.Fatal(err)
+		}
+		if leaks != 0 {
+			t.Errorf("%d audit rows carry a profile name", leaks)
+		}
+	})
+
+	// G075 (Plan r2 §3.6, §5 AT-GMP): the Group member profile producer through the real facade: one
+	// group_member_profile.updated per changed label (set, replace, clear) with the Organization and the Group as scope,
+	// the membership binding as resource, the member as subject and the editor (the Group owner, or the member itself) as
+	// actor; nothing for a no-op; never the label text. The rows are Organization-scoped and readable through the owner's
+	// tenant audit read; a forged direct append and a core Append of the trigger-owned action are refused; an audit fault
+	// refuses the write; the membership removal's cascade records membership.removed and no label event. subj is a new
+	// member of a new Group of A (the Group owner is A's owner), so the case depends on no earlier subtest.
+	t.Run("AT-GMP group member profile producer: attribution, scope, no-op silence, tenant read, forgeries, audit faults and cascade silence", func(t *testing.T) {
+		zeroG := tenancy.GroupID{}
+		gid := e.group(t, w.orgA, w.owner, "Audit Group Profiles", fmt.Sprintf("audit-gmp-%d", itSeq.Add(1))).ID
+		subj := e.newUser(t)
+		e.grantOrg(t, w.orgA, subj, tenancy.OrgMember)
+		e.grantGroup(t, w.orgA, gid, subj, tenancy.GroupMember)
+		e.bind(t, subj, w.orgA)
+		var binding string
+		if err := e.setup.QueryRow(ctx, `SELECT id::text FROM app.role_bindings WHERE subject_user_id = $1::text::uuid AND scope_type = 'group'
+  AND scope_id = $2::text::uuid AND source = 'membership'`, subj.id.String(), gid.String()).Scan(&binding); err != nil {
+			t.Fatal(err)
+		}
+		w.label(gid.String(), "gG")
+		w.label(subj.id.String(), "subj")
+		w.label(binding, "gmpb")
+		octx, otc := tc(t, e.osvc, w.owner, w.orgA, zeroG)
+		sctx, stc := tc(t, e.osvc, subj, w.orgA, zeroG)
+		row := func(actor string) string {
+			return "group_member_profile.updated|success|role_label_changed|-|user|" + actor + "|A|gG|group_member_profile|gmpb|subj|-|-|-"
+		}
+		roleLabel := func(what string) string { return fmt.Sprintf("Audit %s role label %d", what, itSeq.Add(1)) }
+		byOwner, bySelf, faulted := roleLabel("owner"), roleLabel("self"), roleLabel("faulted")
+		version := int32(0)
+		edit := func(c context.Context, ctc *TenantContext, label *string) {
+			t.Helper()
+			card, err := e.osvc.SetGroupMemberLabel(c, ctc, gid, subj.id, version, label)
+			if err != nil {
+				t.Fatalf("label edit: %v", err)
+			}
+			version = card.Version
+		}
+		w.since(t)
+		edit(octx, otc, &byOwner) // the Group owner sets it
+		edit(octx, otc, &byOwner) // no-op
+		edit(sctx, stc, &bySelf)  // the member replaces it
+		edit(sctx, stc, nil)      // clear
+		edit(sctx, stc, nil)      // no-op
+		got := w.rows(t, "action = 'group_member_profile.updated'")
+		note(got)
+		w.wantRows(t, "group member profile producer", got, row("owner"), row("subj"), row("subj"))
+		// The rows are Organization-scoped: the Organization owner's tenant audit read returns all three.
+		page, err := e.osvc.ReadAuditEvents(octx, otc, AuditReadRequest{Since: w.mark, Limit: 100})
+		if err != nil {
+			t.Fatal(err)
+		}
+		read := 0
+		for _, ev := range page.Events {
+			if ev.Action == audit.Action("group_member_profile.updated") && ev.Subject == audit.UUID(subj.id) && ev.Group == audit.UUID(gid) &&
+				ev.ResourceType == audit.ResourceType("group_member_profile") {
+				read++
+			}
+		}
+		if read != 3 {
+			t.Errorf("the owner's tenant audit read returns %d group member profile rows, want 3", read)
+		}
+		// Forgeries: a direct append of the trigger-owned action is refused by the attribution trigger; a core Append is
+		// refused (the Go catalog does not list the action, so Append sends the row and the database refuses it).
+		func() {
+			tx, err := e.pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			if _, err := tx.Exec(ctx, `SELECT set_config('app.user_id', $1, true), set_config('app.organization_id', $2, true)`,
+				w.owner.id.String(), w.orgA.String()); err != nil {
+				t.Fatal(err)
+			}
+			_, err = tx.Exec(ctx, `INSERT INTO audit.events (action, outcome, reason, organization_id, group_id, subject_user_id, resource_type, resource_id)
+VALUES ('group_member_profile.updated', 'success', 'role_label_changed', $1::text::uuid, $2::text::uuid, $3::text::uuid, 'group_member_profile',
+  $4::text::uuid)`, w.orgA.String(), gid.String(), subj.id.String(), binding)
+			if p := pgErr(err); p == nil || p.Code != "42501" || p.ConstraintName != "audit_event_source" {
+				t.Errorf("forged group_member_profile.updated append: %v, want 42501 audit_event_source", err)
+			}
+		}()
+		if err := func() error {
+			tx, err := e.pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			return audit.Append(ctx, tx, audit.Event{Action: audit.Action("group_member_profile.updated"), Outcome: audit.Success,
+				Reason: audit.Reason("role_label_changed"), ResourceType: audit.ResourceType("group_member_profile"), ResourceID: audit.UUID(subj.id),
+				Subject: audit.UUID(subj.id), Organization: audit.UUID(w.orgA), Group: audit.UUID(gid)})
+		}(); !errors.Is(err, audit.ErrRefused) {
+			t.Errorf("core Append of group_member_profile.updated: %v, want refused", err)
+		}
+		// An audit fault on the label rows refuses the edit with neither the change nor an event; the paired positive
+		// afterwards commits with its event.
+		w.since(t)
+		remove := w.fault(t, "action <> 'group_member_profile.updated'")
+		_, ferr := e.osvc.SetGroupMemberLabel(sctx, stc, gid, subj.id, version, &faulted)
+		remove()
+		if ferr == nil {
+			t.Error("the label edit under a group member profile audit fault succeeded")
+		}
+		var cur *string
+		var curVersion int32
+		if err := e.setup.QueryRow(ctx, `SELECT role_label, version FROM app.group_member_profiles WHERE binding_id = $1::text::uuid`,
+			binding).Scan(&cur, &curVersion); err != nil || cur != nil || curVersion != version {
+			t.Errorf("after the faulted edit: version %d (want %d), label set %t, %v", curVersion, version, cur != nil, err)
+		}
+		if got := w.rows(t, "action = 'group_member_profile.updated'"); len(got) != 0 {
+			t.Errorf("group member profile events under the fault: %q", texts(got))
+		}
+		edit(sctx, stc, &faulted)
+		w.wantRows(t, "edit after the fault", w.rows(t, "action = 'group_member_profile.updated'"), row("subj"))
+		// The membership removal takes the label with it: membership.removed is the record, no label event follows.
+		w.since(t)
+		if err := e.osvc.RemoveMember(octx, otc, Scope{Kind: tenancy.ScopeGroup, Group: &gid}, subj.id); err != nil {
+			t.Fatalf("remove the member: %v", err)
+		}
+		var left int
+		if err := e.setup.QueryRow(ctx, `SELECT count(*)::int FROM app.group_member_profiles WHERE binding_id = $1::text::uuid`, binding).Scan(&left); err != nil ||
+			left != 0 {
+			t.Errorf("the label survived the removal: %d rows (%v)", left, err)
+		}
+		removed := w.rows(t, "subject_user_id = $2::text::uuid AND action IN ('membership.removed', 'group_member_profile.updated')", subj.id.String())
+		if len(removed) != 1 || !strings.HasPrefix(removed[0].text, "membership.removed|success|-|-|user|owner|A|gG|role_binding|") {
+			t.Errorf("the removal's rows: %q, want one membership.removed and no label event", texts(removed))
+		}
+		var leaks int
+		if err := e.setup.QueryRow(ctx, `SELECT count(*)::int FROM audit.events e
+  WHERE position($1 in e::text) > 0 OR position($2 in e::text) > 0 OR position($3 in e::text) > 0`, byOwner, bySelf, faulted).Scan(&leaks); err != nil {
+			t.Fatal(err)
+		}
+		if leaks != 0 {
+			t.Errorf("%d audit rows carry a role label", leaks)
 		}
 	})
 
