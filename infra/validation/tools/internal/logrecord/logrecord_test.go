@@ -87,6 +87,9 @@ func TestCatalogueMatchesTheBrief(t *testing.T) {
 			"onboarding.request",
 			// G071 Plan r4 S14/S19: the invalid PLATFORM_ROOT_PAGE startup warning (S15).
 			"platform_root_page",
+			// G074 Plan r3.1 §3.6-§3.8: profile.request (profile/api/http.go) and the avatar operations' profile.storage
+			// (tenancy/access/profile_avatar.go).
+			"profile.request", "profile.storage",
 			// G062 Plan r5 §2/SUP-13: signup.request (signup/log.go; logged by the signup/api HTTP adapter).
 			"signup.request",
 			"storage.operation", "tenancy.operation",
@@ -330,6 +333,30 @@ func TestClassifyAccepts(t *testing.T) {
 		// Group outside the selected context) records group.read.
 		{"core", `{"time":"2026-10-22T12:00:00.000Z","level":"warn","event":"access.decision","service":"core","operation":"label.assign","capability":"group.read","outcome":"deny","reason":"target_outside_context"}`, "access.decision"},
 		{"core", `{"time":"2026-10-22T12:00:00.000Z","level":"error","event":"access.decision","service":"core","operation":"label.unassign","capability":"label.organization.manage","outcome":"failed","reason":"aborted"}`, "access.decision"},
+		// G074 Plan r3.1 §3.5-§3.8: one profile.request per profile route (closed operations and reasons; unavailable the only
+		// failure, a HOLD included), the five profile route paths, the guarded name operations' access.decision records with
+		// the two profile capabilities, and the avatar operations' profile.storage records (stage, actor and avatar UUIDs,
+		// the reconcile row count; never a key, URL, size, name or digest).
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"profile.request","service":"core","operation":"get_own","outcome":"ok","request_id":"req-12345678","trace_id":"` + traceA + `"}`, "profile.request"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"warn","event":"profile.request","service":"core","operation":"update_name","outcome":"refused","reason":"version_conflict"}`, "profile.request"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"warn","event":"profile.request","service":"core","operation":"set_avatar","outcome":"refused","reason":"payload_too_large"}`, "profile.request"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"error","event":"profile.request","service":"core","operation":"set_avatar","outcome":"failed","reason":"unavailable"}`, "profile.request"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"warn","event":"profile.request","service":"core","operation":"get_avatar","outcome":"refused","reason":"not_found"}`, "profile.request"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"profile.request","service":"core","operation":"remove_avatar","outcome":"ok"}`, "profile.request"},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/me"})), CompletionEvent},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/me", "method": "POST", "status": 409})), CompletionEvent},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/me/avatar", "method": "POST"})), CompletionEvent},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/me/avatar/remove", "method": "POST"})), CompletionEvent},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/{user_id}", "status": 404})), CompletionEvent},
+		{"core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/{user_id}/avatar"})), CompletionEvent},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"access.decision","service":"core","operation":"profile.get","capability":"account_profile.read","outcome":"allow","reason":"allowed"}`, "access.decision"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"access.decision","service":"core","operation":"profile.get","capability":"account_profile.manage_self","outcome":"allow","reason":"allowed"}`, "access.decision"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"warn","event":"access.decision","service":"core","operation":"profile.update","capability":"account_profile.manage_self","outcome":"deny","reason":"write_conflict"}`, "access.decision"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"profile.storage","service":"core","operation":"profile.avatar.set","outcome":"allow","reason":"allowed","stage":"t2","actor_id":"0f16e000-0000-4000-8000-0000000000a1","avatar_id":"0f17a000-0000-4000-8000-0000000000b2"}`, "profile.storage"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"error","event":"profile.storage","service":"core","operation":"profile.avatar.set","outcome":"failed","reason":"avatar_cleanup_pending","stage":"t1","actor_id":"0f16e000-0000-4000-8000-0000000000a1"}`, "profile.storage"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"info","event":"profile.storage","service":"core","operation":"profile.avatar.set","outcome":"allow","reason":"reconciled","stage":"sweep","actor_id":"0f16e000-0000-4000-8000-0000000000a1","count":2}`, "profile.storage"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"error","event":"profile.storage","service":"core","operation":"profile.avatar.remove","outcome":"failed","reason":"deletion_pending","stage":"cleanup","actor_id":"0f16e000-0000-4000-8000-0000000000a1","avatar_id":"0f17a000-0000-4000-8000-0000000000b2","count":1}`, "profile.storage"},
+		{"core", `{"time":"2026-11-01T12:00:00.000Z","level":"warn","event":"profile.storage","service":"core","operation":"profile.avatar.get","outcome":"deny","reason":"target_not_found"}`, "profile.storage"},
 		{"core", `{"time":"2026-10-06T12:00:00.000Z","level":"info","event":"tenancy.operation","service":"core","operation":"retirement.retire","outcome":"ok"}`, "tenancy.operation"},
 		// G058 HTTP slice: one enrollment.request per route (the origin host only as its tag) and the enrollment routes'
 		// completion records.
@@ -636,6 +663,17 @@ func TestClassifyRejects(t *testing.T) {
 		// G060 (scope amendment 02): the Group-authority route is a core route only.
 		{"group authority on web", "web", line(t, completion("web", map[string]any{"route": "/internal/v1/organization/group-authority", "core_probe": nil})), ClassCompletion},
 		{"group authority on intelligence", "intelligence", line(t, completion("intelligence", map[string]any{"route": "/internal/v1/organization/group-authority", "method": "POST"})), ClassCompletion},
+		// G074: only the five exact profile routes, on core; never a prefix, a concrete id, a query or another service.
+		{"profile route prefix", "core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles"})), ClassCompletion},
+		{"profile route with a concrete id", "core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/0f16e000-0000-4000-8000-0000000000a1"})), ClassCompletion},
+		{"profile avatar with query", "core", line(t, completion("core", map[string]any{"route": "/internal/v1/profiles/{user_id}/avatar?v=1"})), ClassCompletion},
+		{"profile route on web", "web", line(t, completion("web", map[string]any{"route": "/internal/v1/profiles/me", "core_probe": nil})), ClassCompletion},
+		{"profile.request with a name", "core", `{` + envelope + `,"level":"info","event":"profile.request","operation":"update_name","outcome":"ok","name":"Ada"}`, ClassEventKeys},
+		{"profile.request refused as unavailable", "core", `{` + envelope + `,"level":"warn","event":"profile.request","operation":"set_avatar","outcome":"refused","reason":"unavailable"}`, ClassEventKeys},
+		{"profile.request failure as a refusal code", "core", `{` + envelope + `,"level":"error","event":"profile.request","operation":"get","outcome":"failed","reason":"not_found"}`, ClassEventKeys},
+		{"profile.storage with a key", "core", `{` + envelope + `,"level":"info","event":"profile.storage","operation":"profile.avatar.set","outcome":"allow","reason":"allowed","key":"avatars/x/y"}`, ClassEventKeys},
+		{"profile.storage avatar without an actor", "core", `{` + envelope + `,"level":"info","event":"profile.storage","operation":"profile.avatar.get","outcome":"allow","reason":"allowed","avatar_id":"0f17a000-0000-4000-8000-0000000000b2"}`, ClassEventKeys},
+		{"profile.storage unknown stage", "core", `{` + envelope + `,"level":"error","event":"profile.storage","operation":"profile.avatar.set","outcome":"failed","reason":"provider_unavailable","stage":"audit"}`, ClassEventKeys},
 		{"branding.request with a host tag", "core", `{` + envelope + `,"level":"info","event":"branding.request","operation":"get","outcome":"ok","host_tag":"0123456789ab"}`, ClassEventKeys},
 		{"branding.request unknown operation", "core", `{` + envelope + `,"level":"info","event":"branding.request","operation":"set_slug","outcome":"ok"}`, ClassEventKeys},
 		{"branding.request refused as unavailable", "core", `{` + envelope + `,"level":"warn","event":"branding.request","operation":"update","outcome":"refused","reason":"branding_unavailable"}`, ClassEventKeys},

@@ -1,7 +1,7 @@
 # Required check IDs for infra/validation/run.sh (G003 Plan §10, B-REQUIRED-CHECKS; suites relabelled by the G003
 # CI revision Plan r2 §2.1): ID<TAB>suite. 50 inherited (G001/G002) + 19 G003 + B-UNIT-CHECKS + 1 G048 + 8 G004 + 4 G005
 # + 3 G006 + 5 G051 + 4 G007 + 4 G008 + 5 G009 + 3 G011
-# + 3 G012 + 4 G013 + 3 G014 + 2 G016 + 2 G017 + 2 G018 + 2 G019 + 2 G058 + 2 G062 + 1 G064 + 3 G020 + 1 G057 - 3 retired generator checks = 131 rows (G004: B-IDENTITY-GUARDS lint, B-IDENTITY-CATALOG migrations,
+# + 3 G012 + 4 G013 + 3 G014 + 2 G016 + 2 G017 + 2 G018 + 2 G019 + 2 G058 + 2 G062 + 1 G064 + 3 G020 + 1 G057 + 2 G074 + 2 G075 - 3 retired generator checks = 135 rows (G004: B-IDENTITY-GUARDS lint, B-IDENTITY-CATALOG migrations,
 # B-IDENTITY-IT/E2E/PROBES/PRIVACY/CONFIG ops, B-IDENTITY-STAGING staging; G005: B-TENANCY-HTTP root,
 # B-TENANCY-CATALOG/MIGRATION/IT migrations; G006: B-BUSINESS-PROFILE-CATALOG/MIGRATION/IT migrations; G007:
 # B-POLICY-CATALOG/MIGRATION/IT/ORDERING migrations; G008: B-RLS-CATALOG/MIGRATION/IT/ORDERING migrations; G009:
@@ -10,12 +10,13 @@
 # B-MAINTENANCE-DRILL migrations; G014: B-MCP-CATALOG/IT migrations, B-MCP-E2E ops; G016:
 # B-DOMAINS-CATALOG/IT migrations; G017: B-BRANDING-CATALOG/IT migrations; G018: B-ONBOARDING-CATALOG/IT
 # migrations; G019: B-MEMBERSHIP-CATALOG/IT migrations; G058: B-ENROLLMENT-CATALOG/IT migrations; G062: B-SIGNUP-CATALOG/IT migrations; G064: B-IT-ISOLATION migrations; G020:
-# B-LABELS-CATALOG/IT/ORDERING migrations; G057: B-PLATFORM-ADDRESS-CATALOG migrations). G051 (Plan r3
+# B-LABELS-CATALOG/IT/ORDERING migrations; G057: B-PLATFORM-ADDRESS-CATALOG migrations; G074: B-PROFILE-CATALOG/IT
+# migrations; G075: B-GROUP-PROFILE-CATALOG/IT migrations). G051 (Plan r3
 # §3.1) relabels lint into lint (infra, 8),
 # lint-base (3), lint-web (5) and lint-core (1) with no ID change, and adds B-UNIT-WEB/CORE/INTEL
 # (unit-web/core/intel) and B-FEATURE-WEB/CORE (feature-web/core), which no static profile lists. Every ID of an
 # executed suite must occur exactly once as PASS.
-# lint is 9 and lint-base 4 since G012. Profiles (infra/ci/lib.sh): fast 32, integration 72, full 124 (-3 provenance), staging 5 (the staging suite and the four
+# lint is 9 and lint-base 4 since G012. Profiles (infra/ci/lib.sh): fast 32, integration 72, full 128 (-3 provenance; G074: +2 migrations; G075: +2 migrations), staging 5 (the staging suite and the four
 # final checks; only the identity-staging job).
 B-SHELL	lint
 B-HADOLINT	lint
@@ -118,6 +119,10 @@ B-LABELS-CATALOG	migrations
 B-LABELS-IT	migrations
 B-LABELS-ORDERING	migrations
 B-PLATFORM-ADDRESS-CATALOG	migrations
+B-PROFILE-CATALOG	migrations
+B-PROFILE-IT	migrations
+B-GROUP-PROFILE-CATALOG	migrations
+B-GROUP-PROFILE-IT	migrations
 B-OBS-CONTEXT	ops
 B-OBS-CHAIN	ops
 B-OBS-TIMEOUTS	ops

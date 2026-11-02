@@ -388,15 +388,25 @@ cmd_backup() {
   cmp -s "$SET_DIR/p1.tsv" "$SET_DIR/p2.tsv" && cmp -s "$SET_DIR/l1.tsv" "$SET_DIR/l2.tsv" || capture_fail window_changed
   local w_db1; w_db1="$(sql1 "$SRC_PG" "$SRC_DB" "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")"
   rm -f -- "$SET_DIR/p2.tsv" "$SET_DIR/l2.tsv"
-  # C7 integrity: per-object size and SHA-256 from the tar against L1 and the metadata.
-  local name size sum ct oid org grp objrows=""
+  # C7 integrity: per-object size and SHA-256 from the tar against L1 and the metadata. G074 (format /2): exactly one
+  # owner per object, either an Organization (Group optional) or a user (identity-owned avatars/ object, no Organization
+  # or Group); the absent owner fields are written as "-", never as an empty field.
+  local name size sum ct oid org grp usr objrows=""
   while IFS=$'\t' read -r name size _; do
     [[ -n "$name" ]] || continue
     sum="$(tar -xOf "$SET_DIR/objects.tar" "./$name" | sha256sum | cut -d' ' -f1)" || capture_fail integrity_failed
     [[ "$(tar -xOf "$SET_DIR/objects.tar" "./$name" | wc -c)" == "$size" ]] || capture_fail integrity_failed
-    IFS=$'\t' read -r ct oid org grp < <(awk -F'\t' -v n="$name" '$1 == n { print $2 "\t" $3 "\t" $4 "\t" $5 }' "$SET_DIR/objects.meta")
-    [[ -n "${ct:-}" && "${oid:-}" =~ $UUID_RE ]] || capture_fail integrity_failed
-    objrows+="object"$'\t'"$name"$'\t'"$size"$'\t'"$sum"$'\t'"$ct"$'\t'"$oid"$'\t'"$org"$'\t'"${grp:--}"$'\n'
+    ct="" oid="" org="" grp="" usr=""
+    IFS=$'\t' read -r ct oid org grp usr < <(awk -F'\t' -v n="$name" '$1 == n { print $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 }' "$SET_DIR/objects.meta")
+    [[ -n "${ct:-}" && "$ct" != - && "${oid:-}" =~ $UUID_RE ]] || capture_fail integrity_failed
+    if [[ "${org:-}" =~ $UUID_RE ]]; then
+      [[ "${usr:-}" == - && ( "${grp:-}" == - || "${grp:-}" =~ $UUID_RE ) ]] || capture_fail integrity_failed
+    elif [[ "${usr:-}" =~ $UUID_RE ]]; then
+      [[ "${org:-}" == - && "${grp:-}" == - ]] || capture_fail integrity_failed
+    else
+      capture_fail integrity_failed
+    fi
+    objrows+="object"$'\t'"$name"$'\t'"$size"$'\t'"$sum"$'\t'"$ct"$'\t'"$oid"$'\t'"$org"$'\t'"$grp"$'\t'"$usr"$'\n'
   done <"$SET_DIR/l1.tsv"
   # Manifest, then COMPLETE (capture completeness only; release is separate).
   {
@@ -458,16 +468,20 @@ toc_check() { # toc_check TOC P1: only schemas app and audit; the TABLE entries 
        <(awk -F'\t' '$1 == "table" { print $2 }' "$p1" | LC_ALL=C sort) >/dev/null
 }
 
-meta_from_stat() { # meta_from_stat STAT.JSONL: "name<TAB>content-type<TAB>object-id<TAB>organization-id<TAB>group-id"
-  local line
+# meta_from_stat STAT.JSONL: "name<TAB>content-type<TAB>object-id<TAB>organization-id<TAB>group-id<TAB>user-id" (G074:
+# user-id is the owner of an identity-owned avatars/ object). An absent value is "-": an empty field would collapse in a
+# tab-separated read (tab is IFS whitespace) and shift every later field.
+meta_from_stat() {
+  local line ct oid org grp usr
   while IFS= read -r line; do
     [[ "$line" == *'"type":"file"'* ]] || continue
-    printf '%s\t%s\t%s\t%s\t%s\n' \
-      "$(sed -n 's/.*"name":"\([^"]*\)".*/\1/p' <<<"$line")" \
-      "$(sed -n 's/.*"Content-Type":"\([^"]*\)".*/\1/p' <<<"$line")" \
-      "$(sed -n 's/.*"X-Amz-Meta-Object-Id":"\([^"]*\)".*/\1/p' <<<"$line")" \
-      "$(sed -n 's/.*"X-Amz-Meta-Organization-Id":"\([^"]*\)".*/\1/p' <<<"$line")" \
-      "$(sed -n 's/.*"X-Amz-Meta-Group-Id":"\([^"]*\)".*/\1/p' <<<"$line")"
+    ct="$(sed -n 's/.*"Content-Type":"\([^"]*\)".*/\1/p' <<<"$line")"
+    oid="$(sed -n 's/.*"X-Amz-Meta-Object-Id":"\([^"]*\)".*/\1/p' <<<"$line")"
+    org="$(sed -n 's/.*"X-Amz-Meta-Organization-Id":"\([^"]*\)".*/\1/p' <<<"$line")"
+    grp="$(sed -n 's/.*"X-Amz-Meta-Group-Id":"\([^"]*\)".*/\1/p' <<<"$line")"
+    usr="$(sed -n 's/.*"X-Amz-Meta-User-Id":"\([^"]*\)".*/\1/p' <<<"$line")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(sed -n 's/.*"name":"\([^"]*\)".*/\1/p' <<<"$line")" \
+      "${ct:--}" "${oid:--}" "${org:--}" "${grp:--}" "${usr:--}"
   done <"$1" | LC_ALL=C sort
 }
 
@@ -479,7 +493,10 @@ verify_set() { # verify_set SET: prints the failed component (or nothing); 0 whe
   local s="$1" name size sum
   [[ -f "$s/COMPLETE" && -f "$s/manifest.tsv" ]] || { printf 'incomplete'; return 1; }
   [[ "$(cat "$s/COMPLETE")" == "$(sha_file "$s/manifest.tsv")" ]] || { printf 'manifest'; return 1; }
-  [[ "$(fence_get "$s/manifest.tsv" format)" == "$MANIFEST_FORMAT" ]] || { printf 'format'; return 1; }
+  # A /1 set (8-field object rows, always an Organization owner) and a /2 set (9 fields, user-id) are both readable.
+  local fmt r fok=0; fmt="$(fence_get "$s/manifest.tsv" format)"
+  for r in $MANIFEST_READ_FORMATS; do if [[ "$fmt" == "$r" ]]; then fok=1; fi; done
+  [[ $fok == 1 ]] || { printf 'format'; return 1; }
   while IFS=$'\t' read -r _ name size sum; do
     [[ -f "$s/$name" && "$(stat -c %s "$s/$name")" == "$size" && "$(sha_file "$s/$name")" == "$sum" ]] || { printf '%s' "$name"; return 1; }
   done < <(awk -F'\t' '$1 == "component"' "$s/manifest.tsv")
@@ -582,9 +599,10 @@ cmd_restore() {
     local name size row
     while IFS=$'\t' read -r -u 3 name size _; do
       [[ -n "$name" ]] || continue
-      row="$(awk -F'\t' -v n="$name" -v z="$size" '$1 == "object" && $2 == n && $3 == z { print $4 "\t" $6 "\t" $7 "\t" $8; exit }' "$m")"
+      # A /1 row has no ninth field (user-id): "-".
+      row="$(awk -F'\t' -v n="$name" -v z="$size" '$1 == "object" && $2 == n && $3 == z { print $4 "\t" $6 "\t" $7 "\t" $8 "\t" ($9 == "" ? "-" : $9); exit }' "$m")"
       [[ -n "$row" ]] || { rm -f "$rdir/.target-listing"; die 3 continuation_mismatch "target bucket holds an object outside the set"; }
-      object_matches "$tenv" "$name" "$(cut -f1 <<<"$row")" "$(cut -f2 <<<"$row")" "$(cut -f3 <<<"$row")" "$(cut -f4 <<<"$row")" ||
+      object_matches "$tenv" "$name" "$(cut -f1 <<<"$row")" "$(cut -f2 <<<"$row")" "$(cut -f3 <<<"$row")" "$(cut -f4 <<<"$row")" "$(cut -f5 <<<"$row")" ||
         { rm -f "$rdir/.target-listing"; die 3 continuation_mismatch "a target object differs from the set's bytes or binding"; }
     done 3<"$rdir/.target-listing"
   else
@@ -628,19 +646,23 @@ cmd_restore() {
   fi
   if [[ "$steps" != database ]]; then
     t0=$SECONDS
-    local name size sum ct oid org grp fail=0 have attrs
+    local name size sum ct oid org grp usr fail=0 have attrs
     [[ "$TGT_MINIO_UP" == 1 ]] || fail=1
     [[ $fail == 1 ]] || objects_list "$TGT_NET" "$TGT_MCIMG" "$tenv" "$TGT_BUCKET" >"$rdir/.target-listing" 2>/dev/null || fail=1
-    # fd 3: the docker clients in the body inherit stdin and must not consume the manifest lines.
-    while IFS=$'\t' read -r -u 3 _ name size sum ct oid org grp; do
+    # fd 3: the docker clients in the body inherit stdin and must not consume the manifest lines. A /1 row has 8 fields
+    # (no user-id: "-"); a /2 row has 9, every absent owner field "-". The binding carries only the present owners.
+    while IFS=$'\t' read -r -u 3 _ name size sum ct oid org grp usr; do
       [[ $fail == 0 ]] || break
+      usr="${usr:--}"
       have="$(awk -F'\t' -v n="$name" '$1 == n { print $2 }' "$rdir/.target-listing" 2>/dev/null)"
-      if [[ "$have" == "$size" ]] && object_matches "$tenv" "$name" "$sum" "$oid" "$org" "$grp"; then continue; fi
-      attrs="Content-Type=$ct;Content-Disposition=attachment;X-Amz-Meta-Object-Id=$oid;X-Amz-Meta-Organization-Id=$org"
+      if [[ "$have" == "$size" ]] && object_matches "$tenv" "$name" "$sum" "$oid" "$org" "$grp" "$usr"; then continue; fi
+      attrs="Content-Type=$ct;Content-Disposition=attachment;X-Amz-Meta-Object-Id=$oid"
+      [[ "$org" != - ]] && attrs+=";X-Amz-Meta-Organization-Id=$org"
       [[ "$grp" != - ]] && attrs+=";X-Amz-Meta-Group-Id=$grp"
+      [[ "$usr" != - ]] && attrs+=";X-Amz-Meta-User-Id=$usr"
       tar -xOf "$s/objects.tar" "./$name" | mcx "$TGT_NET" "$TGT_MCIMG" "$tenv" svc "cat >/tmp/f && mc cp -q --attr '$attrs' /tmp/f 'x/$TGT_BUCKET/$name' >/dev/null" ||
         { fail=1; break; }
-      object_matches "$tenv" "$name" "$sum" "$oid" "$org" "$grp" || { fail=1; break; }
+      object_matches "$tenv" "$name" "$sum" "$oid" "$org" "$grp" "$usr" || { fail=1; break; }
     done 3< <(awk -F'\t' '$1 == "object"' "$m")
     rm -f "$rdir/.target-listing"
     if [[ $fail == 0 ]] && diff <(objects_list "$TGT_NET" "$TGT_MCIMG" "$tenv" "$TGT_BUCKET" | cut -f1,2) \
@@ -676,10 +698,17 @@ rcpt_put() { # rcpt_put FILE KEY VALUE: replace (or add) one receipt key
   awk -F'\t' -v k="$2" '$1 != k' "$f" >"$tmp"; printf '%s\t%s\n' "$2" "$3" >>"$tmp"; mv -- "$tmp" "$f"; sync -- "$f"
 }
 
-object_matches() { # object_matches ENVFILE NAME SHA OBJ ORG GRP: target bytes and binding equal the set's
-  local stat
+# object_matches ENVFILE NAME SHA OBJ ORG GRP [USR]: target bytes and binding equal the set's. ORG, GRP and USR are "-"
+# when absent (USR is absent in a /1 row); the owner fields (Organization, user) must be exactly the set's: a present one
+# equal, an absent one absent.
+object_matches() {
+  local stat usr="${7:--}"
   stat="$(mcx "$TGT_NET" "$TGT_MCIMG" "$1" svc "mc stat --json 'x/$TGT_BUCKET/$2'" 2>/dev/null)" || return 1
-  [[ "$stat" == *"\"X-Amz-Meta-Object-Id\":\"$4\""* && "$stat" == *"\"X-Amz-Meta-Organization-Id\":\"$5\""* ]] || return 1
+  [[ "$stat" == *"\"X-Amz-Meta-Object-Id\":\"$4\""* ]] || return 1
+  if [[ "$5" != - ]]; then [[ "$stat" == *"\"X-Amz-Meta-Organization-Id\":\"$5\""* ]] || return 1
+  else [[ "$stat" != *'"X-Amz-Meta-Organization-Id":'* ]] || return 1; fi
+  if [[ "$usr" != - ]]; then [[ "$stat" == *"\"X-Amz-Meta-User-Id\":\"$usr\""* ]] || return 1
+  else [[ "$stat" != *'"X-Amz-Meta-User-Id":'* ]] || return 1; fi
   if [[ "$6" != - ]]; then [[ "$stat" == *"\"X-Amz-Meta-Group-Id\":\"$6\""* ]] || return 1; fi
   [[ "$(mcx "$TGT_NET" "$TGT_MCIMG" "$1" svc "mc cat 'x/$TGT_BUCKET/$2'" | sha256sum | cut -d' ' -f1)" == "$3" ]]
 }
@@ -749,9 +778,10 @@ ledger_sync() { # ledger_sync LEDGER ENVFILE ROOT: append entries for currently 
   mark="$(latest_mark "$root" "$luuid")"
   while IFS=$'\t' read -r kind refs; do
     [[ -n "$kind" ]] || continue
-    if [[ "$kind" == object.delete ]]; then
+    # Terminal kinds (G009 object deletion, G074 avatar withdrawal) are recorded once per object, whatever the mark.
+    if [[ "$kind" == object.delete || "$kind" == avatar.delete ]]; then
       obj="$(ref_get "$refs" object)"
-      awk -F'\t' -v o="object=$obj" 'NR > 1 && $4 == "object.delete" && index("," $5 ",", "," o ",") { f = 1 } END { exit !f }' "$f" && continue
+      awk -F'\t' -v k="$kind" -v o="object=$obj" 'NR > 1 && $4 == k && index("," $5 ",", "," o ",") { f = 1 } END { exit !f }' "$f" && continue
     else
       awk -F'\t' -v k="$kind" -v r="$refs" -v m="$mark" 'NR > 1 && $1 > m && $4 == k && $5 == r { f = 1 } END { exit !f }' "$f" && continue
     fi
@@ -849,7 +879,7 @@ cmd_replay() {
       "$TGT_PROJECT" "$TGT_PG" "$(pg_sysid "$TGT_PG" "$TGT_DB")" "$(id -un)"
     printf 'ledger_uuid\t%s\nledger_through_seq\t%s\nledger_head\t%s\n' "$(cut -f1 <<<"$lhead")" "$hseq" "$(cut -f4 <<<"$lhead")"
     awk -F'\t' '$1 == "gap"' "$prev"; } >"$rr.new"
-  local seq _p _t kind ck refs _o _b out st n=0 bad=0 org obj del u at gap ind
+  local seq _p _t kind ck refs _o _b out st n=0 bad=0 org obj del u at gap ind pk
   # fd 3: the docker clients in the body inherit stdin and must not consume the ledger lines.
   while IFS=$'\t' read -r -u 3 seq _p _t kind refs _o _b; do
     (( seq > mark && seq <= hseq )) || continue
@@ -867,6 +897,38 @@ cmd_replay() {
               if [[ "$(kv prior "$out")" != deleting && "$(kv updated "$out")" != 1 ]]; then st=conflict
               elif [[ "$TGT_MINIO_UP" == 1 ]] && mcx "$TGT_NET" "$TGT_MCIMG" "$tenv" svc "mc rm -q 'x/$TGT_BUCKET/objects/$org/$obj' >/dev/null 2>&1; mc stat 'x/$TGT_BUCKET/objects/$org/$obj' 2>&1 | grep -q 'Object does not exist'" >/dev/null 2>&1 &&
                    out="$(sqlf "$TGT_PG" "$TGT_DB" replay-object-finish.sql -v org="$org" -v obj="$obj" -v deleter="$del" 2>/dev/null)" &&
+                   [[ "$(kv state "$out")" == deleted ]]; then st=applied
+              else st=partial; fi ;;
+          esac
+        fi ;;
+      avatar.delete)
+        # G074 (Plan r3.1 §3.12, C10): a terminal avatar withdrawal, sync-only (an operator-origin entry is never applied),
+        # replayed in the owning user's context: the current reference is cleared if it still names the object, the row
+        # becomes deleting, the provider bytes are removed and confirmed absent, the row becomes deleted. A failed SQL step
+        # leaves the entry failed; a provider failure (a stopped target MinIO included) leaves the row deleting with the
+        # reference already cleared (never deliverable) and the entry partial; a rerun resumes.
+        u="$(ref_get "$refs" user)"; obj="$(ref_get "$refs" object)"
+        if [[ "$_o" != sync ]]; then st=conflict
+        elif out="$(sqlf "$TGT_PG" "$TGT_DB" replay-avatar-start.sql -v user="$u" -v obj="$obj" 2>/dev/null)"; then
+          case "$(kv prior "$out")" in
+            deleted) st=already_applied ;;
+            absent)
+              # Created and withdrawn after the checkpoint (Q-R4): already_applied only when the user exists in the
+              # checkpoint, no other user's row carries the object and the provider positively confirms the key absent.
+              # A foreign binding, a missing user or a present key is a conflict; an unknown provider answer (error,
+              # timeout, stopped provider) is not absence and holds the entry (partial).
+              if [[ "$(kv user "$out")" != true || "$(kv foreign "$out")" != false ]]; then st=conflict
+              else
+                pk=unavailable
+                if [[ "$TGT_MINIO_UP" == 1 ]]; then
+                  pk="$(mcx "$TGT_NET" "$TGT_MCIMG" "$tenv" svc "mc stat 'x/$TGT_BUCKET/avatars/$u/$obj' >/dev/null 2>/tmp/e && echo present || { grep -q 'Object does not exist' /tmp/e && echo absent || echo unavailable; }" 2>/dev/null || echo unavailable)"
+                fi
+                case "$pk" in absent) st=already_applied ;; present) st=conflict ;; *) st=partial ;; esac
+              fi ;;
+            ready|pending|deleting)
+              if [[ "$(kv prior "$out")" != deleting && "$(kv updated "$out")" != 1 ]]; then st=conflict
+              elif [[ "$TGT_MINIO_UP" == 1 ]] && mcx "$TGT_NET" "$TGT_MCIMG" "$tenv" svc "mc rm -q 'x/$TGT_BUCKET/avatars/$u/$obj' >/dev/null 2>&1; mc stat 'x/$TGT_BUCKET/avatars/$u/$obj' 2>&1 | grep -q 'Object does not exist'" >/dev/null 2>&1 &&
+                   out="$(sqlf "$TGT_PG" "$TGT_DB" replay-avatar-finish.sql -v user="$u" -v obj="$obj" 2>/dev/null)" &&
                    [[ "$(kv state "$out")" == deleted ]]; then st=applied
               else st=partial; fi ;;
           esac
@@ -1187,14 +1249,20 @@ cmd_status() {
     # One subshell: a refused resolve (die) ends only the subshell, and status reports the source as unreadable.
     if out="$(resolve SRC "${OPT[env-file]}" minio-may-stop 2>/dev/null &&
               sqlf "$SRC_PG" "$SRC_DB" status-counts.sql -v pending_after="${POL[pending_review_after_s]:-86400}" 2>/dev/null)"; then
-      local dl po nt=0 id
+      local dl po nt=0 id adl apo ant=0
       dl="$(kv deleting "$out")"; po="$(kv pending_old "$out")"
+      adl="$(kv avatar_deleting "$out")"; apo="$(kv avatar_pending_old "$out")"
       while IFS=$'\t' read -r _ id; do
         [[ -n "$id" ]] || continue
         if [[ -z "${OPT[ledger]:-}" ]] || ! awk -F'\t' -v o="object=$id" 'NR > 1 && $4 == "object.delete" && index("," $5 ",", "," o ",") { f = 1 } END { exit !f }' "${OPT[ledger]}"; then nt=$((nt + 1)); fi
       done < <(awk -F'\t' '$1 == "tombstone"' <<<"$out")
-      if [[ "$dl" == 0 && "$po" == 0 && "$nt" == 0 ]]; then st_line maintenance.pending_review ok none_pending
-      else st_line maintenance.pending_review pending "deleting=$dl,pending_old=$po,tombstones_unpreserved=$nt"; fi
+      # G074: withdrawn published avatars (deleted rows with ready_at) are preserved by their avatar.delete entries.
+      while IFS=$'\t' read -r _ id; do
+        [[ -n "$id" ]] || continue
+        if [[ -z "${OPT[ledger]:-}" ]] || ! awk -F'\t' -v o="object=$id" 'NR > 1 && $4 == "avatar.delete" && index("," $5 ",", "," o ",") { f = 1 } END { exit !f }' "${OPT[ledger]}"; then ant=$((ant + 1)); fi
+      done < <(awk -F'\t' '$1 == "avatar_tombstone"' <<<"$out")
+      if [[ "$dl" == 0 && "$po" == 0 && "$nt" == 0 && "$adl" == 0 && "$apo" == 0 && "$ant" == 0 ]]; then st_line maintenance.pending_review ok none_pending
+      else st_line maintenance.pending_review pending "deleting=$dl,pending_old=$po,tombstones_unpreserved=$nt,avatar_deleting=$adl,avatar_pending_old=$apo,avatar_tombstones_unpreserved=$ant"; fi
     else st_line maintenance.pending_review unknown database_unreadable; fi
   fi
   local summary=ok; [[ $ST_BAD == 0 ]] || summary=unhealthy

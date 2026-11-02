@@ -10,7 +10,11 @@
 RECOVERY_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 RECOVERY_SQL="$RECOVERY_REPO/infra/recovery/sql"
 # shellcheck disable=SC2034  # the format names are consumed by recovery.sh
-MANIFEST_FORMAT="g013-backup/1"
+# G074: a capture writes g013-backup/2 (object rows gain the user-id owner field; an absent owner field is "-"); verify
+# and restore read /1 and /2. A pre-G074 tool refuses a /2 set as an unknown format (fail closed).
+MANIFEST_FORMAT="g013-backup/2"
+# shellcheck disable=SC2034
+MANIFEST_READ_FORMATS="g013-backup/1 g013-backup/2"
 LEDGER_FORMAT="g013-ledger/1"
 # shellcheck disable=SC2034
 FENCE_FORMAT="g013-fence/1"
@@ -209,7 +213,7 @@ ledger_check() {
     local e; IFS=$'\t' read -r -a e <<<"$line"
     seq=$((seq + 1))
     [[ "${e[0]:-}" == "$seq" && "${e[1]:-}" == "$prev" && ${#e[@]} -eq 7 ]] || return 1
-    case "${e[3]}" in object.delete|user.disable|policy.disable|membership.remove|membership.downgrade|profile.unlink) ;; *) return 1 ;; esac
+    case "${e[3]}" in object.delete|avatar.delete|user.disable|policy.disable|membership.remove|membership.downgrade|profile.unlink) ;; *) return 1 ;; esac
     [[ "${e[5]}" == sync || "${e[5]}" == operator ]] || return 1
     prev="$(sha_text "$line")"
   done < <(tail -n +2 "$f")
@@ -231,12 +235,14 @@ ref_get() { tr ',' '\n' <<<"$1" | sed -n "s/^$2=//p" | head -1; }
 
 # refs_valid KIND REFS: exactly the kind's keys, each once; canonical lowercase UUIDs; a closed-set scope type and roles
 # consistent with it; an Organization-scope binding's scope is its Organization; a downgrade lowers the role within its
-# scope (owner > admin > member). Checked at append and again at replay (anything else replays as a conflict).
+# scope (owner > admin > member). Checked at append and again at replay (anything else replays as a conflict). G074:
+# avatar.delete (sync-only, like object.delete) names the owning user and the avatar object.
 role_rank() { case "${1#*_}" in owner) echo 3 ;; admin) echo 2 ;; member) echo 1 ;; *) echo 0 ;; esac; }
 refs_valid() {
   local kind="$1" refs="$2" want pair k v seen=" " n=0 nw st pre r
   case "$kind" in
     object.delete) want="organization object deleter" ;;
+    avatar.delete) want="user object" ;;
     user.disable) want="user at" ;;
     policy.disable) want="organization" ;;
     membership.remove) want="organization subject scope_type scope_id role" ;;

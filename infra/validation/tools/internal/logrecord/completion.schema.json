@@ -57,7 +57,9 @@
         "/internal/v1/signup/challenge", "/internal/v1/signup/prove", "/internal/v1/signup/complete",
         "/internal/v1/signup/abandon", "/internal/v1/groups/{id}/labels", "/internal/v1/groups/{id}/labels/assign",
         "/internal/v1/groups/{id}/labels/unassign", "/internal/v1/labels", "/internal/v1/labels/{id}/delete",
-        "/internal/v1/labels/{id}/update"
+        "/internal/v1/labels/{id}/update", "/internal/v1/profiles/me", "/internal/v1/profiles/me/avatar",
+        "/internal/v1/profiles/me/avatar/remove", "/internal/v1/profiles/{user_id}", "/internal/v1/profiles/{user_id}/avatar",
+        "/internal/v1/profiles/{user_id}/groups", "/internal/v1/profiles/{user_id}/groups/{group_id}/label"
       ]
     },
     "status": { "type": "integer", "minimum": 0, "maximum": 599 },
@@ -126,7 +128,9 @@
               "/internal/v1/signup/challenge", "/internal/v1/signup/prove", "/internal/v1/signup/complete",
               "/internal/v1/signup/abandon", "/internal/v1/groups/{id}/labels", "/internal/v1/groups/{id}/labels/assign",
               "/internal/v1/groups/{id}/labels/unassign", "/internal/v1/labels", "/internal/v1/labels/{id}/delete",
-              "/internal/v1/labels/{id}/update"
+              "/internal/v1/labels/{id}/update", "/internal/v1/profiles/me", "/internal/v1/profiles/me/avatar",
+              "/internal/v1/profiles/me/avatar/remove", "/internal/v1/profiles/{user_id}", "/internal/v1/profiles/{user_id}/avatar",
+              "/internal/v1/profiles/{user_id}/groups", "/internal/v1/profiles/{user_id}/groups/{group_id}/label"
             ]
           }
         }

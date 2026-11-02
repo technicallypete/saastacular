@@ -427,6 +427,40 @@
             }
           ]
         },
+        "profile.request": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome"],
+          "properties": {
+            "operation": {
+              "enum": ["get_own", "update_name", "set_avatar", "remove_avatar", "get", "get_avatar", "get_groups", "update_group_label"]
+            },
+            "outcome": { "enum": ["ok", "refused", "failed"] },
+            "reason": {
+              "enum": [
+                "invalid_request", "ambiguous_parameter", "unsupported_media_type", "origin_rejected", "unauthenticated",
+                "csrf_failed", "not_available", "forbidden", "not_found", "unknown_host", "version_conflict", "invalid_input",
+                "payload_too_large", "unavailable"
+              ]
+            },
+            "request_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$" },
+            "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "ok" } } },
+              "then": { "not": { "required": ["reason"] }, "properties": { "level": { "const": "info" } } },
+              "else": { "required": ["reason"] }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "refused" } } },
+              "then": { "properties": { "level": { "const": "warn" }, "reason": { "not": { "const": "unavailable" } } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "const": "unavailable" } } }
+            }
+          ]
+        },
         "tenancy.operation": {
           "levels": ["info", "warn", "error"],
           "required": ["operation", "outcome"],
@@ -516,7 +550,9 @@
                 "enrollment.policy.update", "enrollment.request", "enrollment.status", "enrollment.abandon",
                 "enrollment.requests.list", "enrollment.requests.decide", "enrollment.requests.revoke",
                 "organization.set_group_override", "label.definition.list", "label.definition.create",
-                "label.definition.update", "label.definition.delete", "label.assignment.list", "label.assign", "label.unassign"
+                "label.definition.update", "label.definition.delete", "label.assignment.list", "label.assign", "label.unassign",
+                "profile.get", "profile.update", "profile.avatar.get", "profile.avatar.set", "profile.avatar.remove",
+                "profile.groups.list", "profile.group_label.update"
               ]
             },
             "capability": {
@@ -526,7 +562,9 @@
                 "business_profile.select_for_onboarding", "business_profile.privileged_settings.manage", "audit.read",
                 "organization.manage_domains", "organization.manage_branding", "group.create", "group.complete_onboarding",
                 "organization.manage_owners", "group.manage_owners", "organization.leave", "group.leave",
-                "label.organization.manage", "label.group.manage", "label.group.read"
+                "label.organization.manage", "label.group.manage", "label.group.read", "account_profile.read",
+                "account_profile.manage_self", "group_member_profile.read", "group_member_profile.manage_self",
+                "group_member_profile.manage"
               ]
             },
             "outcome": { "enum": ["established", "allow", "deny", "failed"] },
@@ -715,6 +753,22 @@
               }
             },
             {
+              "if": { "properties": { "operation": { "enum": ["profile.get", "profile.avatar.get"] } } },
+              "then": { "properties": { "capability": { "enum": ["account_profile.read", "account_profile.manage_self"] } } }
+            },
+            {
+              "if": { "properties": { "operation": { "enum": ["profile.update", "profile.avatar.set", "profile.avatar.remove"] } } },
+              "then": { "properties": { "capability": { "const": "account_profile.manage_self" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "profile.groups.list" } } },
+              "then": { "properties": { "capability": { "const": "group_member_profile.read" } } }
+            },
+            {
+              "if": { "properties": { "operation": { "const": "profile.group_label.update" } } },
+              "then": { "properties": { "capability": { "enum": ["group_member_profile.manage_self", "group_member_profile.manage"] } } }
+            },
+            {
               "if": { "properties": { "outcome": { "enum": ["established", "allow"] } } },
               "then": { "properties": { "level": { "const": "info" } } }
             },
@@ -877,6 +931,53 @@
               "if": { "required": ["request_id"] },
               "then": { "required": ["trace_id"] },
               "else": { "not": { "required": ["trace_id"] } }
+            }
+          ]
+        },
+        "profile.storage": {
+          "levels": ["info", "warn", "error"],
+          "required": ["operation", "outcome", "reason"],
+          "properties": {
+            "operation": { "enum": ["profile.avatar.get", "profile.avatar.set", "profile.avatar.remove"] },
+            "outcome": { "enum": ["allow", "deny", "failed"] },
+            "reason": {
+              "enum": [
+                "allowed", "reconciled_ready", "reconciled", "object_not_ready", "objects_unconfigured", "provider_unavailable",
+                "provider_outcome_unknown", "object_bytes_missing", "binding_mismatch", "integrity_mismatch", "compensated",
+                "compensation_failed", "source_not_released", "session_invalid", "context_forged", "context_scope_missing",
+                "context_scope_ended", "context_scope_mismatch", "context_subject_mismatch", "organization_not_permitted",
+                "group_not_selectable", "target_not_found", "target_kind_mismatch", "target_outside_context", "capability_unknown",
+                "role_not_permitted", "fact_inconsistent", "input_invalid", "write_conflict", "store_unavailable", "aborted",
+                "canceled", "commit_outcome_unknown", "avatar_cleanup_pending", "avatar_upload_in_progress", "reconcile_unknown",
+                "deletion_pending"
+              ]
+            },
+            "stage": { "enum": ["t1", "provider", "verify", "t2", "reconcile", "compensate", "sweep", "cleanup"] },
+            "actor_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "avatar_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+            "count": { "type": "integer", "minimum": 1, "maximum": 20 }
+          },
+          "rules": [
+            {
+              "if": { "properties": { "outcome": { "const": "allow" } } },
+              "then": { "properties": { "level": { "const": "info" } } }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "deny" } } },
+              "then": {
+                "properties": {
+                  "level": { "const": "warn" },
+                  "reason": { "not": { "enum": ["allowed", "reconciled_ready", "reconciled", "store_unavailable", "aborted", "canceled"] } }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "outcome": { "const": "failed" } } },
+              "then": { "properties": { "level": { "const": "error" }, "reason": { "not": { "enum": ["allowed", "reconciled_ready", "reconciled"] } } } }
+            },
+            {
+              "if": { "required": ["avatar_id"] },
+              "then": { "required": ["actor_id"] }
             }
           ]
         },

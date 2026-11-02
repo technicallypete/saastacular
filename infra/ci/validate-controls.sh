@@ -1817,10 +1817,10 @@ ctl_VA7() {
   expect_rc 0; expect_pub full; expect_runs 1; expect_phase complete 0
   stub_args "$VA_REM" none
   sum_has pipeline_profile '"full"'; sum_has executed_profile '"full"'; sum_has executed_suites "\"$VA_REM\""
-  sum_has coverage '"partial"'; sum_has partition '"remainder"'; sum_has required_count 97
+  sum_has coverage '"partial"'; sum_has partition '"remainder"'; sum_has required_count 101
   if [[ "$(jsuite "$(JX)")" != "gate:remainder "* ]]; then prob "junit suite [$(jsuite "$(JX)")], want gate:remainder"; fi
   log_has "suites pipeline=[lint lint-base lint-web lint-core controls ci-controls provenance contracts root migrations ops rename off] executed=[$VA_REM] coverage=partial partition=remainder areas=none"
-  detail "exit $RC; the gate of a full pipeline runs the remainder ($VA_REM; 97 required IDs), coverage partial, gate:remainder"
+  detail "exit $RC; the gate of a full pipeline runs the remainder ($VA_REM; 101 required IDs), coverage partial, gate:remainder"
 }
 ctl_VA8() { std_ci 4409; run_v "${CIENV[@]}" STUB_ADD_ROW=B-UNIT-CHECKS -- --profile gate --publish-dir ci-evidence
   expect_rc 14; expect_phase complete 14; log_prefix "complete: results.tsv has a row for B-UNIT-CHECKS, outside the "
@@ -1939,7 +1939,7 @@ vu_split() { # KIND FAST GATE UNION: the published pair partitions E_pipeline as
   vu_run "$C/fast" "$C/gate"
   if [[ "$RC" != 0 ]]; then prob "the re-serialized pair fails (exit $RC [$VU_LINE]); the edit-based faults would be inconclusive"; fi
 }
-ctl_VU1() { vu_split full 32 97 125; detail "full pipeline: fast 32 + gate 97 -> 125 distinct, overlap exactly the 4 final IDs; pipeline-union exit 0 (also after a yq re-serialization)"; }
+ctl_VU1() { vu_split full 32 101 129; detail "full pipeline: fast 32 + gate 101 -> 129 distinct, overlap exactly the 4 final IDs; pipeline-union exit 0 (also after a yq re-serialization)"; }
 ctl_VU9() { vu_split integration 32 44 72; detail "integration pipeline: fast 32 + gate 44 -> 72 distinct, overlap exactly the 4 final IDs; pipeline-union exit 0"; }
 ctl_VU2() {
   local r1
@@ -1991,13 +1991,13 @@ ctl_VU8() {
 }
 # ONEOFF RC qualification: the published pair of a detached RC-promotion merge request pipeline (vu_make rc).
 ctl_VU10() {
-  vu_split rc 32 97 125
+  vu_split rc 32 101 129
   if grep -q '"tested_content": "mr-rc-promotion"' "$C/fast/summary.json" "$C/gate/summary.json" 2>/dev/null; then :; else prob "the pair is not mr-rc-promotion"; fi
   if grep -q '"pipeline_suites": "[a-z -]* ci-controls ' "$C/gate/summary.json"; then :; else prob "the RC pipeline suites lack ci-controls"; fi
   # (vu_split re-serialized the copies through yq, so the object spans lines.)
   if grep -q '"tag": "0.1.0-rc.1"' "$C/gate/summary.json" && grep -q '"source_branch": "release/0.1.0-rc.1"' "$C/fast/summary.json"; then :
   else prob "the summaries lack the release identity"; fi
-  detail "RC promotion pipeline (docs-only candidate): fast 32 + gate 97 -> 125 distinct incl. ci-controls, release identity in both summaries; pipeline-union exit 0 (also re-serialized)"
+  detail "RC promotion pipeline (docs-only candidate): fast 32 + gate 101 -> 129 distinct incl. ci-controls, release identity in both summaries; pipeline-union exit 0 (also re-serialized)"
 }
 ctl_VU11() {
   local r1
@@ -3469,7 +3469,7 @@ ctl_J8() {
   std_ci 4321; run_v "${CIENV[@]}" -- --profile gate --publish-dir ci-evidence
   expect_rc 0; expect_phase junit 0; expect_pub full
   exp="$(jexpect gate)"; n="$(grep -c . <<<"$exp")" || n=0
-  if (( n != 97 )); then prob "the remainder result has $n check rows, want 97"; fi
+  if (( n != 101 )); then prob "the remainder result has $n check rows, want 101"; fi
   expect_jx gate:remainder "$exp"
   if grep -q 'name="gate:full"' "$(JX)" 2>/dev/null; then prob "the gate's suite states full"; fi
   detail "exit $RC; gate:remainder with the $n check cases of results.tsv (coverage partial), never gate:full"
@@ -6912,8 +6912,8 @@ ctl_R2i() { local r2; rv_case || return 0; rv_cut_receipt
 
 ctl_R3a() { rv_case || return 0; rv_receipt; rv_q
   if grep -qx 'PIPELINE_ID=1001' "$C/receipt" && grep -qx 'MR_IID=7' "$C/receipt" && grep -qx 'GATE_JOB_ID=4505' "$C/receipt"; then :; else prob "the receipt does not record the qualified pipeline"; fi
-  if [[ "$RV_LINE" != *"eligible (owner promotion instruction still required)"*"fast 32 + remainder 97 -> 125 required IDs incl. ci-controls"* ]]; then prob "the PASS line lacks the eligibility and the recomputed coverage: [$RV_LINE]"; fi
-  detail "MR !7 head = RC peel, latest pipeline 1001 successful with both jobs required and successful, artifacts attributed to project/pipeline/job/MR/RC/tree, union PASS, coverage recomputed from the candidate (32 + 97 -> 125 incl. ci-controls): eligible only"; }
+  if [[ "$RV_LINE" != *"eligible (owner promotion instruction still required)"*"fast 32 + remainder 101 -> 129 required IDs incl. ci-controls"* ]]; then prob "the PASS line lacks the eligibility and the recomputed coverage: [$RV_LINE]"; fi
+  detail "MR !7 head = RC peel, latest pipeline 1001 successful with both jobs required and successful, artifacts attributed to project/pipeline/job/MR/RC/tree, union PASS, coverage recomputed from the candidate (32 + 101 -> 129 incl. ci-controls): eligible only"; }
 ctl_R3b() { rv_case || return 0; rv_receipt; vu_json "$C/pipeline.json" '.status = "failed"'; rv_q fail "did not succeed"; detail "exit $RC: a failed pipeline"; }
 ctl_R3c() { rv_case || return 0; rv_receipt; vu_json "$C/jobs.json" '(.[] | select(.name == "validate:integration") | .status) = "manual"'; rv_q fail "validate:integration is manual"; detail "exit $RC: a manual (unplayed) gate"; }
 ctl_R3d() { local r1; rv_case || return 0; rv_receipt
@@ -7128,7 +7128,7 @@ ctl_R8a() { local want; rv_mcase || return 0
     "$RV_PEEL" "$(printf 'c%.0s' {1..64})" "$RV_OBJ" "$RV_PEEL" "$RV_TREE"
     printf 'PROJECT_ID=999999999\nMR_IID=7\nPIPELINE_ID=1001\nFAST_JOB_ID=4504\nGATE_JOB_ID=4505\nEXPECTED_MAIN=%s\nMAIN_MERGE_SHA=%s\nVERIFICATION_MODE=merged-evidence\n' "$RV_MAIN" "$RV_MG")"
   if [[ "$(cat "$C/receipt")" != "$want" ]]; then prob "the merged receipt is not exactly the candidate record plus the verified proof"; fi
-  if [[ "$RV_LINE" != *"no merge mode, actor or authority inferred"*"fast 32 + remainder 97 -> 125 required IDs incl. ci-controls"* ]]; then prob "the PASS line lacks the evidence-only statement or the recomputed coverage: [$RV_LINE]"; fi
+  if [[ "$RV_LINE" != *"no merge mode, actor or authority inferred"*"fast 32 + remainder 101 -> 129 required IDs incl. ci-controls"* ]]; then prob "the PASS line lacks the evidence-only statement or the recomputed coverage: [$RV_LINE]"; fi
   rv_pass final pre 0.1.0-rc.1 0.1.0 "$C/receipt" "$C/ls.txt"
   if git -C "$C/repo" rev-parse -q --verify refs/tags/0.1.0 >/dev/null || [[ -n "$(git -C "$C/remote.git" tag -l 0.1.0)" ]]; then prob "a final tag exists"; fi
   detail "merged MR (queue flag true) with the full qualification, parents (main, RC), RC tree recreated from P1, on remote main, tag unchanged, release branch deleted: recorded once with VERIFICATION_MODE=merged-evidence (no actor or mode); final pre then passes (no tag created)"; }
