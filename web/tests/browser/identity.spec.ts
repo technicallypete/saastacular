@@ -357,9 +357,10 @@ test("[E-LOGIN] [A-1] interactive sign-in on org-a: session and binding cookies,
   const storage = await page.evaluate(() => JSON.stringify({ l: { ...localStorage }, s: { ...sessionStorage } }));
   expect(storage).not.toContain(sid!.value);
   expect(storage).not.toMatch(/eyJ/);
-  // The three Sign-out forms plus G063's embedded MCP create form (this member has no connections, so no row forms).
+  // The three Sign-out forms plus G063's embedded MCP create form (this member has no connections, so no row forms) and
+  // G074's two Profile forms (name, avatar upload; no avatar is set, so no removal form).
   const saved = sanitizeHtml(html);
-  expect(saved.replaced).toBe(4);
+  expect(saved.replaced).toBe(6);
   await testInfo.attach("account.html", { body: saved.text, contentType: "text/html" });
 });
 

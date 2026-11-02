@@ -32,7 +32,9 @@ export const DEFAULT_LIFETIME_HOURS = 168;
 // ≤ 1,500. An invitation row: four UUIDs (152), the issuer name (1,202), a 254-byte address with every byte escapable
 // (1,526), the timestamp, scope, role and status (60) and about 190 bytes of keys and syntax = 3,130 ≤ 3,200. A candidate
 // row: 1,268 ≤ 1,300. An eligibility scope: two UUIDs and the scope type, 136 ≤ 160. A list: 100 rows, 99 commas and a
-// 128-byte envelope. (Plan r1 §5.4 estimated 1,400 and 2 KiB; the exact sums above supersede those estimates.)
+// 128-byte envelope. (Plan r1 §5.4 estimated 1,400 and 2 KiB; the exact sums above supersede those estimates.) G074 (Plan
+// r3.1 §3.9, §3.9a): a member row may add "avatar_version" (18 bytes of key and syntax and a 10-digit int32) = 1,451 ≤
+// 1,500.
 export const MEMBER_ROW_MAX_BYTES = 1_500;
 export const INVITATION_ROW_MAX_BYTES = 3_200;
 export const CANDIDATE_ROW_MAX_BYTES = 1_300;
@@ -95,6 +97,9 @@ export const ROLE_LABELS: Readonly<Record<Role, string>> = {
 export type Member = {
   userId: string;
   displayName: string | null;
+  // G074: the subject's current avatar version, present only when core's RLS-gated profile join admits this viewer and
+  // the subject has an avatar (the thumbnail URL key); null otherwise.
+  avatarVersion: number | null;
   role: Role;
   self: boolean;
   disabled: boolean;
@@ -226,14 +231,38 @@ function failure(answer: Answer): { ok: false; error: MembershipError; field?: s
 }
 
 const MEMBER_KEYS = ["user_id", "display_name", "role", "self", "disabled", "can_change_role", "can_remove", "can_promote", "can_demote", "can_transfer"];
+const MAX_INT32 = 2_147_483_647;
+
+// G074: the optional avatar_version of a member row: absent or null (no visible avatar) or a positive int32.
+function avatarVersion(value: unknown): number | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= MAX_INT32 ? value : undefined;
+}
 
 function member(kind: ScopeKind, value: unknown): Member | undefined {
-  if (!isObject(value) || !hasExactly(value, MEMBER_KEYS)) return undefined;
+  if (!isObject(value)) return undefined;
+  const withAvatar = Object.hasOwn(value, "avatar_version");
+  if (!hasExactly(value, withAvatar ? [...MEMBER_KEYS, "avatar_version"] : MEMBER_KEYS)) return undefined;
   const role = roleOf(kind, value.role);
   const flags = MEMBER_KEYS.slice(3).map((k) => value[k]);
-  if (!isId(value.user_id) || !displayName(value.display_name) || role === undefined || !flags.every((f) => typeof f === "boolean")) return undefined;
+  const avatar = avatarVersion(value.avatar_version);
+  if (!isId(value.user_id) || !displayName(value.display_name) || role === undefined || avatar === undefined || !flags.every((f) => typeof f === "boolean")) {
+    return undefined;
+  }
   const [self, disabled, canChangeRole, canRemove, canPromote, canDemote, canTransfer] = flags as boolean[];
-  return { userId: value.user_id, displayName: value.display_name, role, self, disabled, canChangeRole, canRemove, canPromote, canDemote, canTransfer };
+  return {
+    userId: value.user_id,
+    displayName: value.display_name,
+    avatarVersion: avatar,
+    role,
+    self,
+    disabled,
+    canChangeRole,
+    canRemove,
+    canPromote,
+    canDemote,
+    canTransfer,
+  };
 }
 
 function selfMember(kind: ScopeKind, value: unknown): SelfMember | undefined {

@@ -1,4 +1,5 @@
 import { ConnectionManager } from "@/components/account/connection-manager";
+import { ProfileSection } from "@/components/account/profile-section";
 import { RULED_GRID_REFLOW } from "@/components/account/ruled-grid-reflow";
 import { StatusMessage } from "@/components/account/status-message";
 import { ButtonLink } from "@/components/controls/button-link";
@@ -7,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RuledGrid, Section } from "@/components/vestive/layout";
 import { Heading, Kicker, Text } from "@/components/vestive/typography";
 import type { SessionView } from "@/lib/identity-client";
+import type { OwnProfile, ProfileResult } from "@/lib/profile-client";
 import type { RequestContext } from "@/lib/request-context";
 
 // G063 (Plan r1 §5.2): the signed-in body of My Account, shared by /account and the test-only rendered fixture
@@ -14,7 +16,8 @@ import type { RequestContext } from "@/lib/request-context";
 // management links), the shared MCP connection manager and the Sign-out section with its three forms. It reads no
 // cookies or headers: /account resolves the session, its notices and every flag, and passes them in. The connection
 // manager makes the one extra core call (the list) and reduces its failures inside its own section, so Session and
-// Sign-out always render.
+// Sign-out always render. G074 (Plan r3.1 §3.10): the Profile section (the user's own name and avatar forms) follows
+// Session, before the connection manager; the page passes its own-profile read and raw profile_status parameter in.
 
 const WHEN = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
@@ -33,9 +36,12 @@ export type AccountSectionsProps = {
   // The connection manager's inputs: the request context for its list call, this request's session credential and
   // origin, and the raw mcp_cursor and mcp_status parameters (validated by the manager, never reflected).
   mcp: { ctx: RequestContext; credential: string; origin: string; cursor: Param; status: Param };
+  // G074: the own-profile read (or the fixture's scripted answer) and the raw profile_status parameter (validated by the
+  // section, never reflected).
+  profile: { result: ProfileResult<OwnProfile>; status: Param };
 };
 
-export function AccountSections({ value, notice, soleOwned, manages, mcp }: AccountSectionsProps) {
+export function AccountSections({ value, notice, soleOwned, manages, mcp, profile }: AccountSectionsProps) {
   return (
     <>
       <Section id="session" aria-labelledby="account-title">
@@ -93,6 +99,7 @@ export function AccountSections({ value, notice, soleOwned, manages, mcp }: Acco
           </div>
         ) : null}
       </Section>
+      <ProfileSection result={profile.result} csrfToken={value.csrfToken} status={profile.status} />
       <ConnectionManager page="account" ctx={mcp.ctx} credential={mcp.credential} origin={mcp.origin} cursor={mcp.cursor} status={mcp.status} />
       <Section id="sign-out" aria-labelledby="sign-out-title" tone="muted">
         <Heading level={2} id="sign-out-title">

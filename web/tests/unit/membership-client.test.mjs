@@ -201,6 +201,29 @@ describe("membership client: strict answers", () => {
     }
   });
 
+  // G074 (Plan r3.1 §3.9, §3.9a): a member row may carry avatar_version, present only when core's row-level-security
+  // gated profile join admits this viewer and the subject has an avatar; it is the thumbnail URL key and nothing else.
+  it("reads the optional avatar_version: absent or null is no avatar, a positive int32 is the thumbnail version", async () => {
+    reply = answer(200, { members: [{ ...M1, avatar_version: 3 }, { ...M2, avatar_version: null }], next: null });
+    let r = await mem.listMembers(CTX, SECRET, ORIGIN, ORG);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.value.members.map((m) => [m.userId, m.avatarVersion]), [[ID(1), 3], [ID(2), null]]);
+    reply = answer(200, { members: [M1], next: null });
+    r = await mem.listMembers(CTX, SECRET, ORIGIN, ORG);
+    assert.equal(r.value.members[0].avatarVersion, null);
+    reply = answer(200, { members: [{ ...M1, avatar_version: 2147483647 }], next: null });
+    assert.equal((await mem.listMembers(CTX, SECRET, ORIGIN, ORG)).value.members[0].avatarVersion, 2147483647);
+    for (const bad of [0, -1, 1.5, "3", 2147483648, true, {}]) {
+      reply = answer(200, { members: [{ ...M1, avatar_version: bad }], next: null });
+      assert.deepEqual(await mem.listMembers(CTX, SECRET, ORIGIN, ORG), { ok: false, error: "malformed" }, JSON.stringify(bad));
+    }
+    // No other profile field rides along: an avatar object id, key or digest is outside the contract.
+    for (const extra of [{ avatar_object_id: ID(9) }, { avatar_key: `avatars/${ID(1)}/${ID(9)}` }, { avatar: { version: 3 } }]) {
+      reply = answer(200, { members: [{ ...M1, avatar_version: 3, ...extra }], next: null });
+      assert.deepEqual(await mem.listMembers(CTX, SECRET, ORIGIN, ORG), { ok: false, error: "malformed" }, JSON.stringify(extra));
+    }
+  });
+
   it("refuses an answer larger than the endpoint bound", async () => {
     reply = answer(200, `{"members":[],"next":null,"pad":"${"x".repeat(mem.MEMBER_LIST_MAX_BYTES)}"}`);
     assert.deepEqual(await mem.listMembers(CTX, SECRET, ORIGIN, ORG), { ok: false, error: "malformed" });

@@ -12,6 +12,7 @@ import { runtimeConfig } from "@/lib/config";
 import { lookupContext } from "@/lib/host";
 import { session } from "@/lib/identity-client";
 import { retirementEligibility } from "@/lib/membership-client";
+import { getOwnProfile } from "@/lib/profile-client";
 import { deriveContext } from "@/lib/request-context";
 import { cookieProfile, ownOrigin, readCookie } from "@/lib/session";
 
@@ -19,13 +20,16 @@ import { cookieProfile, ownOrigin, readCookie } from "@/lib/session";
 // three sign-out forms, each carrying this session's CSRF token. Server-rendered and never cached. Anonymous
 // visitors are sent to sign in. Multi-factor status is never claimed as verified (Plan r5 §3.4). G063 (Plan r1 §5.2):
 // the signed-in body is the shared AccountSections composition, which embeds the shared MCP connection manager (its own
-// mcp_cursor and mcp_status parameters, disjoint from this page's status notices).
+// mcp_cursor and mcp_status parameters, disjoint from this page's status notices). G074 (Plan r3.1 §3.10): the Profile
+// section shows the user's own global name and avatar from one own-profile read; its forms return with profile_status
+// (disjoint from status and mcp_status).
 export const dynamic = "force-dynamic";
 
 const SIGN_IN = "/sign-in?return_to=/account";
 
 const NAV: ShellNavItem[] = [
   { href: "#session", label: "Session" },
+  { href: "#profile", label: "Profile" },
   { href: "#mcp-connections", label: "AI connections" },
   { href: "#sign-out", label: "Sign out" },
 ];
@@ -68,6 +72,8 @@ export default async function Account({ searchParams }: { searchParams: SearchPa
   // names, no ids and no retire action; a failed read shows no notice (the page claims nothing).
   const eligibility = result.ok ? await retirementEligibility(lookupContext(req.ctx), credential, origin) : undefined;
   const soleOwned = eligibility?.ok === true && eligibility.value.count > 0 ? eligibility.value : undefined;
+  // G074: the own profile (a lookup request ID, as above); a failed read is reduced inside the Profile section.
+  const ownProfile = result.ok ? await getOwnProfile(lookupContext(req.ctx), credential, origin) : undefined;
   const params = await searchParams;
   const status = params.status;
   const notice = typeof status === "string" && Object.hasOwn(STATUS, status) ? STATUS[status] : undefined;
@@ -83,6 +89,7 @@ export default async function Account({ searchParams }: { searchParams: SearchPa
           soleOwned={soleOwned}
           manages={manages}
           mcp={{ ctx: lookupContext(req.ctx), credential, origin, cursor: params.mcp_cursor, status: params.mcp_status }}
+          profile={{ result: ownProfile ?? { ok: false, error: "unavailable" }, status: params.profile_status }}
         />
       ) : (
         <Section id="session" aria-labelledby="account-title">

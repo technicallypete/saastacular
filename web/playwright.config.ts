@@ -17,6 +17,10 @@ import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/te
 //   mcp-*        (G014) the MCP connection setup page on the same environment and pin, after the identity projects;
 //                the harness seeds the two registry Organizations first (infra/identity/mcp-seed.sql)
 //   onboarding-*, membership-*, enrollment-*  (G018, G019, G058) on the same environment, pin and seed
+//   profile-*    (G074) global account profiles on the tenant hosts, same environment, pin and seed; each project
+//                restores the seed state it changed (names, avatars, test Groups' memberships) before it ends; (G075)
+//                the Group member cards and role labels of the composite profile page, restoring labels, the override,
+//                Organization roles and test Groups' memberships likewise
 //   signup-*     (G062) root-host tenant signup from https://localhost:543 on the same environment, pin and seed
 //   labels-*     (G020) generic labels and their visibility on the tenant hosts, same environment, pin and seed
 //   default-tenant-light  (G071) the default-tenant root alias on https://localhost:543, same environment, pin and seed;
@@ -117,6 +121,12 @@ function identityProjects(): PlaywrightTestConfig["projects"] {
     // G019 (Plan r1 §6.3 E-MEM-1..7): invitations, membership and ownership on the tenant hosts.
     { name: "membership-light", testMatch: /membership\.spec\.ts/, use: { ...use, colorScheme: "light" } },
     { name: "membership-dark", testMatch: /membership\.spec\.ts/, use: { ...use, colorScheme: "dark" } },
+    // G074 (Plan r3.1 §5 E-PRO-1..6): global account profiles (the /account Profile section, the profile and avatar
+    // routes, the members-table thumbnails and the invitation picker's gated names) on the tenant hosts. G075 (Plan r2 §5
+    // E-GMP-1..7, S-GMP-A11Y): the composite profile page's Group member cards and role labels (group-profile.spec.ts) in
+    // the same two projects, so the identity:browser project list is unchanged.
+    { name: "profile-light", testMatch: /(group-)?profile\.spec\.ts/, use: { ...use, colorScheme: "light" } },
+    { name: "profile-dark", testMatch: /(group-)?profile\.spec\.ts/, use: { ...use, colorScheme: "dark" } },
     // G058 (Plan r3 §6.2 E-ENR-1..5): joining a workspace (open signup, Organization invitation entry, access requests)
     // and the enrollment policy and request pages on the tenant hosts.
     { name: "enrollment-light", testMatch: /enrollment\.spec\.ts/, use: { ...use, colorScheme: "light" } },

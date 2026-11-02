@@ -38,6 +38,8 @@ import { SelfCard, TransferForm } from "./ownership-forms";
 // which core's per-row hints already deny), and without it the page says the members are not administered by them
 // (no table, no form). An actual member who also administers through the override is told so in one line. Absent,
 // foreign and unreadable Groups keep the fixed 404 (the page's Group read).
+// G075 (Plan r2 §3.7, C10; Q7): on a Group the member table's name links carry that Group's id as the profile page's
+// selected-Group context; on the Organization they carry none (Organization-only).
 
 type Ready = Extract<OnboardingRequest, { ready: true }>;
 type Search = Record<string, string | string[] | undefined>;
@@ -146,7 +148,13 @@ export async function membersView({ r, scope, title, where, path, search, back, 
         </Heading>
         {members.ok ? (
           <>
-            <MemberTable kind={scope.kind} members={members.value.members} action={action} csrfToken={r.csrfToken} />
+            <MemberTable
+              kind={scope.kind}
+              members={members.value.members}
+              action={action}
+              csrfToken={r.csrfToken}
+              contextGroup={scope.kind === "group" ? scope.groupId : undefined}
+            />
             {members.value.next === null ? null : (
               <div className="mt-6">
                 <TextLink href={`${path}?after=${members.value.next}`}>Next members</TextLink>

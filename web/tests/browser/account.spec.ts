@@ -105,10 +105,11 @@ test("[S-ACCOUNT-A11Y] sign-in states: no axe findings at 1280 and 320; the keyb
 // test-only fixture route (the fixture build on 127.0.0.1:3001, whose CORE_INTERNAL_URL is unreachable; typed here
 // independently of the configuration) renders the real AccountSections and ConnectionManager with a scripted session:
 // the manager's real list call fails, so its section shows the closed unavailable state while Session and Sign-out stay
-// complete and usable. The production image has no such route.
+// complete and usable. The production image has no such route. G074: the fixture also scripts the user's own profile, so
+// the real Profile section (forms, initials, closed texts) renders and is audited with the page.
 const ACCOUNT_FIXTURE_URL = "http://127.0.0.1:3001/account-fixtures";
 
-test("[S-ACCOUNT-MCP-UNAVAILABLE] My Account with MCP unavailable: Session and Sign-out intact, no MCP mutation; axe at 1280 and 320", async ({ page, request }) => {
+test("[S-ACCOUNT-MCP-UNAVAILABLE] My Account with MCP unavailable: Session, Profile and Sign-out intact, no MCP mutation; axe at 1280 and 320", async ({ page, request }) => {
   for (const width of [1280, 320]) {
     await page.setViewportSize({ width, height: width === 320 ? 640 : 800 });
     const response = await page.goto(ACCOUNT_FIXTURE_URL);
@@ -123,6 +124,26 @@ test("[S-ACCOUNT-MCP-UNAVAILABLE] My Account with MCP unavailable: Session and S
       await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
     }
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "AI connections" })).toHaveAttribute("href", "#mcp-connections");
+    // G074 (Plan r3.1 §3.10): the Profile section with the scripted own profile (no explicit name, no avatar, version 0):
+    // the provider name and its source, initials, the name and avatar forms with this session's CSRF token and the
+    // profile version, and no removal form without an avatar.
+    await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Profile" })).toHaveAttribute("href", "#profile");
+    await expect(page.getByTestId("profile-unavailable")).toHaveCount(0);
+    await expect(page.getByTestId("profile-effective-name")).toHaveText("Fixture Account Holder");
+    await expect(page.getByTestId("profile-name-source")).toHaveText("Your sign-in provider");
+    await expect(page.getByTestId("profile-avatar-state")).toHaveText("Not set; your initials are shown");
+    await expect(page.getByTestId("profile-avatar-fallback")).toHaveText("FH");
+    await expect(page.getByTestId("profile-avatar-image")).toHaveCount(0);
+    await expect(page.locator('form[action^="/account/profile/"]')).toHaveCount(2);
+    for (const id of ["profile-name-form", "profile-avatar-form"]) {
+      await expect(page.getByTestId(id).locator('input[type="hidden"][name="csrf_token"]'), id).toHaveValue("F".repeat(43));
+      await expect(page.getByTestId(id).locator('input[type="hidden"][name="expected_version"]'), id).toHaveValue("0");
+    }
+    await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("");
+    await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveAttribute("maxlength", "400");
+    await expect(page.getByTestId("profile-avatar-form").locator('input[type="file"][name="avatar"]')).toHaveAttribute("accept", "image/png,image/jpeg");
+    await expect(page.getByTestId("profile-avatar-remove-form")).toHaveCount(0);
+    await expect(page.getByTestId("profile-status")).toHaveCount(0);
     // The connections section: its closed unavailable state and nothing that could mutate a connection.
     await expect(page.locator("#mcp-connections").getByTestId("mcp-unavailable")).toBeVisible();
     await expect(page.locator('form[action^="/connections/mcp/"]')).toHaveCount(0);
@@ -141,7 +162,8 @@ test("[S-ACCOUNT-MCP-UNAVAILABLE] My Account with MCP unavailable: Session and S
   await page.goto(ACCOUNT_FIXTURE_URL);
   await resetFocus(page);
   const signOut = page.getByRole("button", { name: "Sign out", exact: true });
-  for (let i = 0; i < 40 && !(await signOut.evaluate((b) => b === document.activeElement)); i++) await page.keyboard.press("Tab");
+  // G074: the Profile section's name and avatar controls precede it now; the bound only stops a runaway loop.
+  for (let i = 0; i < 60 && !(await signOut.evaluate((b) => b === document.activeElement)); i++) await page.keyboard.press("Tab");
   await expect(signOut).toBeFocused();
   // The fixture route exists only in the fixture build, never in the production image.
   expect((await request.get("/account-fixtures")).status()).toBe(404);

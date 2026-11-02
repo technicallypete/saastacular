@@ -39,6 +39,11 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 // Seeded rows (infra/identity/mcp-seed.sql).
 const RESEARCH = "0f14a000-0000-4000-8000-0000000000a1";
 const DESIGN = "0f14a000-0000-4000-8000-0000000000a2";
+const ALICE_ID = "0f16e000-0000-4000-8000-0000000000a1";
+// G075 (Plan r2 §3.7, C10; Q7): a member table's name links to the composite profile page /profiles/<id>; a Group's
+// members page carries that Group as ?context=, the Organization members page no selector.
+const PROFILE_LINK = /^\/profiles\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const profileLinks = (page: Page) => page.getByTestId("member-profile-link").evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
 
 type Credentials = { email: string; password: string };
 type SeedUser = Credentials & { name: string };
@@ -256,6 +261,15 @@ test("[E-MEM-2] a Group owner invites a co-member who accepts through the link a
   await expect(alice.page.getByText("You joined this Group.")).toBeVisible();
   await page.goto(membersOf(groupId));
   await expect(roleCell(page, ALICE_NAME)).toHaveText("Member");
+  // G074 (Plan r3.1 §3.10): each name leads with its thumbnail; a member without an avatar shows initials and no image.
+  const thumbnail = memberRow(page, ALICE_NAME).getByTestId("member-avatar");
+  await expect(thumbnail).toHaveText("AE");
+  await expect(thumbnail).toHaveAttribute("aria-hidden", "true");
+  await expect(thumbnail.getByTestId("member-avatar-image")).toHaveCount(0);
+  // G075: the name links to her composite profile page in this Group's selected context.
+  const profileLink = memberRow(page, ALICE_NAME).getByTestId("member-profile-link");
+  await expect(profileLink).toHaveText(ALICE_NAME);
+  await expect(profileLink).toHaveAttribute("href", `/profiles/${ALICE_ID}?context=${groupId}`);
   // Revisiting the consumed invitation states it and offers no acceptance form.
   await alice.page.goto(link);
   await expect(alice.page.getByText("This invitation can no longer be accepted (it has expired, was revoked or was already used).")).toBeVisible();
@@ -442,6 +456,22 @@ test("[E-MEM-6] keyboard-only Group invitation and acceptance; axe at 1280 and 3
   await audit(page, "workspace members (member)");
   await page.goto(membersOf(groupId));
   await audit(page, "Group members (member)");
+  // G075: the member table (and its name links) is rendered only for a caller who administers the scope, so frank (the
+  // Organization admin who issued the invitation and administers this Group) reads the links: on the Organization
+  // members page every name link opens the profile without a Group selector ...
+  await frank.page.goto("/organization/members");
+  const orgLinks = await profileLinks(frank.page);
+  expect(orgLinks.length).toBeGreaterThan(0);
+  for (const href of orgLinks) expect(href, "an Organization members page link carries no selector").toMatch(PROFILE_LINK);
+  await frank.page.goto(membersOf(groupId));
+  // ... and on this Group's members page each carries exactly this Group as its selected context.
+  const groupLinks = await profileLinks(frank.page);
+  expect(groupLinks.length).toBeGreaterThan(0);
+  for (const href of groupLinks) {
+    const [path, query] = href.split("?");
+    expect(path, "a Group members page link names a profile").toMatch(PROFILE_LINK);
+    expect(query, "a Group members page link carries this Group").toBe(`context=${groupId}`);
+  }
 });
 
 test("[E-MEM-7] membership navigation leaves the member's MCP connections unchanged", async ({ page }) => {
@@ -485,6 +515,9 @@ test("[S-SELECT-KIT] the role dropdown is the kit Select: labelled trigger, inse
     expect(distance(g, w), `${what}: ${hex(g)} vs ${hex(w)}`).toBeLessThanOrEqual(1);
   };
   expect(await row.locator("select").count(), "no native select in the row").toBe(0);
+  // G075: the kit table's Name cell holds the name as a link to the profile in this Group's context; the Role cell and the
+  // row's role dropdown are unchanged.
+  await expect(row.getByRole("cell").first().getByRole("link", { name: ALICE_NAME, exact: true })).toHaveAttribute("href", `/profiles/${ALICE_ID}?context=${groupId}`);
   await expect(trigger, "the row's label names the kit trigger, a combobox").toHaveAttribute("role", "combobox");
   await expect(trigger).toHaveAttribute("data-slot", "select-trigger");
   await expect(trigger, "the closed trigger shows the chosen label").toHaveText("Member", { useInnerText: true });
