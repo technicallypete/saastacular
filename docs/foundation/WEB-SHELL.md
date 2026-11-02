@@ -370,6 +370,7 @@ architecture change.
 | `membership-light`, `membership-dark` (likewise only with `IDENTITY_E2E=1`, on the same `IDENTITY.md` `identity:browser` line) | E-MEM-1..10 (`tests/browser/membership.spec.ts`; E-MEM-8..10 cover explicit Group authority) and the members-page S-LANDMARKS/S-NAV on `/organization/members`, `/invitations` (area Members) and a Group's members page (area Groups): the three Workspace areas Groups, Business Profiles and Members, `aria-current` on the page's own area, Primary anchors and the Members area link by keyboard |
 | `enrollment-light`, `enrollment-dark` (likewise only with `IDENTITY_E2E=1`, on the same `IDENTITY.md` `identity:browser` line) | E-ENR-1..5 (`tests/browser/enrollment.spec.ts`): the join entry of each mode, open signup and the Organization invitation entry through the ordinary fresh sign-in, the applicant status page (pending, approved, withdrawn, denied, closed-after-start; no tenant data), the owner's policy form and the administrators' request list with the wrong-authority refusals, keyboard-only entry and policy change, axe and reflow at 1280 and 320 |
 | `signup-light`, `signup-dark` (likewise only with `IDENTITY_E2E=1`, on the same `IDENTITY.md` `identity:browser` line; base `https://localhost:543`) | E-SUP-1..6 (`tests/browser/signup.spec.ts`): root and `www` landing with one Sign Up, fresh and existing identity into a new tenant host through the automatic continuation, field errors, keyboard and axe at 1280 and 320, the captured-secret, recovery and no-re-mint-on-GET cases, and first use of the new tenant without onboarding |
+| `profile-light`, `profile-dark` (likewise only with `IDENTITY_E2E=1`, on the same `IDENTITY.md` `identity:browser` line) | E-PRO-1..6 (`tests/browser/profile.spec.ts`; [Account profile](#account-profile-and-avatars)): own name edit on host A visible on host B, in the shell indicator and `/api/account`, clear back to the seed name; avatar set, replace, remove and the refusals; the API privacy matrix and avatar reads; a revoked relationship; the invitation-picker row; forged POSTs; the seed state restored at the end, distinct values per appearance. `testMatch` is `/(group-)?profile\.spec\.ts/`, so the same projects also run E-GMP-1..7 and S-GMP-A11Y (`tests/browser/group-profile.spec.ts`; [Group member profiles page](#group-member-profiles-page)): tenant-local cards and labels on hosts A and B, the API privacy matrix, sibling and selected-context (`?context=`) cards, selected-other denial, the malformed selector, membership and Organization-role revocation, oversight cards under both override settings, a keyboard label edit, escaping and bounds, forged POSTs, axe at 1280 and 320; no new project |
 | `labels-light`, `labels-dark` (likewise only with `IDENTITY_E2E=1`, on the same `IDENTITY.md` `identity:browser` line) | E-LAB-1..6 (`tests/browser/labels.spec.ts`): Organization label create/rename/delete on `/organization/labels` by keyboard (another Organization admin sees it, a member gets 404); assign/unassign on a Group page, with no Labels section and no label markup for the Group's owner and member; Group-owned labels on `/groups/<id>/labels` (the "cannot be applied" sentence, the `target_members`-only member list, `labels-not-administered` for Organization staff with the override on or off, 404 for others); immediate visibility narrowing and role removal; forged POSTs answered "Not permitted"; axe WCAG 2.2 AA at 1280/320 in both appearances and S-ERRORS; plus S-LANDMARKS/S-NAV on `/organization/labels` |
 
 Expected values are typed independently and never read from the implementation: `tests/browser/support/modes.ts`, `support/source-reference.ts` (the source geometry, type and colour roles of each element, cited by kit file and class) and `support/assets.ts` (the asset pins).
@@ -589,6 +590,99 @@ definitions only. Unit: `labels-client.test.mjs`, `labels-forms.test.mjs`; brows
 `groups/[id]/labels/action/route.ts`, `groups/[id]/labels/page.tsx`, `organization/labels/action/route.ts` and
 `organization/labels/page.tsx`.
 
+## Account profile and avatars
+
+The model and the privacy rules are in [IDENTITY.md](IDENTITY.md#global-account-profiles), the authority in
+[AUTHORIZATION.md](AUTHORIZATION.md#global-account-profiles) and the storage in
+[OBJECT-STORAGE.md](OBJECT-STORAGE.md#account-avatars).
+
+- **Profile section on `/account`.** `Section#profile` (navigation item "Profile") renders before the AI connections
+  sections: the kit `Avatar`/`AvatarImage`/`AvatarFallback` at 96 px (initials of the effective name), a name form
+  (`Field`, `Label` "Name", `Input` with `maxLength=200`, help text "Shown to people you work with; leave empty to use
+  the name from your sign-in provider", hidden `csrf_token` and `expected_version`, `PendingSubmit` "Save name"), an avatar
+  form (`<input type="file" accept="image/png,image/jpeg">` labelled with the limits, `PendingSubmit` "Upload avatar") and
+  a remove form (`variant="outline"`); `StatusMessage` for the closed statuses and an `Alert` on `stale_version`. Native
+  POST forms, no client JS beyond the existing pending-submit control.
+- **Member tables.** `member-table.tsx` gains a leading avatar cell: `AvatarImage src="/profiles/<id>/avatar?v=<n>"`
+  only when the member row carries `avatar_version` (the viewer passed the relationship predicate and the subject has an
+  avatar), `alt=""` (the adjacent name is the accessible identity) and `loading="lazy"`; `AvatarFallback` initials
+  otherwise. The invitation picker shows names only.
+- **Status map.** Closed `?status=` values on `/account`: `profile_saved`, `avatar_set`, `avatar_removed`,
+  `stale_version`, `invalid_name`, `invalid_image`, `payload_too_large`, `storage_unavailable` and `avatar_hold` (the
+  three core HOLD reasons; copy "Your avatar could not be replaced yet because an earlier upload or removal is still
+  being cleaned up. Try again in a moment." — no reason, key, id, size or `Retry-After` value is shown). Query values are
+  never reflected; no `NEXT_PUBLIC_*`.
+
+| Route | Purpose |
+|---|---|
+| `POST /account/profile/update` | name edit (`""` clears the override); method 405 → `application/x-www-form-urlencoded` 415 → exact `Origin` 403 → bounded body → core decides; 303 to the closed status map |
+| `POST /account/profile/avatar` | multipart reduced to the raw image (at most 512 KiB; the `readBoundedBytes`/`parseLogoUpload` shape generalized in `web/lib/profile.ts`), forwarded with `X-CSRF-Token`, `X-Expected-Version` and `X-Origin` |
+| `POST /account/profile/avatar/remove` | avatar removal with the CSRF token and expected version |
+| `GET /profiles/<id>/avatar?v=<n>` | the image proxy (the `branding/logo` route shape **with** the session cookie forwarded as the credential): the bytes with `Content-Type`, `Content-Length`, `ETag "v<n>"`, `Cache-Control: private, max-age=300`, `nosniff`, inline; no cookie, an invisible subject or a stale `v` → `no-store` 404; core unavailable → `no-store` 503 |
+| `GET /api/profiles/<id>` | JSON exactly `{user_id, name, avatar}` (`avatar` `{version, content_type}` or null); 401, 404 and 503; `no-store` |
+
+Core routes (web is the only caller; no CORS; JSON `no-store`, `nosniff`; at most 8 KiB JSON bodies):
+`GET`/`POST /internal/v1/profiles/me`, `POST /internal/v1/profiles/me/avatar` (Content-Length bound, 413 before any
+read; the HOLD reasons answer `503` with `Retry-After`), `POST /internal/v1/profiles/me/avatar/remove`,
+`GET /internal/v1/profiles/{user_id}` and `GET /internal/v1/profiles/{user_id}/avatar`. Bounded cache window: a viewer's
+own browser may keep a fetched avatar for at most 300 s after revocation or removal; a replaced or removed avatar changes
+`v`, so its old URL answers 404; conditional requests are not honoured. Accessibility: labelled controls, visible focus,
+status text in the document, keyboard-only completion, axe WCAG 2.2 AA at 1280 and 320 in Light and Dark, reflow
+without horizontal scroll. Browser: `profile-*` above; shell fixture: `account.spec.ts` on `/account-fixtures` with the
+profile props; unit: `profile-client.test.mjs`, `profile-forms.test.mjs`, `membership-client.test.mjs` (optional
+`avatar_version`, strict keys).
+
+## Group member profiles page
+
+The model is in [TENANCY.md](TENANCY.md#group-member-profiles), the authority and the card rules in
+[AUTHORIZATION.md](AUTHORIZATION.md#guarded-group-member-profile-operations).
+
+- **`/profiles/[id]/page.tsx`** (server-rendered, `force-dynamic`, the `onboardingRequest` frame) is the composite
+  profile page: `Section#profile` with the account-profile header (kit `Avatar` at 96 px and the effective name as
+  `Heading` 1) and `Section#groups` "Groups" with one kit `Card` per card core returned: `group_name` as a `TextLink` to
+  `/groups/<id>` (core re-decides on click), the label as escaped text (`Text`, `[overflow-wrap:anywhere]`) or "No role
+  given", and, only when `can_edit` is true, a native POST form (`Field`, `Label` "Role in <group_name>", `Input
+  maxLength=200` — 100 code points are at most 200 UTF-16 units —, hidden `csrf_token`, `expected_version` and
+  `context_group` when the page has one, help text "Leave empty to remove the role", `PendingSubmit` "Save role"). No
+  cards → "No Groups to show." (identical for an empty list and a self view without memberships). `narrow_required` →
+  "Too many Groups to show at once. Open this profile from a Group's members page to see that Group's card." and no
+  cards. In selected context a `Text` "Showing this person's card for one Group". An unknown, foreign, unrelated or
+  revoked subject, or an unselectable context, renders the fixed 404 page. `StatusMessage` for the closed statuses;
+  `Alert` on `stale_version`. Nothing is filtered in the browser: the page renders exactly the cards core returned.
+  There is no label column on the member tables.
+- **Member-table links.** The Name cell of `member-table.tsx` becomes a `TextLink` to `/profiles/<id>`: from a
+  **Group's** members page with `?context=<that Group>` (the page opens in that Group's selected context), from the
+  **Organization** members page without a selector (Organization-only). Nothing else on the tables changes.
+- **The selector.** `?context=` on the page and the JSON route and the hidden `context_group` form field carry one
+  optional canonical Group UUID. **Absent** = Organization-only. A **present** value that is empty, malformed or
+  duplicated is refused (the page renders the fixed 404; the form route redirects with `invalid_context`; core answers
+  `400 invalid_request {context_group}`) and never becomes absent. The BFF checks only the grammar and multiplicity and
+  forwards it; core's unchanged `Resolve` decides selectability, and an unselectable Group is the same `not_found` as an
+  invisible subject. The validated selector is carried consistently through page, client, GET/POST and redirects.
+- **Status map.** Closed `?group_status=` values on `/profiles/<id>`: `label_saved`, `label_cleared`, `stale_version`,
+  `invalid_label`, `invalid_context`, `not_permitted`, `unavailable`. Query values are never reflected; no
+  `NEXT_PUBLIC_*`.
+
+| Route | Purpose |
+|---|---|
+| `POST /profiles/<id>/groups/<group>/label` | label edit (`""` clears); method 405 → `application/x-www-form-urlencoded` 415 → exact `Origin` 403 → bounded body → the hidden `context_group`, if present, must pass the grammar (else 303 to `?group_status=invalid_context`) → core decides; 303 to `/profiles/<id>?group_status=<closed>` with the same selector, if any |
+| `GET /api/profiles/<id>/groups` | JSON exactly `{user_id, cards: [{group_id, group_name, role_label, can_edit, version}], narrow_required}`; reads `?context=` with the same checks; 401, 404 (the body of `GET /api/profiles/<id>`'s 404) and 503; `no-store` |
+
+Core routes (web is the only caller; the session credential, exact origin and Organization resolution of the account
+profile routes; no CORS; JSON `no-store`, `nosniff`; at most 8 KiB JSON bodies):
+`GET /internal/v1/profiles/{user_id}/groups?origin=&context_group=` and
+`POST /internal/v1/profiles/{user_id}/groups/{group_id}/label` (`{origin, csrf_token, expected_version, role_label,
+context_group?}`; the card, or `400 invalid_request {field}`, `403 csrf_failed`, `403 forbidden`, `404 not_found`,
+`409 version_conflict`). **Privacy of lists and caches.** No new list: the cards are bounded by the viewer's
+relationships, with no cursor, count, total or partial list, and the overflow signal names no number. JSON and pages are
+`no-store`; no shared cached relationship projection exists, so a revocation shows on the next request (the 300 s
+avatar window is unchanged). Logs carry operation names and UUIDs only, never a label, a Group name, a selector value in
+a refusal body or a card count. Accessibility: labelled controls, visible focus, status text in the document,
+keyboard-only completion, axe WCAG 2.2 AA at 1280 and 320 in Light and Dark with and without editable cards and in
+selected context, reflow without horizontal scroll. Browser: `profile-*` above; unit: `group-profile-client.test.mjs`
+(strict DTO parser, selector grammar) and `group-profile-forms.test.mjs` (status map, `""` clears, `context_group`
+passthrough).
+
 ## Identity invariants
 
 - The product name and domain come only from `PRODUCT_NAME` and `PLATFORM_BASE_DOMAIN` through server configuration; renaming is an `.env` change with no rebuild.
@@ -599,7 +693,7 @@ definitions only. Unit: `labels-client.test.mjs`, `labels-forms.test.mjs`; brows
 
 ## Status
 
-- **Implemented:** the accessible generic shell and keyboard operation; Light, Dark and System appearance with first-paint correctness through next-themes; the unaltered kit source with fidelity checks; the saved-branding fan-out and isolated previews; bundled fonts and the blueprint drawing; Organization branding (core-validated overrides, the tenant entry, indicator, logo route and management page); My Account and AI connections; the Group onboarding pages and the member Workspace areas navigation; the platform root landing and signup pages; the Organization and Group labels pages; the browser suite.
+- **Implemented:** the accessible generic shell and keyboard operation; Light, Dark and System appearance with first-paint correctness through next-themes; the unaltered kit source with fidelity checks; the saved-branding fan-out and isolated previews; bundled fonts and the blueprint drawing; Organization branding (core-validated overrides, the tenant entry, indicator, logo route and management page); My Account and AI connections; the Group onboarding pages and the member Workspace areas navigation; the platform root landing and signup pages; the Organization and Group labels pages; the `/account` Profile section, member-table avatars and the avatar image route; the composite `/profiles/<id>` page with Group member cards and label forms, the member-table name links with the Group selector and the two label routes; the browser suite.
 - **Inherited and verified:** the thin BFF (`lib/config.ts`, `lib/core-client.ts`, `/api/health`, `/api/ready`, all `no-store`).
 - **Known limits:** browser evidence is Chromium only; layout metrics depend on the bundled TrueType files (other faces would change measured geometry); the text-spacing trial is bounded, not a full 1.4.12 certification; the accepted kit contrast shortfalls above.
 - **Deferred:** a Content Security Policy with the init-script hash; cross-tab appearance synchronization (not required).

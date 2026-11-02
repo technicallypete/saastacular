@@ -174,11 +174,11 @@ renewal.
 
 | Credential | Minimum use | Accepted grants and proof | Must never hold |
 |---|---|---|---|
-| `<db>_runtime` | application DML under FORCE row-level security; audit USAGE, filtered SELECT, INSERT of 12 columns; from version 14 column-limited INSERT only on `groups`, `role_bindings`, `business_profiles` and `group_business_profiles`, admitted by four INSERT policies (a binding only from inside the Group bootstrap trigger), with EXECUTE on `app.rls_profile_eligible` and still no DELETE on any of them; from version 19 exactly two more column privileges, `INSERT (display_name)` and `UPDATE (display_name)` on `app.mcp_connections`, under the unchanged connection policies and guard | DATABASE-ISOLATION, AUDIT, TENANCY; B-RLS-*, B-AUDIT-CATALOG, B-ONBOARDING-CATALOG, B-MCP-CATALOG | owner, migrator, SUPERUSER, BYPASSRLS, TEMP, CREATE, TRIGGER, role membership |
+| `<db>_runtime` | application DML under FORCE row-level security; audit USAGE, filtered SELECT, INSERT of 12 columns; from version 14 column-limited INSERT only on `groups`, `role_bindings`, `business_profiles` and `group_business_profiles`, admitted by four INSERT policies (a binding only from inside the Group bootstrap trigger), with EXECUTE on `app.rls_profile_eligible` and still no DELETE on any of them; from version 19 exactly two more column privileges, `INSERT (display_name)` and `UPDATE (display_name)` on `app.mcp_connections`, under the unchanged connection policies and guard; from version 23 SELECT and column-limited INSERT/UPDATE on the two global tables `app.account_profiles` and `app.account_avatars`, admitted only for the context user's own rows by forced self-only policies (cross-user profile reads only through `app.rls_profile_visible`), with EXECUTE on `app.rls_profile_visible` and `app.rls_account_profile` and no DELETE on either table; from version 24 SELECT and column-limited INSERT/UPDATE on the tenant table `app.group_member_profiles`, admitted only for the member's own row or by an actual owner/admin of that exact Group (forced policies; cross-member card reads only through `app.rls_group_member_cards`), with EXECUTE on that projection and no DELETE (the label goes with its membership by the binding's `ON DELETE CASCADE`) | DATABASE-ISOLATION, AUDIT, TENANCY, IDENTITY; B-RLS-*, B-AUDIT-CATALOG, B-ONBOARDING-CATALOG, B-MCP-CATALOG, B-PROFILE-CATALOG | owner, migrator, SUPERUSER, BYPASSRLS, TEMP, CREATE, TRIGGER, role membership |
 | `<db>_migrator` | SET ROLE `<db>_owner` to migrate | B-MIGRATE-IT, B-MIGRATE-ENV | runtime use; presence in core's environment |
 | `<db>_retention` | the operator's bounded retention (migration 00009): USAGE on `audit`; SELECT of `audit.events` (`id`, `occurred_at`, `organization_id`) and `app.stored_objects` (`id`, `organization_id`, `state`, `deleted_at`); DELETE on both, limited by four retention-only policies to rows its own transaction declares eligible; EXECUTE on `app.retention_eligible` | AUDIT, RECOVERY; B-RETENTION-CATALOG, B-RETENTION-IT | INSERT, UPDATE, TRUNCATE, REFERENCES, TRIGGER, DDL, other tables, role membership, BYPASSRLS; presence in core, web or intelligence |
 | `<db>_owner` and the helper roles | NOLOGIN | B-RLS-CATALOG, provisioning checks | a password |
-| MinIO scoped user | bucket-only list, get, put and delete | OBJECT-STORAGE; B-PERSIST | root credentials in core |
+| MinIO scoped user | bucket-only list, get, put and delete (from migration 00023 also the identity-owned `avatars/` keys, under the same policy; no new user or policy) | OBJECT-STORAGE; B-PERSIST | root credentials in core |
 | WorkOS API key | environment-wide WorkOS API (code exchange, session revocation) | IDENTITY | presence in web or intelligence |
 | Intelligence service value | shared bearer for `/internal/*` | intelligence tests | browser or web exposure |
 | Gateway value | OpenRouter calls when enabled | none (disabled) | anything but intelligence |
@@ -463,6 +463,66 @@ logs or audit rows. Production storage admits no Group-owned assignment; a futur
 registration contract in [TENANCY.md](foundation/TENANCY.md#labels) under its own reviewed change. Implementation:
 migration `00020_labels.sql` (two forced tables, seven policies, five strict audit actions), the three capabilities in
 the closed evaluator, the closed target registry, the internal label routes and the labels pages.
+
+**Global account profiles** (migration 00023; [IDENTITY.md](foundation/IDENTITY.md#global-account-profiles),
+[AUTHORIZATION.md](foundation/AUTHORIZATION.md#global-account-profiles)). Profiles are presentation metadata, never
+identity or authority: no capability, policy, RLS predicate, MCP eligibility or web gate reads a profile name or avatar,
+and the canonical user UUID and provider mapping are unchanged. Only the user edits their own row (forced self-only
+policies, column-limited grants, no runtime DELETE). Another user's profile is readable only through the one
+relationship predicate `app.rls_profile_visible` inside the session's bound Organization (self, the current
+Organization owner/admin of a subject bound there, or a current shared Group); unknown, foreign, unrelated and revoked
+subjects read identically as `not_found`. The member tables and the invitation picker project a profile field only
+where the predicate admits it; profile DTOs never carry email, provider identifiers, sessions, MFA, status,
+other-tenant memberships, object ids, storage keys or a full digest.
+
+No new credential or resource: avatar bytes use the existing bucket and core's existing scoped object credential
+(section 3; MinIO policy `core-objects`, an R2 bucket-scoped token in production); no new bucket, credential, role, IAM
+entity, lifecycle rule, endpoint, port, vendor or secret. Avatars are never presigned: delivery is a session-authorized
+core read streamed through web with `Cache-Control: private, max-age=300` (bounded browser-cache window after
+revocation or removal; no shared cache, CDN or bearer URL). Uploads are validated and re-encoded by the unchanged
+`branding.NormalizeLogo` (PNG/JPEG by content, 16–2048 px, at most 512 KiB, metadata stripped); no URL ingestion and no
+provider picture. The auth reader gains only SELECT (`user_id`, `name`) on profiles for E1; the policy reader gains the
+predicate and the gated projection; no retention grant on either global table. A sync-only ledger kind,
+`avatar.delete`, is replayed by the recovery tool as the cluster superuser in the owning user's context (the
+`object.delete` pattern) so that a withdrawn avatar never resurfaces after a restore; an unknown provider or SQL outcome
+blocks replay and reopen rather than being treated as absence
+([RECOVERY.md](foundation/RECOVERY.md#global-account-profiles-and-avatars)). Avatar tombstone metadata is not purged
+(deferred).
+
+**Group member profiles** (migration 00024; [TENANCY.md](foundation/TENANCY.md#group-member-profiles),
+[AUTHORIZATION.md](foundation/AUTHORIZATION.md#guarded-group-member-profile-operations)). A role label is tenant-local,
+membership-bound presentation metadata: no capability, policy, RLS predicate, MCP eligibility or web gate reads it, and
+it never changes a permission role, roster, ownership or content access. It is not a Group roster reader or content
+grant, widens no existing roster or content policy and implies no Group membership.
+
+- **Writes.** Only the member itself or an actual `group_owner`/`group_admin` of that exact Group, enforced three times:
+  the facade (`group_member_profile.manage_self` / `.manage`), the forced write policies (current Organization role,
+  selected Group only, the two writer branches; no Organization-staff or override branch) and the SECURITY INVOKER guard
+  (the binding exists under the writer's own row-level security with the row's Organization, Group and user). An
+  Organization owner or admin without that Group role is refused under either override setting (`forbidden` at the
+  facade; 42501 with zero rows for a raw runtime write).
+- **Reads.** One subject-targeted policy-reader projection, `app.rls_group_member_cards`, behind the account-profile
+  relationship predicate: self, a shared Group, or any of the subject's Groups in the session's Organization for a
+  current Organization owner/admin (bounded per-subject metadata oversight, not a roster reader or content grant). The
+  selected Group restricts cards to itself; a sibling Group, a shared Business Profile and another Organization confer
+  nothing; unknown, foreign, unrelated and revoked subjects and an unselectable context read identically as
+  `not_found`. The projection holds no SELECT on `groups.name` or `role_bindings.id`; the facade joins the name under the
+  caller's own `groups_select` policy. Cards are an allowlist (Group id and name, label, edit hint, version); more than
+  200 authorized cards yield an empty list with `narrow_required` (no number, cursor or partial list).
+- **Context selector.** A caller-supplied `context_group` is consumed only by the unchanged `Resolve` and the database
+  context, both of which only narrow; absent is Organization-only, and a present empty, malformed or duplicate value is
+  refused rather than broadened.
+- **Lifecycle and audit.** The first membership-keyed `ON DELETE CASCADE` (`app.group_member_profiles` →
+  `app.role_bindings`, the only cascading table, pinned by the postcondition): every removal path takes the label, a
+  readmission starts empty, and the runtime holds no DELETE. A changed label writes one trigger-owned
+  `group_member_profile.updated` atomically with the write (an audit fault refuses it), never the text; the cascade is
+  recorded only by the membership's `membership.removed`.
+- **Privacy.** No new list, count or total; JSON and pages `no-store`; no shared cached relationship projection; logs
+  carry operation names and UUIDs only.
+- **No new credential or resource.** No new role, BYPASSRLS, secret, bucket, port, vendor, MCP tool or public contract;
+  the policy reader gains one body (12) and one helper policy.
+- **Non-claims.** No staff record, handle or @mention, Group roster or people directory, MCP tool, or edit grant
+  implied by an Organization role or the override.
 
 ---
 

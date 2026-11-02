@@ -99,7 +99,10 @@ later scope or source (for example `invitation` or `system`) needs its own revie
 | BusinessProfile context | `business_profiles_{display_name,legal_name,description,industry}_valid` (bounds, trimmed, no control characters; TAB and LF allowed in the description) and `business_profiles_website_valid` (printable ASCII without space or backslash after `http://` or `https://`) |
 
 No foreign key cascades: deleting a referenced user, Organization, Group or BusinessProfile directly fails while a
-reference exists.
+reference exists. The one exception (version 24) is membership-bound metadata: `app.group_member_profiles`
+references its Group membership binding with `ON DELETE CASCADE`, so deleting a binding removes its role label
+([Group member profiles](#group-member-profiles)); its Organization, Group and user keys are RESTRICT like every
+other.
 
 The runtime role (`<db>_runtime`) holds exactly:
 
@@ -452,6 +455,42 @@ metadata; they grant nothing and no access decision reads them.
   `organization_context_required`) and the up-front Organization lock for Organization-scope creation are in
   [AUTHORIZATION.md](AUTHORIZATION.md#guarded-label-operations). Label SQL lives in `tenancy/labels.go`; constraint
   names map to codes in `tenancy/errors.go`.
+
+## Group member profiles
+
+Migration `00024_group_member_profiles.sql`; authority in
+[AUTHORIZATION.md](AUTHORIZATION.md#guarded-group-member-profile-operations), policies and the projection in
+[DATABASE-ISOLATION.md](DATABASE-ISOLATION.md), audit in [AUDIT.md](AUDIT.md). A Group member profile is
+**membership-bound metadata**: one optional descriptive role label for exactly one current Group membership. It grants
+nothing, and no capability, policy, RLS predicate or MCP eligibility reads it.
+
+- **Model.** `app.group_member_profiles` (`binding_id` primary key = the member's Group membership binding,
+  `organization_id`, `group_id`, `user_id`, `role_label` NULL or 1–100 code points, `version` ≥ 1, `updated_at`), forced
+  row-level security. `organization_id`, `group_id` and `user_id` are denormalized from the binding and checked against
+  it by the guard; `group_member_profiles_one_per_membership UNIQUE (organization_id, user_id, group_id)` keeps one row
+  per membership and is the key the card projection joins on. The label is tenant-local: the same person has separate,
+  independent labels in each Group and Organization.
+- **Lifecycle (the membership-keyed cascade).** `group_member_profiles_binding_fkey (binding_id) → role_bindings (id) ON
+  DELETE CASCADE`. Every path that deletes a Group membership binding — member removal and Leave, the
+  Organization-departure cascade inside the authority guard, retirement — removes the label row in the same statement,
+  as a referential action run as the table owner outside row-level security, so no path can forget the label and the
+  runtime needs no DELETE grant. A readmission (a new invitation or claim) creates a new binding id and starts without a
+  label: an old label never revives. A clear keeps the row (`role_label` NULL, version advances). The cascade records no
+  label event; the membership's `membership.removed` is the audit record of the removal.
+- **Writers.** The member itself while it holds any role in that Group, and an actual `group_owner`/`group_admin` of
+  that exact Group; never an Organization role alone or the Group-management override. The guard
+  `group_member_profiles_guard` (owner-owned SECURITY INVOKER) checks the binding under the writer's own row-level
+  security and enforces version 1 on insert, `version + 1`, a changed label and immutable keys on update.
+- **Grammar.** Core's `tenancy.NormalizeRoleLabel` is authoritative (valid UTF-8, no control, line or paragraph
+  separator, trimmed of Unicode white space, 1–100 code points; empty after trimming clears); the CHECK
+  `group_member_profiles_label_valid` is the shared stored-shape grammar of connection names and profile names as
+  defense in depth. Labels are validated, never normalized further, and rendered as escaped text.
+- **SQL inventory.** `tenancy/group_profiles.go` holds the only statements on the table (card read through the
+  projection with the Group name joined under the caller's `groups_select`, the label lock `FOR NO KEY UPDATE`, the
+  insert at version 1 and the versioned update); every statement names its Organization. The down migration refuses
+  while any label row or label-era audit row exists.
+- **Not modelled.** No staff record or type, login handle, Organization job title, Business Profile field, roster or
+  directory.
 
 ## What later stages must secure
 

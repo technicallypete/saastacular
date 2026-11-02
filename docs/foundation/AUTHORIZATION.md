@@ -88,7 +88,8 @@ global authority, and no allow result, capability check or evaluator is exported
 2. **Target gate:** Organization capabilities and `audit.read` target the active Organization, `group.*` an exact Group of
    it, and `business_profile.*` an exact profile of it. A foreign, unknown or wrong-kind target denies, even for a
    subject holding the named role.
-3. **Context gate:** in selected-Group context, a `group.*` target must be the selected Group.
+3. **Context gate:** in selected-Group context, a `group.*` target (and every other Group-kind capability's target,
+   for example the Group label and Group member profile capabilities) must be the selected Group.
 4. **Matrix.**
 
 | Capability | org_owner | org_admin | org_member | group_owner | group_admin | group_member |
@@ -384,6 +385,124 @@ Group-owned labels are Group content (the `decideObject` rule).
   Test-only fixture tools prove eligibility and hidden direct-call behaviour only ([MCP.md](MCP.md)).
 - **Defense in depth.** The seven version-20 policies admit the same scopes at the database
   ([DATABASE-ISOLATION.md](DATABASE-ISOLATION.md)), so a facade bypass with the runtime role meets the same refusal.
+
+### Global account profiles
+
+Migration `00023_account_profiles.sql`; the model is in [IDENTITY.md](IDENTITY.md#global-account-profiles).
+Two closed capabilities are added (22 → 24), evaluated by the same `decide` switch, both of Organization kind and held by
+every current Organization membership role in Organization-only or selected-Group context: `account_profile.read` and
+`account_profile.manage_self`. Neither confers a profile by itself: **read eligibility is the one relationship
+predicate** `app.rls_profile_visible(subject)` (self; the current `org_owner`/`org_admin` of the session's Organization
+when the subject holds a binding there; or a current shared Group membership in that Organization; the selected Group
+does not narrow it, and a relationship in another Organization counts for nothing on this host), and every write targets
+the caller's own row, which only SQL lets it write (`manage_self` is a liveness and membership gate). The
+Group-management override is never consulted.
+
+| Capability (kind) | org_owner | org_admin | org_member | Group roles alone | Override effect |
+|---|---|---|---|---|---|
+| `account_profile.read` (organization) | Y | Y | Y | — | none |
+| `account_profile.manage_self` (organization) | Y | Y | Y | — | none |
+
+| Method | Operation | Capability | Write |
+|---|---|---|---|
+| `GetAccountProfile(tc, subject)` | `profile.get` | `account_profile.read` | — (projection row or `not_found`) |
+| `GetOwnAccountProfile(tc)` | `profile.get` | `account_profile.manage_self` | — |
+| `UpdateAccountProfileName(tc, expected, name)` | `profile.update` | `account_profile.manage_self` | profile row lock, INSERT-or-UPDATE of the own row; `version_conflict` on a stale `expected`; an identical value or a clear of an absent name is a no-op with no statement and no audit row |
+| `GetAccountAvatar(tc, subject, version)` (contract) | `profile.avatar.get` | `account_profile.read` | — |
+| `SetAccountAvatar(tc, expected, body, size)` (contract) | `profile.avatar.set` | `account_profile.manage_self` | reconcile, gated allocation, upload, publish ([OBJECT-STORAGE.md](OBJECT-STORAGE.md#account-avatars)) |
+| `RemoveAccountAvatar(tc, expected)` (contract) | `profile.avatar.remove` | `account_profile.manage_self` | reference cleared and the row marked deleting in one transaction, then provider removal |
+
+- **Refusal identity.** Unknown, foreign-tenant, same-tenant unrelated and revoked subjects are all `not_found` with the
+  same body and one projection call either way; a readable subject never yields `forbidden` (no "exists but hidden"
+  outcome) and there is no listing, search or directory route. The self projection needs no relationship; a session
+  whose Organization membership was removed meets the existing `context_denied` `organization_not_permitted`.
+- **Manager surfaces.** The Organization and Group member pages LEFT JOIN `app.account_profiles`
+  under its own `account_profiles_select` policy: an invisible subject's row is absent, so the page shows the provider
+  name and no avatar version. The invitation picker's definer body (`app.rls_group_invitation_candidates`) keeps its
+  admission checks, candidate set, order and cursor verbatim and projects the effective name only when
+  `app.rls_profile_visible(candidate)` is true (at most once per emitted row), never an avatar field. No other consumer
+  reads a profile field; `Invitation.IssuerDisplayName` and enrollment applicant names stay nil.
+- **Records.** The five operations join the `access.decision` record and the `access.denied` operations (80 → 85;
+  [AUDIT.md](AUDIT.md)); denials carry no target. No record carries a name, image, digest, object id or key.
+- **MCP.** No profile tool; `account.get_current_user` keeps its schema and carries the presentation name through E1.
+  `TestToolEligibility`'s capability table includes the two capabilities.
+- **Defense in depth.** The nine version-23 policies, the column-limited runtime grants (no DELETE on either table) and
+  the guards enforce self-only writes at the database ([DATABASE-ISOLATION.md](DATABASE-ISOLATION.md)), so a facade
+  bypass with the runtime role writes zero rows of another user or meets 42501.
+
+### Guarded Group member profile operations
+
+Migration `00024_group_member_profiles.sql`; the model is in [TENANCY.md](TENANCY.md#group-member-profiles). A Group
+member profile is one optional descriptive **role label** per current Group membership; it has no access-control
+effect. Three closed capabilities are added (24 → 27), evaluated by the same `decide` switch; `capabilityKind` places
+the two write capabilities in the Group kind, whose read capability is `group.read`, and the context gate applies to
+them:
+
+| Capability (kind) | org_owner | org_admin | org_member | group_owner(g) | group_admin(g) | group_member(g) | Override effect |
+|---|---|---|---|---|---|---|---|
+| `group_member_profile.read` (organization) | Y | Y | Y | — | — | — | none (cards decided by the projection) |
+| `group_member_profile.manage_self` (group g) | — | — | — | own | own | own | none |
+| `group_member_profile.manage` (group g) | — | — | — | own | own | — | **none (`orgAdmin`/`orgMgr` never consulted)** |
+
+| Method (`core/internal/tenancy/access/group_profile.go`) | Operation | Capability | Write |
+|---|---|---|---|
+| `ListGroupMemberCards(tc, subject)` | `profile.groups.list` | `group_member_profile.read` (Organization target) | — (`GroupMemberCards{Subject, Cards, NarrowRequired}` or `not_found`) |
+| `SetGroupMemberLabel(tc, g, subject, expected, label)` | `profile.group_label.update` | subject = caller → `manage_self`; otherwise `manage` (Group target `g`) | label row lock `FOR NO KEY UPDATE`, INSERT-or-UPDATE; `version_conflict` on a stale `expected`; an identical value (including a clear of an absent label) is a no-op with no statement and no audit row |
+
+- **Who sees a card (the projection decides).** `ListGroupMemberCards` first calls the account-profile
+  `VisibleProfileTx(subject)`: a subject the relationship predicate refuses (unknown, foreign, same-tenant unrelated,
+  revoked) is `not_found`, the same identity and body as `GetAccountProfile`, recorded as a `target_not_found` denial
+  without the subject. Otherwise `app.rls_group_member_cards` returns one card per current Group membership of the
+  subject in the session's Organization that the caller may see: **self**; a Group the caller is **also a member of**;
+  or any of them for a current **Organization owner/admin**, under either override setting (bounded, subject-specific
+  metadata oversight; no roster, content, write or ownership effect). A shared Business Profile confers nothing, a
+  sibling Group the caller does not share yields no card, and a relationship in another Organization counts for nothing
+  on this host. A visible subject with no card is an empty list, never `forbidden`.
+- **Selected-Group context.** In a TENANT-GROUP context (a selected Group resolved by the unchanged `Resolve`) the
+  projection emits at most the selected Group's card, and the context gate makes a label write for any other Group
+  `not_found` (`target_outside_context`); the database repeats both (`app.ctx_group()` in the projection and the write
+  policies). A selector only narrows independently authorized access: it cannot make an unselectable Group reachable,
+  and `Resolve`'s `context_denied` remains the answer for one.
+- **Card allowlist.** Each card is exactly `{GroupID, GroupName, RoleLabel (nil: none), CanEdit, Version (0: no label
+  row)}`. `CanEdit` is a hint (self, or the caller's own `group_owner`/`group_admin` role in that Group); every write
+  re-decides. The Group name is joined by the caller under its own `groups_select` policy in the card transaction (the
+  projection reads no `groups` column); a card whose name the caller cannot read fails closed (`internal`,
+  `fact_inconsistent`). A card never carries a permission role, another member, a count, an email, a Business Profile,
+  an invitation or an object.
+- **Overflow without a silent drop.** The projection emits at most 201 rows; when more than 200 authorized cards remain
+  after every authorization and context filter, the result is `Cards = []` and `NarrowRequired = true`: no total, no
+  cursor, no partial list and no number. Unauthorized cards never change the signal; a selected-Group context yields at
+  most one card and never sets it.
+- **Who writes a label.** The member itself (`manage_self`: any own role in the exact Group) or an actual
+  `group_owner`/`group_admin` of that exact Group (`manage`). A peer member is `forbidden`; an Organization owner or
+  admin without that Group role is `forbidden` under **either** override setting (the override confers no write); an
+  unknown or foreign Group, a Group outside the selected context, or a subject with no current membership binding in
+  that Group is `not_found`. The subject's binding is read and locked in the same transaction after the Group facts lock
+  (the removal's lock order), so a membership or role revoked before COMMIT refuses, and the guard repeats the binding
+  check at the statement (a binding refusal maps to `not_found`, a guard refusal to `version_conflict`, the label CHECK
+  to `invalid_input` `role_label`). The label contract (`tenancy.NormalizeRoleLabel`: valid UTF-8, no control, line or
+  paragraph separator, trimmed of Unicode white space, at most `RoleLabelMax` = 100 code points; empty after trimming
+  clears) is checked before any transaction. Concurrent first edits serialize on the primary key and the loser is
+  compared again (identical value: success; different: `version_conflict`); no automatic retries.
+- **Records.** The two operations join the `access.decision` record and the `access.denied` operations (85 → 87;
+  [AUDIT.md](AUDIT.md)); denials carry no target text, and no record carries a label, a Group name, a selector value or
+  a card count.
+- **Context selector (implemented in `core/internal/profile/api`).** The core routes accept one optional
+  `context_group` (query on GET, JSON body field on POST), parsed through the existing `access.ParseGroupID` adapter
+  boundary (no direct `tenancy` import in `profile/api`) and passed only as `ResolveRequest.GroupID`. **Absent** means
+  Organization-only; a **present** value that is empty, malformed or duplicated is refused (`invalid_request
+  {context_group}`) and never silently becomes absent (which would broaden to Organization-only). `Resolve`'s
+  `context_denied` is answered `not_found` with the invisible-subject body, the selector never echoed. The selector and
+  the edited target `{group_id}` are parsed separately and never substituted for one another; the six account-profile
+  routes do not read it.
+- **MCP.** No Group member profile tool, listing, search or directory. `TestToolEligibility`'s capability table includes
+  the three capabilities.
+- **Defense in depth.** The four version-24 policies, the column-limited runtime grants (no DELETE) and the guard
+  enforce the two writer paths at the database ([DATABASE-ISOLATION.md](DATABASE-ISOLATION.md)), so a facade bypass
+  with the runtime role writes zero rows of another member or meets 42501 (an Organization owner/admin without the
+  Group role included).
+- **Not delivered here.** No staff record, handle or @mention, member roster, people directory or search, MCP tool,
+  label column on the member tables, or edit grant implied by an Organization role or the override.
 
 ### Guarded MCP connection operations
 

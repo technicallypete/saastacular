@@ -25,6 +25,8 @@ lines (statuses, counts, sizes, durations, reason codes, backup UUIDs) are publi
 | Audit (`audit.events`) | core PostgreSQL, append-only for runtime | yes, exactly | none (history preserved) | identifiers, no payloads ([AUDIT.md](AUDIT.md)) | the retention role with an explicit policy and holds | platform operator | legal retention periods and holds |
 | Object metadata (`stored_objects`) | core PostgreSQL | yes | object bytes and binding | identifiers only | tombstones purged only after provider absence and ledger preservation | platform operator | as audit |
 | Object bytes and binding metadata | object provider (MinIO locally, R2 planned) | yes, with size, SHA-256 and binding | metadata rows | tenant content | follow the metadata lifecycle | platform operator | provider versioning/immutability, encryption, location (R2 not qualified) |
+| Profile overrides (`account_profiles`: explicit name, current avatar reference, versions) | core PostgreSQL, global (one row per user, no Organization) | yes, as ordinary checkpoint data | none: a post-checkpoint name edit is lost like any other row change (no replay kind by design) | the explicit presentation name | no automatic deletion; no runtime DELETE | platform operator | as tenant records |
+| Avatar objects (`account_avatars` metadata + `avatars/<user>/<object>` bytes) | core PostgreSQL (metadata) and the object provider (bytes, `user-id` binding) | yes; the version-2 manifest carries the `user-id` owner | `avatar.delete` terminal replay before reopen: no withdrawn image resurfaces | user-supplied images; identifiers, size and digest | bytes follow the metadata lifecycle (at most 3 objects per user, OBJECT-STORAGE.md); tombstone rows are **not purged** (no retention grant on the global table) | platform operator | as object bytes |
 | Redis | ephemeral (readiness only) | **no** | starts empty | none persisted | none | platform operator | keep ephemeral ([SECURITY.md](../SECURITY.md) §7) |
 | Operational evidence (logs, receipts, the status sink, CI artifacts) | operator, GitLab | no | none | sanitized only | CI 90 days; local evidence temporary | platform operator | log retention policy |
 | Backup sets | operator private storage | n/a | manifest, ledger, provisioning | everything above | backup policy with holds and quarantine | platform operator | cadence, retention, location, encryption, immutability, RPO/RTO |
@@ -76,7 +78,11 @@ C4 `pg_dump --format=custom` of exactly the project database as the superuser, s
 contents checked (only schemas `app` and `audit`, exactly the fingerprinted tables); C5 the bucket's bytes as one tar
 and the binding metadata, read by the fixture administrator; C6 the window checks, then the supplementary re-check
 (fingerprints and listing unchanged, no other superuser session); C7 per-object size and SHA-256 recomputed from the
-tar. `manifest.tsv` (with its fixed backup format line) records all of it; `COMPLETE` holds the manifest's SHA-256 and is written
+tar, with exactly one owner per object: an Organization (Group optional) or, for an account-avatar `avatars/` object, a
+user. `manifest.tsv` (with its fixed version-2 backup format line; each `object` row is `name size sha256 content-type
+object-id organization-id group-id user-id`, an absent owner field written `-`) records all of it; `verify` and
+`restore` also read a version-1 set (8-field rows, always an Organization owner), while a tool that predates account
+avatars refuses a version-2 set as an unknown format; `COMPLETE` holds the manifest's SHA-256 and is written
 last. **`COMPLETE` means capture completeness only.** Fence release is a separate source state: the fence record gains
 `released` and the backup receipt says `release: verified`, `failed` (exit 4, `unfence_failed`; the set stays complete)
 or `deferred` (`--use-fence`). A failed, timed-out, signalled or inaccessible capture writes `INCOMPLETE` with a closed
@@ -126,7 +132,9 @@ restore the source's exact defaults. The step passes only when the data and cata
 The catalog fingerprint treats a NULL ACL as its default and compares expression texts without parentheses and
 whitespace, because a restore re-deparses nested AND/OR without changing their meaning (a difference only in grouping
 is not detected by the fingerprint). The object step uploads each
-object with its content type, `Content-Disposition: attachment` and binding, and reads it back. A provider failure
+object with its content type, `Content-Disposition: attachment` and binding (only the owners the row names:
+`organization-id` and an optional `group-id`, or the account-avatar `user-id`), and reads it back; an owner field the
+row does not name must also be absent on the target. A provider failure
 leaves the receipt `partial`; `--steps objects` continues only on the exact receipt-bound target and checkpoint, and
 only when every object already on the target has the set's name, size, bytes and binding (`continuation_mismatch`
 otherwise; a mismatched object is never overwritten). `restore.tsv` says `restored-closed` only when every step passed. There is no
@@ -162,13 +170,21 @@ receipt of the same restore.
 
 The **restore-input ledger** (with its fixed ledger format line) is a hash-chained, operator-held file in storage separate from
 backups: sequence, previous-line digest, UTC time, kind, canonical references, origin (`sync` or `operator`) and a
-non-confidential reference. Only restrictions are recorded: `object.delete`, `user.disable` and `policy.disable` by
-`ledger sync` from authoritative state (every backup syncs before its mark); `membership.remove`,
+non-confidential reference. Only restrictions are recorded: `object.delete`, `user.disable`, `policy.disable` and
+`avatar.delete` by `ledger sync` from authoritative state (every backup syncs before its mark); `membership.remove`,
 `membership.downgrade` and `profile.unlink` by `ledger append` (the privileged primitives have no recorder yet, F-6).
 References are strict, at append and again at replay: exactly the kind's keys, canonical lowercase UUIDs, a closed-set
 scope type and roles of that scope, an Organization binding scoped to its Organization, and a downgrade that lowers the
 role (owner > admin > member); anything else is refused at append (exit 2) and replays as `conflict`.
 Object deletion is terminal and recorded once; reversible restrictions are re-recorded after the latest backup's mark.
+**Avatar withdrawal is terminal in the same way:** `ledger sync` records `avatar.delete` with refs exactly
+`user=<uuid>,object=<uuid>` once per object for every `account_avatars` row in `deleting` or `deleted` whose `ready_at`
+is set (a removed or replaced published avatar; the guard keeps `ready_at`, and a compensated upload that never became
+ready is not a restriction). The durable record is that guarded row, written in the same transaction as the reference
+change, never the audit row or the provider. The kind is **sync-only**: `ledger append --kind avatar.delete` is refused
+(exit 2, `invalid_input`) and an operator-origin entry replays as `conflict`. The ledger format line is unchanged:
+the kind set is the tool's closed list, so a tool that predates account avatars refuses a chain holding
+`avatar.delete` as `ledger_invalid` (fail-closed).
 `ledger attest --basis final-sync|last-sync` records the operator's completeness attestation; `last-sync` needs
 `--owner-risk REF`. The chain makes edits detectable and the manifest anchors it at the mark; a malicious operator can
 still omit entries or attest falsely (outside the mechanical guarantee; the incident owner's responsibility).
@@ -181,7 +197,19 @@ through-sequence and head digest, entries appended later are not applied, and a 
 makes the run `incomplete` (`ledger_drift`). `reopen` requires the replay receipt to cover the current attested head
 (`replay_stale` otherwise): a new entry needs a new replay, not only a new attestation. Object deletions run in the recorded deleter's context (the storage guard
 requires an actor) and remove the provider bytes; a provider failure (including a stopped target MinIO) leaves the row
-`deleting`, never readable or signable, and a rerun resumes. A replayed `user.disable` reads the audit gap marker before COMMIT, never rolls the
+`deleting`, never readable or signable, and a rerun resumes. **`avatar.delete`** runs
+`infra/recovery/sql/replay-avatar-start.sql` in the owning user's context (one transaction: lock the user's profile row,
+clear the current reference if it still names the object — `avatar_version` and `version` advance, and
+`profile.updated` `avatar_removed` is recorded with the user as actor — then the user's `ready` or `pending` row becomes
+`deleting`), removes `avatars/<user>/<object>` with the scoped object user and confirms it absent, then
+`replay-avatar-finish.sql` tombstones the row. Outcomes: a row already `deleted` is `already_applied`; `ready`, `pending`
+or `deleting` becomes `applied` once finished, or `partial` on a provider failure (a stopped target MinIO included: the
+row stays `deleting` with the reference already cleared, so it is not deliverable; a rerun resumes); a row absent from
+the restored checkpoint (created and withdrawn after it) is `already_applied` **only** when the entry is a valid
+sync-origin entry, the user exists in the checkpoint, no other user's row carries the object id and the provider
+positively confirms the key absent; a missing user, another user's row with that id (wrong binding) or a present key is
+`conflict`; an SQL failure leaves the entry failed and an unknown provider answer (error, timeout, stopped provider) is
+`partial` — neither is absence, and both keep `replay` incomplete and `reopen` blocked. A replayed `user.disable` reads the audit gap marker before COMMIT, never rolls the
 disablement back, and on a gap makes one bounded independent `revocation.unaudited` attempt; the receipt says `gap` with
 `independent=recorded|failed|not_attempted`, and earlier gaps survive reruns. `reopen` blocks on a missing ledger or
 attestation, a chain or mark failure, a stale ledger, an attestation that does not cover the head, `last-sync` without an
@@ -236,7 +264,10 @@ WHERE a.usename LIKE '%\_retention' AND l.locktype = 'relation' AND l.granted;
 Recovery: terminate those backends (`pg_terminate_backend`) and rotate or withdraw the retention value (SECURITY.md
 section 6).
 
-Tombstone purge additionally skips `not_preserved` (no `object.delete` ledger entry), `bytes_present` (repair by an
+Account-avatar tombstone rows are not purged: `retention objects` reads only
+`app.stored_objects` within an Organization scope and the retention login has no grant on the global
+`app.account_avatars` (a deferred metadata-only follow-up; physical bytes are bounded and withdrawn
+instead). Tombstone purge additionally skips `not_preserved` (no `object.delete` ledger entry), `bytes_present` (repair by an
 authorized repeat delete) and `provider_unavailable` (also when the source MinIO is stopped); it needs an Organization
 scope. Pending and deleting rows are
 never selected: pending age never proves an upload inert. They are reported by `status` and repaired only through the
@@ -280,9 +311,66 @@ One JSON line per check (`time`, `check`, `status`, closed `reason`, optional ba
 value or row content) and a summary. Checks: `policy` (`ok`, `unknown`), `backup.latest` (`ok`, `missing`, `stale`),
 `backup.integrity` (`ok`, `failed`, `unknown`), `backup.fence` (`ok`, `held`), `restore.last` and `replay.last` (`ok`,
 `failed`, `partial`, `none`; `replay.last` also `gap` until a reopen sign-off covers it), `maintenance.last` and, with
-`--env-file`, `maintenance.pending_review` (`ok`, `pending`: counts only). `none` (never run) is healthy. Exit 0 only
+`--env-file`, `maintenance.pending_review` (`ok`, `pending`: counts only; the reason lists
+`deleting=N,pending_old=N,tombstones_unpreserved=N,avatar_deleting=N,avatar_pending_old=N,avatar_tombstones_unpreserved=N`,
+the three avatar counts being `account_avatars` rows in `deleting`, `pending` rows older than
+`pending_review_after_s`, and withdrawn published avatar tombstones without an `avatar.delete` ledger entry; `ok
+none_pending` requires all six to be 0). `none` (never run) is healthy. Exit 0 only
 when every check is `ok` or `none`; 1 otherwise; 2 for invalid input. `--sink` appends the same lines to a mode-0600
 local file: the deterministic local alert destination. No metrics stack, daemon, pager or notification account.
+
+## Global account profiles and avatars
+
+The two account-profile tables (`app.account_profiles`, `app.account_avatars`) are fingerprinted, dumped and restored by
+discovery like every `app` table, and `avatars/` objects are listed, archived and restored with the bucket; the tool
+changes are the version-2 manifest owner field, the restore binding, the `avatar.delete` sync/replay branch and the
+status counts above (`infra/recovery/{recovery.sh,lib.sh}`,
+`sql/{ledger-sync,status-counts,replay-avatar-start,replay-avatar-finish}.sql`). Backup sets, quarantine, fence,
+administrator window, invalidation and retention are otherwise unchanged; the fence disables the same scoped service
+user that writes avatars. Replay runs as the cluster superuser in the user's context, the `object.delete` pattern (a
+security-relevant path).
+
+**Actual restore residuals:** (1) a post-checkpoint **upload** (a new current avatar) is lost like every other
+post-checkpoint row; the user re-uploads after reopen. (2) A post-checkpoint **name edit** is lost the same way
+(ordinary checkpoint data, no replay kind by design). (3) A withdrawal committed after the **last `ledger sync`** before
+the source became unreachable is not in the ledger (the attestation boundary: `last-sync` needs an owner risk
+reference), as for `object.delete`. (4) A viewer's private browser cache may show a previously fetched avatar for at
+most 300 s (`Cache-Control: private, max-age=300`) on a restored target as on the source. (5) Avatar tombstone rows are
+not purged (metadata only: identifiers, size, digest). Not claimed: a production backup qualification or any
+avatar-specific RPO.
+
+### Held marked avatar upload: operator procedure
+
+Applies only when a user's avatar replacement stays refused (`avatar_upload_in_progress`, `avatar_cleanup_pending` or
+`compensation_failed`) and a marked pending/deleting `account_avatars` row (`upload_started_at` set) is never settled by
+the user's next Set. The rules are in [OBJECT-STORAGE.md](OBJECT-STORAGE.md#marker-and-unknown-outcome-rules).
+The user's name and current avatar reads are not affected by the hold. **This is not a database edit:** do not clear the
+marker, change the state or tombstone the row merely to restore availability, and do not rely on an elapsed lease, a
+timeout, an absent Head or stopping the application as proof. No automatic timer, service or endpoint performs this.
+
+1. **Identify privately.** The exact subject, the avatar row id and `storage_key` (`avatars/<user>/<avatar>`), its state,
+   `created_at` and `upload_started_at`, and the user's current reference (`avatar_object_id`). Record them in the private
+   incident evidence only (redacted to the tool's sanitized lines); preserve the failure evidence (the user's `compensation_failed`
+   or HOLD diagnostics, `storage` records) and every unrelated or current row and object. `status` reports the
+   `avatar_pending_old` and `avatar_deleting` counts.
+2. **Try normal settlement first.** Have the user attempt another avatar operation once the provider is healthy; a positive Head of the single committed object lets the sweep
+   delete it, confirm absence and tombstone. Retrying is not guaranteed to fix a row whose object is never observed.
+3. **Establish a definitive basis, or observe the object.** Either observe the single committed object at the exact key
+   and let normal exact-key settlement run, or establish that the issued Put cannot still complete: fence the relevant
+   writers (`fence` disables the scoped service user that writes avatars) **and** establish remote-request quiescence at the
+   provider (for example the provider's own request evidence or its documented in-flight request bound). Stopping core,
+   a local timeout or an absent Head does not establish this.
+4. **Only then, guarded exact cleanup.** Operate on the exact row and key only: delete the exact key if present, verify
+   its absence at the provider, and release the allocation only after that verification, keeping traceable operational
+   evidence (who, when, which row/key, what basis). The row change is a single exact-row update by the platform operator
+   in the owning user's context under the same guard (pending → `deleting` → `deleted` only through the guard's allowed
+   moves, never a blanket or marker-only update); no tool, schema, role or IAM scope is added for it.
+5. **If completion or quiescence cannot be established, keep the hold and escalate** to the platform operator as incident
+   owner. Availability of replacement uploads for that one user is traded for storage safety: a late commit behind a
+   released row would leave an unaccounted object.
+
+No executable repair tool exists for this case; if the guarded release in step 4 turns out not to be operable with the
+existing path without new executable tooling, schema or a provider contract, report that gap rather than improvising SQL.
 
 ## Legacy ownerless records
 

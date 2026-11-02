@@ -73,15 +73,17 @@ producer.
 | T43 | `label.deleted` | trigger: app.label_definitions DELETE | success; no reason | label (the definition id) · Organization, Group = the owning Group of a Group-owned definition |
 | T44 | `label.assigned` | trigger: app.label_assignments INSERT | success; no reason; never the target type or a non-Group target id | label (the definition id) · Organization, Group = the target Group (required) |
 | T45 | `label.unassigned` | trigger: app.label_assignments DELETE, including the assignments removed by a definition deletion | success; no reason | label (the definition id) · Organization, Group = the target Group (required) |
+| T46 | `profile.updated` | trigger: app.account_profiles INSERT or UPDATE OF name, avatar_object_id, one event per changed aspect; a no-op writes nothing | success · `name_changed` (set, change or clear), `avatar_set`, `avatar_removed`; never the name, digest, object id or key | account_profile (the user's id) · global · subject = the user; actor = the context user (the shape requires actor = subject) |
+| T47 | `group_member_profile.updated` | trigger: app.group_member_profiles INSERT with a label or UPDATE OF role_label that changes the value (set, replace or clear); a no-op writes nothing; no DELETE capture | success · `role_label_changed`; never the label | group_member_profile (the membership binding id) · Organization (the context Organization), Group (required) · subject = the member; actor = the context user (the member itself or a Group owner/admin) |
 | G1 | `auth.sign_in` | core: success in sign-in's transaction; denied/failed independently after the one-use login transaction was consumed | success · `signed_in`, `session_rotated`; denied · `transaction_expired`, `login_canceled`, `code_rejected`, `impersonation_refused`, `mfa_unverified`, `stale_authentication`, `identity_conflict`, `user_disabled`; failed · `provider_error`, `provider_timeout`, `identity_namespace_mismatch`, `identity_unavailable`; success · `signup_authenticated` (root signup callback), `tenant_created` (pinned tenant callback); denied · `signup_origin_rejected`, `signup_user_mismatch` | global · subject when verified |
-| G2 | `access.denied` | core: independently, after the denied transaction | denied · `organization_not_permitted`, `group_not_selectable`, `target_not_found`, `target_kind_mismatch`, `target_outside_context`, `role_not_permitted`, `no_linked_path`, `edit_policy_disabled`, `not_creator`, `object_not_ready`, `capability_unknown`, `fact_inconsistent`, `resource_mismatch` (only with `mcp.request`, global, no target), `enrollment_closed`, `enrollment_restricted`, `approval_revoked`, `invitation_mismatch`, `recipient_ineligible`, `session_invalid`, `host_changed` (only with an `enrollment.*` operation, global, no target), `signup_invalid`, `intent_used`, `slug_taken`, `continuation_invalid`, `signup_context_mismatch` and `host_changed` (only with a `signup.*` operation, global, no target); one of the 80 operations below | target only when established (forbidden); Organization only when established, else global |
+| G2 | `access.denied` | core: independently, after the denied transaction | denied · `organization_not_permitted`, `group_not_selectable`, `target_not_found`, `target_kind_mismatch`, `target_outside_context`, `role_not_permitted`, `no_linked_path`, `edit_policy_disabled`, `not_creator`, `object_not_ready`, `capability_unknown`, `fact_inconsistent`, `resource_mismatch` (only with `mcp.request`, global, no target), `enrollment_closed`, `enrollment_restricted`, `approval_revoked`, `invitation_mismatch`, `recipient_ineligible`, `session_invalid`, `host_changed` (only with an `enrollment.*` operation, global, no target), `signup_invalid`, `intent_used`, `slug_taken`, `continuation_invalid`, `signup_context_mismatch` and `host_changed` (only with a `signup.*` operation, global, no target); one of the 87 operations below | target only when established (forbidden); Organization only when established, else global |
 | G3 | `object.url_issued` | core: audit transaction after the offline presign, before the URL is returned | success · TTL | stored_object · Organization, Group? |
 | G4 | `object.upload_failed` | core: independently, after a post-T1 failure and its compensation attempt | failed/unknown · `compensated`, `compensation_failed`, `not_compensated` | stored_object · Organization, Group? (none after a later policy denial) |
 | G5 | `object.deletion_pending` | core: independently, when physical removal or the tombstone is unconfirmed | failed/unknown · `provider_unavailable`, `tombstone_failed`, `tombstone_unknown` | stored_object · Organization, Group? |
 | G6 | `revocation.unaudited` | core (identity): only after a revocation committed with its gap marker set | success · `logout`, `logout_all`, `provider_logout`, `disabled` | session (`logout`, `provider_logout`) or user (`logout_all`, `disabled`) · global · subject |
 | G7 | `access.override_used` | core: in the mutating transaction before COMMIT, only when the explicit Group path denies and the Organization override allows an ordinary Group administration write; an append failure refuses the write | success; no reason; the operation (Group rename/slug, onboarding completion, member role change or removal, invitation issue or revoke, profile update) | group (Group id as resource and scope) or business_profile (Group only for an existing-profile completion) · Organization · actor (Organization owner or admin) |
 
-The 80 operations of `access.denied`: `access.resolve`, `organization.get`, `organization.get_policy`,
+The 87 operations of `access.denied`: `access.resolve`, `organization.get`, `organization.get_policy`,
 `organization.set_policy`, `group.get`, `group.rename`, `group.change_slug`, `business_profile.get`,
 `business_profile.update`, `object.put`, `object.get`, `object.metadata`, `object.sign`, `object.delete`, `audit.read`,
 `mcp.request`, every protected MCP call, `domain.list`, `domain.claim`, `domain.rotate`,
@@ -97,7 +99,47 @@ The 80 operations of `access.denied`: `access.resolve`, `organization.get`, `org
 `enrollment.requests.decide` and `enrollment.requests.revoke`, and `organization.set_group_override`, and
 `signup.start`, `signup.status`, `signup.slug`, `signup.create`, `signup.challenge`, `signup.prove`, `signup.complete`
 and `signup.abandon`, and `label.definition.list`, `label.definition.create`, `label.definition.update`,
-`label.definition.delete`, `label.assignment.list`, `label.assign` and `label.unassign`.
+`label.definition.delete`, `label.assignment.list`, `label.assign` and `label.unassign`, and `profile.get`,
+`profile.update`, `profile.avatar.get`, `profile.avatar.set` and `profile.avatar.remove`, and
+`profile.groups.list` and `profile.group_label.update`.
+
+**Group member profiles ([TENANCY.md](TENANCY.md#group-member-profiles)).** Migration 00024 adds one
+trigger-owned action, T47 `group_member_profile.updated` (47 trigger and 7 core actions, 54 in all, in the SQL catalog
+constraints), captured by the trigger `audit_capture_group_member_profiles` (`AFTER INSERT OR UPDATE OF role_label ON
+app.group_member_profiles`) through the owner-owned invoker function `audit.capture_group_member_profiles`; the reason
+`role_label_changed` (84 → 85, only on this action), the two operations above (85 → 87) and the resource type
+`group_member_profile` (13 → 14). The event names the context Organization and the member's Group, the membership
+binding id as resource, the member as subject and the context user as actor: a self edit records actor = subject, an
+edit by a Group owner or admin records that editor. The replaced `audit.events_attribute` admits it as trigger-owned
+only in that shape (`success`, Organization required and equal to the context Organization, Group, resource id and
+subject required, a user actor, reason `role_label_changed`, no role, operation or TTL), so a core `Append` of it is
+refused. One event per changed label (a set, a replace or a clear); an identical edit writes no statement and no event,
+and an INSERT without a label records nothing (the facade never issues one). An audit fault rolls the write back.
+Never the label text. **Cascade removal is not a label event:** when a Group membership binding is deleted (member
+removal, Leave, the Organization-departure cascade, retirement), the label row goes with it through the foreign key's
+`ON DELETE CASCADE` and there is no DELETE capture; the membership's own T9 `membership.removed` is the only record of
+that removal. Denials of the two operations follow the recordable-denial rule (`group_member_profile` is not an
+`access.denied` resource type); a read of an invisible subject is `not_found` with no target, never `forbidden`. The
+down migration refuses while any label row or any group member profile action, operation, reason or resource is
+recorded.
+
+**Account profiles ([IDENTITY.md](IDENTITY.md#global-account-profiles)).** Migration 00023 adds one
+trigger-owned action, T46 `profile.updated` (46 trigger and 7 core actions, 53 in all), captured by the strict trigger
+`audit_capture_account_profiles` (`AFTER INSERT OR UPDATE OF name, avatar_object_id ON app.account_profiles`) through
+the owner-owned invoker function `audit.capture_account_profiles`; the reasons 81 → 84 (`name_changed`, `avatar_set`,
+`avatar_removed`, only on `profile.updated`), the five `profile.*` operations above (80 → 85) and the resource type
+`account_profile` (12 → 13). The event is **global**: no Organization or Group, the user as resource and subject, and
+the context user as actor; the replaced `audit.events_attribute` admits it as trigger-owned only in that shape (actor =
+subject, `success`, no role, operation or TTL), so a core `Append` of it is refused. One event per changed aspect (a
+name set, change or clear is one `name_changed`; a new or replaced current avatar `avatar_set`; a cleared reference
+`avatar_removed`); an identical edit and an INSERT of an empty row record nothing; an audit fault rolls the write back.
+Never the name, the image, its digest, the object id or the storage key. `account_avatars` lifecycle transitions
+are not audited (the audited fact is the reference change; the operational `profile.storage` record names stages and
+outcomes). Denials of the five operations follow the recordable-denial rule with no target (`account_profile` is not an
+`access.denied` resource type); a read of an invisible profile is `not_found`, never `forbidden`. A recovery replay of a
+withdrawn avatar ([RECOVERY.md](RECOVERY.md)) records `avatar_removed` with the user as actor, as an `object.delete`
+replay records `object.delete_started` for its deleter. The down migration refuses while any profile row or any
+profile action, operation, reason or resource is recorded. Global rows stay unreadable to every tenant owner.
 
 **Labels ([TENANCY.md](TENANCY.md#labels)).** Migration 00020 adds the five trigger-owned actions T41–T45
 (45 trigger and 7 core actions, 52 in all), captured by the strict triggers `audit_capture_label_definitions`

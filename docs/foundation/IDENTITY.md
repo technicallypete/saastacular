@@ -57,7 +57,7 @@ Re-binding needs a separately reviewed migration; none is provided.
 | `GET /auth/callback` | 303 `<return path>?status=signed_in` or `session_rotated` (session cookie set); 303 `/account?status=already_signed_in` or `identity_conflict`; 303 `/sign-in?status=canceled\|expired\|stale\|unavailable\|failed`; 400 for an ambiguous query. |
 | `POST /auth/logout`, `/auth/logout-all`, `/auth/provider-logout` | See sign-out below; 400, 401, 403, 405, 415 and 503 as minimal `no-store` pages. |
 | `GET /auth/logout-return` | The provider sign-out's notification step (below): a minimal `no-store` page with the recorded outcome, clearing the `__Host-logout` cookie in the same response; 503 when the outcome cannot be read; 405 for other methods. It never changes a session. |
-| `GET /api/account` | 200 `{id, display_name, mfa_assurance: "unknown", auth_time, session_expires_at}`; 401 `{"error":"unauthenticated"}` whether or not a provider is configured; 503 `{"error":"unavailable"}` when sessions cannot be resolved. Never carries the CSRF token. |
+| `GET /api/account` | 200 `{id, display_name, mfa_assurance: "unknown", auth_time, session_expires_at}`; 401 `{"error":"unauthenticated"}` whether or not a provider is configured; 503 `{"error":"unavailable"}` when sessions cannot be resolved. Never carries the CSRF token. From version 23 `display_name` is the **presentation name** (below). |
 
 Form routes check, in order: method (405), `application/x-www-form-urlencoded` (415), an `Origin` exactly equal to the
 request's own origin (403), then core checks the session (401 where one is needed) and the CSRF token (403). The
@@ -75,7 +75,9 @@ origin comes from the `Host` header and the cookie profile's scheme. Forwarding 
 
 Mutations accept exactly one `application/json` body of at most 16 KiB (415, then 400). The credential comes only from
 `Authorization: Session <credential>`, and the login binding only from `X-Login-Binding`. Caller-supplied user, role,
-MFA and forwarding headers are ignored. Responses are `no-store` with no CORS headers.
+MFA and forwarding headers are ignored. Responses are `no-store` with no CORS headers. From version 23 the
+session answer's `display_name` is the presentation name ([Global account profiles](#global-account-profiles)); the
+shape is unchanged.
 
 ## Sign-in and continuity
 
@@ -360,6 +362,60 @@ routes.
   for a manual run, apply it with `psql -v issuer=... -v alice=... -v bob=... -v carol=... -v dave=... -v frank=...
   -v hostile=... -v org_a=... -v org_b=... -v org_c=...` (the Organization UUIDs from `infra/identity/mcp-hosts.tsv`).
 
+## Global account profiles
+
+Migration `core/migrations/00023_account_profiles.sql` (version 23) adds one global `app.account_profiles` row per
+canonical user UUID with an optional explicit **name** and the current avatar reference, plus the identity-owned
+`app.account_avatars` metadata whose bytes live in the object store ([OBJECT-STORAGE.md](OBJECT-STORAGE.md#account-avatars)).
+Names are presentation metadata, never identity or permission proof; the canonical user UUID and the provider mapping
+are unchanged.
+
+- **Presentation name** = `coalesce(account_profiles.name, users.display_name)`. E1 (`app.auth_resolve_session`) is
+  replaced in place with a LEFT JOIN, so the shell indicator, `/account`, `/api/account`, `GET /internal/v1/auth/session`
+  and MCP `account.get_current_user` all carry the presentation name in their unchanged `display_name` field (one round
+  trip; result columns, the canonical UUID and every predicate as before). The auth reader gains only SELECT (`user_id`,
+  `name`) on the profile table, never an avatar column.
+- **Provider name and override authority.** Sign-in keeps refreshing `users.display_name` from the provider exactly as
+  before (`identity/store.go` never reads or writes the profile). An explicit name survives later provider renames (the
+  provider value changes only the fallback); clearing the override (`""` from the form, `NULL` stored) returns
+  immediately to the **current** provider name, not to a copy taken earlier (no copy is ever stored). No provider
+  picture is read or synchronized.
+- **Only self edits.** Runtime writes are self-only under forced row-level security (`account_profiles_insert`/
+  `_update`, `account_avatars_*`); there is no runtime DELETE on either table. Optimistic `version`; a stale edit is
+  `version_conflict` (409).
+- **Who may read another profile.** One SECURITY DEFINER predicate, `app.rls_profile_visible(subject)`, evaluated in the
+  session's bound Organization only: self; the current owner or admin of that Organization when the subject holds a
+  binding there; or a current shared Group membership in that Organization. Same-tenant membership alone, foreign
+  tenants, unknown users and revoked relationships all read as `not_found` with identical bodies; a relationship in
+  another Organization exposes nothing on this host. Peers read through the projection `app.rls_account_profile`;
+  `users_select` is not widened. The member tables join the profile under its own policy (an invisible subject shows the
+  provider name and no thumbnail) and the invitation picker shows the effective name only for subjects the predicate
+  admits, never an avatar field ([AUTHORIZATION.md](AUTHORIZATION.md#global-account-profiles)).
+- **Never in a profile DTO:** email, provider issuer or subject, sessions, MFA, `status`/`disabled_at`, other-tenant
+  memberships, `updated_at`, object ids, storage keys, a full digest or any Organization list.
+- **Audit.** `profile.updated` (global; `name_changed`, `avatar_set`, `avatar_removed`; [AUDIT.md](AUDIT.md)).
+- **Delivery and caching.** JSON is `no-store`; avatar images are session-authorized on every fetch with
+  `Cache-Control: private, max-age=300` and a versioned URL, so a viewer's own browser may show a previously fetched
+  avatar for at most 300 s after revocation or removal; no shared cache, CDN or signed URL.
+- **Recovery.** Name overrides are ordinary checkpoint data; avatar withdrawals replay as `avatar.delete`
+  ([RECOVERY.md](RECOVERY.md#global-account-profiles-and-avatars)).
+- **Browser evidence.** `profile-light`/`profile-dark` (`web/tests/browser/profile.spec.ts`, E-PRO-1..6: self edit on
+  host A visible on host B and in the shell, clear back to the seed name, avatar set/replace/remove and refusals, the API
+  privacy matrix, a revoked relationship, the invitation-picker row, forged POSTs; the seed state is restored at the
+  end) run in `identity:browser` below; the projects are registered in `web/playwright.config.ts`.
+
+**Group member profiles.** Migration `00024_group_member_profiles.sql` adds no identity field: the global profile
+above stays the one name and avatar of a person. A **tenant-local** role label lives on each current Group membership
+(`app.group_member_profiles`, [TENANCY.md](TENANCY.md#group-member-profiles)), so the same global identity shows
+different labels in different Organizations and Groups, and a label never follows a person across hosts. The composite
+page `/profiles/<id>` ([WEB-SHELL.md](WEB-SHELL.md#group-member-profiles-page)) shows the account-profile header and the
+cards the viewer may see, behind the same relationship predicate and the same `not_found` identity; the cards are
+decided per subject by `app.rls_group_member_cards` ([AUTHORIZATION.md](AUTHORIZATION.md#guarded-group-member-profile-operations)).
+Labels are presentation metadata, never identity, authority or a login handle; no handle, @mention or staff-record
+field exists. Browser evidence: `web/tests/browser/group-profile.spec.ts` (E-GMP-1..7, S-GMP-A11Y) runs in the existing
+`profile-light`/`profile-dark` projects (their `testMatch` is widened), so the `identity:browser` project list below is
+unchanged.
+
 ## Logs
 
 Core records `auth.login.started`, `auth.callback.completed`, `auth.session.revoked`, `auth.provider.revocation`,
@@ -425,7 +481,8 @@ signing key and seed (`identitysetup`; `infra/identity/emulator-seed.yaml`), the
   the creators come from the emulator API and the seed, no seed user is added) and `labels-light`/`labels-dark`
   (E-LAB-1..6: Organization labels on `/organization/labels`, assignment on a Group page with no label markup for
   Group roles, Group-owned labels on `/groups/<id>/labels` with the member and staff views, immediate narrowing and
-  revocation, forged POSTs, keyboard/axe/reflow; [WEB-SHELL.md](WEB-SHELL.md#labels-pages)). All of them need the seed above (it adds owners for every Organization and Group and a
+  revocation, forged POSTs, keyboard/axe/reflow; [WEB-SHELL.md](WEB-SHELL.md#labels-pages)) and `profile-light`/`profile-dark`
+  (E-PRO-1..6, [Global account profiles](#global-account-profiles)). All of them need the seed above (it adds owners for every Organization and Group and a
   second admin of Organization A, makes B open and C request access, closes A's membership history, makes carol an
   owner and frank an admin of C and leaves dave and bob without a C binding; the emulator adds the account-less grace).
 - **Browser trust.** The browser tests' Chromium trusts exactly the run's leaf key (`--ignore-certificate-errors-spki-list`),
@@ -458,7 +515,7 @@ docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/migra
 
 <!-- identity:browser -->
 ```sh
-docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/browser.yml -f infra/compose/identity.yml --profile browser run --rm --build --no-deps -e IDENTITY_E2E=1 -v identity-run:/identity:ro web-browser npx playwright test --project=identity-light --project=identity-dark --project=domain-platform --project=domain-custom --project=mcp-light --project=mcp-dark --project=onboarding-light --project=onboarding-dark --project=membership-light --project=membership-dark --project=enrollment-light --project=enrollment-dark --project=signup-light --project=signup-dark --project=labels-light --project=labels-dark
+docker compose --env-file .env -f infra/compose/local.yml -f infra/compose/browser.yml -f infra/compose/identity.yml --profile browser run --rm --build --no-deps -e IDENTITY_E2E=1 -v identity-run:/identity:ro web-browser npx playwright test --project=identity-light --project=identity-dark --project=domain-platform --project=domain-custom --project=mcp-light --project=mcp-dark --project=onboarding-light --project=onboarding-dark --project=membership-light --project=membership-dark --project=profile-light --project=profile-dark --project=enrollment-light --project=enrollment-dark --project=signup-light --project=signup-dark --project=labels-light --project=labels-dark
 ```
 
 <!-- identity:stop -->

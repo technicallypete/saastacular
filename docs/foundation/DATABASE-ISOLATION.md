@@ -161,14 +161,17 @@ parsers; R is `rls_org_role()`; MGR means R is `org_owner` or `org_admin`; GR(g)
 |---|---|---|---|
 | `app.rls_org_role()` | policy reader | runtime, owner | the caller's Organization role in a valid context, or NULL |
 | `app.rls_group_role(uuid)` | policy reader | runtime, owner | the caller's own role in that Group (NULL outside the selected Group) |
-| `app.auth_resolve_session(bytea, timestamptz)` (E1) | auth reader | runtime | ≤ 1 live session for an exact credential hash, joined to its active user (browser sessions only from version 10) |
+| `app.auth_resolve_session(bytea, timestamptz)` (E1) | auth reader | runtime | ≤ 1 live session for an exact credential hash, joined to its active user (browser sessions only from version 10); from version 23 `display_name` is the presentation name `coalesce(account_profiles.name, users.display_name)` |
 | `app.auth_principal_subject(text, text)` (E2) | auth reader | runtime | the user mapped to an exact (issuer, subject), or NULL |
 | `app.auth_logout_ref(bytea, timestamptz)` (E3) | auth reader | runtime | ≤ 1 (session, user) for an exact, unreturned, unexpired logout reference |
 | `app.rls_owner_count(text, uuid)` (version 15) | policy reader | runtime, owner | the owner count of a scope the caller can currently see, else 0 |
 | `app.rls_dependent_group_bindings(uuid)` (version 15) | policy reader | runtime, owner | the subject's Group bindings in the context Organization, over every Group (the departure guard) |
 | `app.rls_sole_owner_scopes()` (version 15) | policy reader | runtime, owner | the caller's own sole-owned scopes (retirement eligibility) |
 | `app.rls_own_organizations(uuid, integer)` (version 15) | policy reader | runtime, owner | one keyset page of the caller's own Organizations (trusted retirement) |
-| `app.rls_group_invitation_candidates(uuid, uuid, integer)` (version 15) | policy reader | runtime, owner | one page of current Organization members without a binding in a Group the caller manages |
+| `app.rls_group_invitation_candidates(uuid, uuid, integer)` (version 15) | policy reader | runtime, owner | one page of current Organization members without a binding in a Group the caller manages; from version 23 the name is the effective name only for candidates `app.rls_profile_visible` admits (the provider name otherwise), never an avatar field |
+| `app.rls_profile_visible(uuid)` (version 23) | policy reader | runtime, owner | whether the context user may read the subject's profile: self, the context Organization's current owner/admin when the subject holds a binding there, or a current shared Group membership in that Organization; false without a valid context (reads `role_bindings` only) |
+| `app.rls_account_profile(uuid)` (version 23) | policy reader | runtime, owner | ≤ 1 row (user id, effective name, avatar version, object id, type, size and digest while the referenced avatar is `ready`) when `rls_profile_visible` admits the subject; zero rows otherwise |
+| `app.rls_group_member_cards(uuid)` (version 24) | policy reader | runtime, owner | zero rows unless the context user, Organization and `rls_org_role()` are set and `rls_profile_visible` admits the subject; then ≤ 201 rows (Group id, label, edit hint, version; ordered by Group id) for the subject's current Group membership bindings in the context Organization (the selected Group only, when one is selected) that the caller may see: self, a Group the caller is also a member of, or any of them for a current Organization owner/admin (the override is not read); reads `role_bindings` and `group_member_profiles` only, never `groups` |
 | `app.rls_user_enabled_lock(uuid, text, uuid)` (version 15, VOLATILE) | claim writer | runtime, owner | admission first with the invoker's context, then a share lock on an enabled user (NULL, no lock, when refused) |
 | `app.invitation_claim_group(uuid, bytea)` (version 15, VOLATILE) | claim writer | runtime, owner | the Group consumption outcome for the context subject's own invitation |
 | `app.invitation_claim_organization(uuid, bytea, text, text, text)` (version 15, VOLATILE) | claim writer | owner only | the Organization consumption outcome for verified-address evidence |
@@ -518,3 +521,90 @@ changes (still 89 relations); reader inventories: policy reader 9, claim writer 
 `TestDefaultTenantCatalog` CT-DT-1..3 pins the delta, the body under the runtime role (exact slug, unknown and
 differently cased slug, platform label never a key, nothing written, `42501` for the other helpers) and the down/up
 round trip.
+
+**Version 23 (global account profiles).** Migration `00023_account_profiles.sql`
+([IDENTITY.md](IDENTITY.md#global-account-profiles)) adds two global (no Organization) forced tables,
+`app.account_avatars` (identity-owned avatar object metadata with the generated key `avatars/<user>/<object>` and the
+stored-object four-state lifecycle) and `app.account_profiles` (one row per user: the explicit name, the current avatar
+reference and its version, the optimistic version), with their primary keys and `account_avatars_user_state_idx` (five
+relations, 89 → 94), ENABLE and FORCE row-level security and **nine** policies:
+
+- `account_profiles_select` (`user_id = app.ctx_user()` OR `app.rls_profile_visible(user_id)`), `account_profiles_insert`
+  and `account_profiles_update` (self only), and `account_avatars_select`/`_insert`/`_update` (self only; insert only in
+  `pending`), all `TO` runtime, owner: no cross-user read of avatar rows at all; other viewers reach avatar metadata only
+  through `app.rls_account_profile`.
+- `account_profiles_policy_reader` and `account_avatars_policy_reader` (`TO` policy reader, `USING (true)`, with SELECT
+  of `user_id, name, avatar_object_id, avatar_version` and `id, user_id, state, content_type, byte_size, sha256`), read
+  only inside the definer bodies; `account_profiles_auth_reader` (`TO` auth reader, SELECT `user_id, name` only, no
+  avatar column), read only inside E1.
+
+Runtime grants: SELECT on both tables; INSERT (`user_id, name, avatar_object_id, avatar_version, version, updated_at`)
+and UPDATE (`name, avatar_object_id, avatar_version, version, updated_at`) on profiles; INSERT (`id, user_id, byte_size,
+content_type`) and UPDATE (`state, sha256, upload_started_at`) on avatars; **no DELETE**, TRUNCATE, REFERENCES or TRIGGER, no retention or
+migrator grant, no new role, no BYPASSRLS. Two owner-owned SECURITY INVOKER guards: `account_avatars_guard` (identity
+immutable; only the owning user transitions a row, pending → ready with a digest, pending/ready → deleting, deleting →
+deleted, database-set timestamps, `ready_at` preserved; the one same-state update is the write-ahead `upload_started_at`
+marker of the provider Put, set once while the row is pending and cleared only by the move of a pending row to deleting
+after a Put the provider definitively refused or that was never issued; I-CUR: a row still referenced as a current avatar never becomes
+deleting) and `account_profiles_guard` (user immutable; version +1 per change; `avatar_version` +1 exactly when the
+reference changes; a new reference must name a ready avatar of the same user). The policy reader gains the predicate
+`app.rls_profile_visible` and the projection `app.rls_account_profile` and replaces the body of
+`app.rls_group_invitation_candidates` in place (admission checks and page query verbatim as a subquery; the predicate
+runs at most once per emitted row); the auth reader replaces E1 in place (LEFT JOIN on the profile, `display_name` =
+the effective name, result columns and predicates unchanged). The graph stays acyclic: the predicate reads
+`role_bindings` only. Reader inventories: policy reader **11**, claim writer 7, auth reader 10 (E1 re-fingerprinted),
+provision writer 3. The down (development and test only) refuses while either table holds a row or a profile audit
+action, operation, reason or resource is recorded, then restores the exact version-22 E1, picker and attribution bodies.
+`TestRLSIsolation` (RLS-PROFILE) proves the relationship matrix, the self-only writes and the gated picker as the runtime
+login; `TestProfileCatalog` (B-PROFILE-CATALOG) is the catalog pin of the delta and its rolled-back negatives.
+
+**Version 24 (Group member profiles).** Migration `00024_group_member_profiles.sql`
+([TENANCY.md](TENANCY.md#group-member-profiles)) adds one forced tenant table, `app.group_member_profiles` (one
+optional `role_label` per current Group membership binding: `binding_id` primary key, the denormalized
+`organization_id`, `group_id`, `user_id`, the optimistic `version`, `updated_at`), with its primary key and the unique
+key `group_member_profiles_one_per_membership (organization_id, user_id, group_id)` (three relations, 94 → 97), ENABLE
+and FORCE row-level security and **four** policies. Let S be `organization_id = O AND R IS NOT NULL AND (G IS NULL OR
+group_id = G)` (a current Organization role is required on every path, and a selected Group narrows every path to
+itself):
+
+- `group_member_profiles_select` (`TO` runtime, owner): S AND (`user_id = U` OR GR(`group_id`) is `group_owner`/
+  `group_admin`) — the two writer paths only; every other viewer reads cards through `app.rls_group_member_cards`.
+- `group_member_profiles_insert` (WITH CHECK) and `group_member_profiles_update` (USING and WITH CHECK) (`TO` runtime,
+  owner): S AND ((`user_id = U` AND GR(`group_id`) IS NOT NULL) OR (`user_id <> U` AND GR(`group_id`) is
+  `group_owner`/`group_admin`)). The member writes its own row while it holds any role in that Group; another member's
+  row only for an actual owner or admin of that exact Group. No branch reads MGR or the Group-management override, so
+  an Organization owner or admin without the Group role is refused by the policy (a raw write meets 42501 with zero
+  rows, even where the guard's binding check would pass); `rls_group_role` is NULL outside a selected Group, so a
+  selected context narrows writes at the database too.
+- `group_member_profiles_policy_reader` (`TO` policy reader, `USING (true)`, with SELECT of `binding_id,
+  organization_id, group_id, user_id, role_label, version`), read only inside the projection body.
+
+Runtime grants: SELECT; INSERT (`binding_id, organization_id, group_id, user_id, role_label, version, updated_at`);
+UPDATE (`role_label, version, updated_at`); **no DELETE**, TRUNCATE, REFERENCES or TRIGGER, no retention or migrator
+grant, no new role, no BYPASSRLS. The **first membership-keyed cascade**: `group_member_profiles_binding_fkey
+(binding_id) → app.role_bindings (id) ON DELETE CASCADE` (the Organization, `(organization_id, group_id)` Group and user
+keys are RESTRICT, and the postcondition pins `group_member_profiles` as the only table cascading from `role_bindings`).
+Every binding DELETE (member removal, Leave, the Organization-departure cascade inside the authority guard,
+retirement) therefore removes the label row as a referential action run as the table owner, outside row-level
+security, with no runtime DELETE grant; a readmission is a new binding id and starts without a label. The owner-owned
+SECURITY INVOKER guard `group_member_profiles_guard` (BEFORE INSERT OR UPDATE) checks, **under the writer's own
+row-level security**, that an inserted row names a current Group membership binding (`scope_type = 'group'`, `source =
+'membership'`) with the row's Organization, Group and user, at version 1 (`group_member_profiles_binding` or
+`group_member_profiles_guard` otherwise); an update keeps the binding, Organization, Group and user, advances `version` by
+exactly one and changes the label; `updated_at` is set by the guard. The defensive CHECK
+`group_member_profiles_label_valid` admits NULL or 1–100 code points equal to the trimmed form with no C0/DEL/C1
+control and no U+2028/U+2029 (core's validation is authoritative). The capture is in [AUDIT.md](AUDIT.md).
+
+The policy reader gains the projection `app.rls_group_member_cards(uuid)` (readers table above): it returns the Group id,
+the label, an edit hint (`p_subject = U` or the caller's own owner/admin role in that Group) and the label version (0
+without a row), joining the label row on `(organization_id, user_id, group_id)` of the subject's current binding, and
+emits at most 201 rows (the 201st only as the facade's overflow signal). It holds no SELECT on `groups.name` or
+`role_bindings.id`: the Group name is joined by the caller under its own `groups_select` policy in the same transaction
+([AUTHORIZATION.md](AUTHORIZATION.md#guarded-group-member-profile-operations)). The graph stays acyclic: the
+projection and the policies call only `rls_profile_visible`, `rls_group_role`, `rls_org_role` and the parsers (which
+read `role_bindings` only), and the postcondition verifies that no policy of another table reads the new table. Reader
+inventories: policy reader **12**, claim writer 7, auth reader 10, provision writer 3. The down (development and test
+only) refuses while the table holds a row or a group member profile audit action, operation, reason or resource is
+recorded, then restores the exact version-23 attribution body and catalog constraints. `TestRLSIsolation` (RLS-GMP)
+proves the card matrix, the two writer paths, the forged-binding guard refusals and the overflow bound as the runtime
+login.
