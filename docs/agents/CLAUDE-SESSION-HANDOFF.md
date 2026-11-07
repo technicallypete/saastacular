@@ -308,9 +308,12 @@ records the operating rules.
 
 ## Coordinator milestone observer — 2026-10-12 (G053 AC13)
 
-Failure wording (`failed`, `failing`, `failure`) and explicit decision/approval-needed requests qualify for
-notifications alongside existing milestones. Absent/expected/resolved issues are filtered, with separate active
-issues retained. Detection is bounded text matching of coordinator reports, not semantic AI or direct CI polling.
+Failure notices require a valid final `COORDINATOR_STATUS: failed | TASK-ID | SUMMARY` marker.
+Ordinary failed/failing/failure wording does not classify a failure alert. Explicit decision/approval-needed
+requests and the other legacy milestone categories remain detectable. Use `working` during authorized
+repair/reruns, `blocked` when unable to proceed and `review-ready` for completed evidence. Preserve
+actual failed results in logs/Results independently of the notification class. This supersedes the
+older broad failure-prose fallback; native questions and source/echo/deduplication boundaries remain.
 
 The handoff skill's `scripts/watch.py` can notify the owner's existing Codex supervisor thread when the verified
 Claude coordinator reaches a milestone (decision, review-ready, blocked or question, waiting, completed). The standalone
@@ -357,7 +360,7 @@ pipeline. Assign and verify that owner separately under the
 
 ## Explicit coordinator status — 2026-10-13
 
-For ordinary replies to direct owner prompts, omit the `COORDINATOR_STATUS` footer unless the owner explicitly asks for supervisor relay. Exception: an owner decision that changes active work must immediately emit a `decision` footer, including when the same message answers the owner. Do not wait for another turn, worker handback or review-ready commit. Autonomous handoffs and required reviews, failure records and blockers still notify; existing legacy-prose/native-question detection is unchanged.
+For ordinary replies to direct owner prompts, omit the `COORDINATOR_STATUS` footer unless the owner explicitly asks for supervisor relay. Exception: an owner decision that changes active work must immediately emit a `decision` footer, including when the same message answers the owner. Do not wait for another turn, worker handback or review-ready commit. Autonomous handoffs and required reviews, failure records and blockers still notify; failure notices require a valid final `failed` status marker. Other legacy-prose and native-question detection remains unchanged.
 
 For autonomous supervisor handoffs, the coordinator ends with one plain `COORDINATOR_STATUS: CLASS | TASK-ID | SUMMARY`
 line, following the [portable convention](../../.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#coordinator-final-status-line).

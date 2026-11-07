@@ -111,7 +111,7 @@ closed start gates; final predecessor ACCEPT still gates successor integration/
 final acceptance. Plan existence, merge or CI alone is not release. Material Plan
 corrections stay Claude-owned and require review; specific holds remain.
 
-For ordinary replies to direct owner prompts, omit the `COORDINATOR_STATUS` footer unless the owner explicitly asks for supervisor relay. Exception: an owner decision that changes active work must immediately emit a `decision` footer, including when the same message answers the owner. Do not wait for another turn, worker handback or review-ready commit. Autonomous handoffs and required reviews, failure records and blockers still notify; existing legacy-prose/native-question detection is unchanged.
+For ordinary replies to direct owner prompts, omit the `COORDINATOR_STATUS` footer unless the owner explicitly asks for supervisor relay. Exception: an owner decision that changes active work must immediately emit a `decision` footer, including when the same message answers the owner. Do not wait for another turn, worker handback or review-ready commit. Autonomous handoffs and required reviews, failure records and blockers still notify; failure notices require a valid final `failed` status marker. Other legacy-prose and native-question detection remains unchanged.
 
 For autonomous supervisor handoffs, the coordinator finishes with one plain final line:
 `COORDINATOR_STATUS: working | TASK-ID | Brief current status.`
