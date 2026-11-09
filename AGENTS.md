@@ -98,7 +98,7 @@ Owner direction, 2026-10-19 UTC: the owner may choose Claude Code as supervisor.
 
 ## Canonical sources
 
-Before planning, implementing, or reviewing, read:
+Default preparer/initial whole-task route (bounded consumers may use the explicit packet route below): read:
 
 - AGENTS.md and CLAUDE.md
 - docs/ARCHITECTURE.md (not shipped; until the project adds one, the README's "Architecture at a glance" and docs/foundation/ serve as the architecture reference)
@@ -110,6 +110,20 @@ Before planning, implementing, or reviewing, read:
 For a specific goal, also read its Goal, Work Spec, Plan, and Result when present. `docs/ARCHITECTURE.md` is authoritative over historical discussion. Conflicts with architecture or accepted ADRs require escalation, not silent resolution by either agent.
 
 Preserve the roadmap's foundation barrier: no product-specific feature implementation until the reusable archetype and core foundation are accepted through G021. Approval of an individual goal does not waive that barrier.
+
+## Private task-context reading route — owner, 2026-11-09
+
+The preparer and initial whole-task assessor read the canonical inputs above.
+After completeness is checked in the existing Plan/dispatch/review, a bounded
+worker/reviewer may use root/service instructions plus verified role/phase packet
+extracts instead of repeated whole-book architecture/security/management reads.
+Follow the [packet procedure](.agents/skills/restruct-sdlc/sdlc-management/references/task-context-packets.md).
+Current owner holds, source freshness, required skills and all authority/security/
+phase gates remain mandatory. Missing/stale/unclear inputs require owning-source
+reads; full-task acceptance retains its canonical inputs. Generated packets stay
+in ignored private task evidence, never in Specs or a new committed management
+layer. Adopt at a safe boundary; no held task is released and no running batch's
+frozen inputs are rebound. This exception changes reading, not canonical authority.
 
 ## Service working directories and scoped skills
 

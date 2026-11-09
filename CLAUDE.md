@@ -53,7 +53,14 @@ Routine acceptance and cleanup closeout records use the supervisor's direct publ
 
 ## Required reading and artifacts
 
-Before planning or implementation, read AGENTS.md, CLAUDE.md, docs/ARCHITECTURE.md (not shipped; until the project adds one, use the README's architecture section and docs/foundation/), docs/SECURITY.md, docs/DECISIONS.md, relevant accepted ADRs, management/v0/ROADMAP.md, and management/v0/PROGRESS.md. Then read the active goal's Goal, Spec, Plan, and Result when present.
+Default preparer/initial task-wide route: before planning or implementation, read AGENTS.md, CLAUDE.md, docs/ARCHITECTURE.md (not shipped; until the project adds one, use the README's architecture section and docs/foundation/), docs/SECURITY.md, docs/DECISIONS.md, relevant accepted ADRs, management/v0/ROADMAP.md, and management/v0/PROGRESS.md. Then read the active goal's Goal, Spec, Plan, and Result when present.
+
+For bounded workers/focused reviewers and later context refreshes, use the
+[explicit packet route](AGENTS.md#private-task-context-reading-route--owner-2026-11-09)
+after verified preparation. Read root/service instructions and current authority;
+missing/stale/insufficient packet inputs fall back to canonical sources. Packets
+are private evidence, not Spec appendices. Full-task acceptance is not delegated
+to a worker summary; no owner hold or native requirement is waived.
 
 Use `management/v0/{goals,specs,plans,results}/` with the stable goal ID and descriptive stem, for example `plans/G000-project-archetype-plan.md` and `results/G000-project-archetype-result.md`. Preserve prior artifacts and review history. Do not mark yourself accepted or modify Codex-owned Goal/Spec/roadmap/progress to authorize work.
 

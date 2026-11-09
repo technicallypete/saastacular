@@ -77,3 +77,15 @@ tree and the explicit Restruct gitlink, rather than stale export file lists.
 
 No application test or CI change is needed to remove Restruct. Delete
 `.codex/config.toml` too if its model defaults are unwanted.
+
+## Private task context
+
+For bounded workers and focused reviewers, the explicitly adopted route in
+[AGENTS.md](../AGENTS.md#private-task-context-reading-route--owner-2026-11-09)
+permits verified role/phase extracts prepared once from canonical sources. The
+[Restruct procedure](../.agents/skills/restruct-sdlc/sdlc-management/references/task-context-packets.md)
+and linked template are committed; generated packets stay in ignored private task
+evidence, never appended to Specs. Source freshness, current owner holds and native
+instructions remain mandatory. Missing/incomplete packets fall back to canonical
+reads; the coordinator's initial full-task assessment and acceptance inputs remain.
+This procedure adds no application dependency, service or automatic agent dispatch.
