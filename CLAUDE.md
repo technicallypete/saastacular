@@ -770,3 +770,15 @@ native refusals, requiring bounded supervisor recovery. No automatic restart,
 replacement or latch reset. Follow [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md).
 Hook output/configuration must be verified; offline proof alone is not live loading.
 Preserve running tests/source and all native permission boundaries.
+
+
+Reviewed progress-hold recovery must leave a usable bounded window: clearing only
+held at counter40 immediately re-latches on a necessary read. After resolving the
+concrete obstacle, the supervisor may authorize at most eight calls to the next
+meaningful artifact (counter32 for an eight-call window), preserving the full
+before-state/history and seen/written IDs with exact source/worker/authority and
+before/after hashes under the existing lock/atomic write. Targeted file/startup
+reads may precede the edit; do not require an impossible first-tool Edit. The
+normal40-call guard stays active; no automatic reset/repeated allowance, empty
+placeholder, Goal-budget reset, native-refusal override or settings/hook change.
+Follow token-controls.md's reviewed recovery procedure at a stopped boundary.
