@@ -1668,6 +1668,18 @@ Running sessions must verify loading at a safe boundary; do not reset them blind
 
 ## Worker progress is event-driven — owner, 2026-11-13
 
+Before writing dispatch, resolve concrete fixture/contract dependencies and bind
+one objective, source, role/phase, exact writable files and named expected cases
+in the existing private dispatch record. Use the Restruct
+`sdlc-management/scripts/check_delivery.py` checker before release and with actual
+committed source/assertion/outcome evidence before checkpoint PASS. Failed, missing,
+unrun or unproven required cases remain incomplete. The coordinator checks actual
+assertions/outcomes; Codex checks the case list against canonical requirements and
+reviews semantics. Checker exit0 is not acceptance. Use the existing bounded
+root-cause checkpoint for repeated corrections; preserve native boundaries,
+independent review, budgets, owner holds and no-polling enforcement. Keep an active
+worker's hook bytes/binding frozen; deploy identity changes at its terminal handback.
+
 No timer/status polling. Native worker hooks stop read/tool churn at40 calls without
 an observed artifact, latch compaction-without-artifact and native refusals, and
 require bounded supervisor recovery. No automatic restart, replacement or latch

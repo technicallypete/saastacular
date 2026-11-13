@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -63,6 +64,36 @@ def decision(state, event):
 def worker_event(event):
     return bool(event.get("agent_id")) or "/subagents/" in event.get("transcript_path", "").replace("\\", "/")
 
+def worker_transcript(event):
+    """Resolve native parent-path callbacks to the actual worker, never a shared budget."""
+    supplied = Path(event["transcript_path"])
+    ident = event.get("agent_id")
+    if ident is None and supplied.parent.name == "subagents":
+        ident = supplied.stem.removeprefix("agent-")
+    if not isinstance(ident, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", ident):
+        raise ValueError("worker identity is unverified")
+    if supplied.parent.name == "subagents":
+        if supplied.stem != "agent-" + ident or supplied.parent.parent.name != event["session_id"]:
+            raise ValueError("worker transcript and native identity differ")
+        transcript = supplied
+    else:
+        if supplied.stem != event["session_id"] or supplied.suffix != ".jsonl":
+            raise ValueError("parent transcript identity differs")
+        if not supplied.is_file() or supplied.is_symlink():
+            raise ValueError("parent transcript is unavailable or symlinked")
+        transcript = supplied.parent / event["session_id"] / "subagents" / ("agent-" + ident + ".jsonl")
+    # Both native callback shapes must preserve an old shared hold or interrupted init.
+    legacy = transcript.parent.parent.with_suffix(".restruct-progress.json")
+    if any(p.exists() or p.is_symlink() for p in (legacy, legacy.with_suffix(".lock"))):
+        raise ValueError("legacy shared state requires reviewed closeout before rebind")
+    if transcript.suffix != ".jsonl" or not transcript.is_file():
+        raise ValueError("actual worker transcript is unavailable")
+    if any(p.is_symlink() for p in (transcript, *transcript.parents)):
+        raise ValueError("worker transcript cannot cross a symlink")
+    if transcript.stat().st_uid != os.getuid() or transcript.parent.stat().st_uid != os.getuid():
+        raise ValueError("worker transcript owner differs")
+    return transcript
+
 def handle(event):
     kind = event.get("hook_event_name")
     if kind not in ("PreToolUse", "PostToolUse", "PostToolBatch", "PostCompact", "PermissionDenied"):
@@ -81,10 +112,7 @@ def handle(event):
         if transcript.stem != event["session_id"]:
             raise ValueError("coordinator identity is unverified")
         return {} # coordinator does not acquire a worker budget
-    if transcript.suffix != ".jsonl" or not transcript.is_file() or transcript.is_symlink():
-        raise ValueError("worker transcript identity is unverified")
-    if transcript.parent.stat().st_uid != os.getuid():
-        raise ValueError("worker transcript owner differs")
+    transcript = worker_transcript(event)
     statepath = transcript.with_suffix(".restruct-progress.json")
     # Stable lock inode, atomic state replacement: interrupted writes cannot reset a latch.
     lockpath = statepath.with_suffix(".lock")
