@@ -705,3 +705,22 @@ underlying failure logs and supplemental JUnit survive temporary cleanup in the
 explicit private evidence directory. Record any withheld/missing detail and keep
 failed and later outcomes distinct; wrapper/phase failures are not underlying test
 IDs. Follow [local evidence retention](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#preserve-local-validation-evidence-before-cleanup).
+
+## Mandatory native context/effort gate — owner, 2026-11-13
+
+Native early auto-compaction is configured in `.claude/settings.json`:200000-token
+window at75 percent (target150k). At200k stop ordinary work for supported compaction
+or safe checkpoint/handoff. Applies to coordinator and every worker/continuation.
+Coordinator verifies first usage, before further correction/continuation dispatch,
+at handback and phase submission; supervisor independently checks at those gates.
+Use [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md)
+and its machine-readable checker. Effective loading/override/context/role-effort
+proof belongs in existing dispatch/Result records. Unknown telemetry is UNVERIFIED;
+a policy sentence or project-file check is not a live enforcement claim.
+
+Preserve legitimate role-specific xhigh/escalation exceptions; verify them against
+the actual role instead of silently inheriting a costly global default. At two
+correction loops on a checkpoint, stop speculative redispatch for a compact
+root-cause/scope-fit check. No duplicate audit workers or unchanged full-suite runs.
+Preserve active tests, unique source, native recovery/permission gates and owner stops.
+Running sessions must verify loading at a safe boundary; do not reset them blindly.
