@@ -1617,7 +1617,7 @@ native checks, test concurrency/build sequencing, scope or validation.
 
 ## Context and coordination economy — owner direction, 2026-10-20
 
-Current checkpoint/handoff defaults are150k/200k active context, superseding300k/350k at the next safe boundary for workers and coordinator/supervisor assessment. Claude and Codex may initiate supported native self-compaction at safe points under standing owner authority. Preserve running batches, exact bindings, children, budgets and smaller native limits. Follow [coordination economy](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#lower-context-thresholds-and-coordination-economy--owner-direction-2026-10-20): directly review routine prose/mechanical changes, reserve delegation for meaningful independent work and required substantive reviews, batch searches/edits/handoffs, read deltas and suppress unchanged polls/acknowledgments. No full-history fork, duplicate worker, test rerun or automatic replacement merely for a checkpoint; no weakening of security/source/validation gates.
+Current checkpoint/handoff defaults are200k/250k active context, superseding300k/350k at the next safe boundary for workers and coordinator/supervisor assessment. Claude and Codex may initiate supported native self-compaction at safe points under standing owner authority. Preserve running batches, exact bindings, children, budgets and smaller native limits. Follow [coordination economy](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#lower-context-thresholds-and-coordination-economy--owner-direction-2026-10-20): directly review routine prose/mechanical changes, reserve delegation for meaningful independent work and required substantive reviews, batch searches/edits/handoffs, read deltas and suppress unchanged polls/acknowledgments. No full-history fork, duplicate worker, test rerun or automatic replacement merely for a checkpoint; no weakening of security/source/validation gates.
 
 
 Owner amendment,2026-10-20: [safe self-compaction](.agents/skills/restruct-sdlc/sdlc-management/references/coordination.md#authorized-self-compaction-at-safe-points--owner-amendment-2026-10-20) is authorized for Claude/Codex without a repeat prompt where native tools support it; supersedes the prior owner-only policy. Save current state first, preserve active work, and verify native completion. An operator-only interface remains a capability limitation, not a reason to fabricate input or replace sessions.
@@ -1649,8 +1649,12 @@ IDs. Follow [local evidence retention](.agents/skills/restruct-sdlc/sdlc-managem
 
 ## Mandatory native context/effort gate — owner, 2026-11-13
 
-Native early auto-compaction is configured in `.claude/settings.json`:200000-token
-window at75 percent (target150k). At200k stop ordinary work for supported compaction
+Owner correction:200k checkpoint and250k ceiling supersede all older150k/200k
+thresholds in this live guidance. Apply through supported loading at a safe boundary;
+no active batch restart or permission change.
+
+Native early auto-compaction is configured in `.claude/settings.json`:250000-token
+window at80 percent (target200k). At250k stop ordinary work for supported compaction
 or safe checkpoint/handoff. Applies to coordinator and every worker/continuation.
 Coordinator verifies first usage, before further correction/continuation dispatch,
 at handback and phase submission; supervisor independently checks at those gates.
