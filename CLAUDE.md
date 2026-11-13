@@ -724,3 +724,12 @@ correction loops on a checkpoint, stop speculative redispatch for a compact
 root-cause/scope-fit check. No duplicate audit workers or unchanged full-suite runs.
 Preserve active tests, unique source, native recovery/permission gates and owner stops.
 Running sessions must verify loading at a safe boundary; do not reset them blindly.
+
+## Worker progress is event-driven — owner, 2026-11-13
+
+No timer/status polling. Native worker hooks stop read/tool churn at40 calls without
+an observed artifact, latch compaction-without-artifact and native refusals, and
+require bounded supervisor recovery. No automatic restart, replacement or latch
+reset. Follow [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md).
+Hook output/configuration must be verified; offline proof alone is not live loading.
+Preserve running tests/source and all native permission boundaries.
