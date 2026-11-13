@@ -1691,6 +1691,16 @@ root-cause checkpoint for repeated corrections; preserve native boundaries,
 independent review, budgets, owner holds and no-polling enforcement. Keep an active
 worker's hook bytes/binding frozen; deploy identity changes at its terminal handback.
 
+Implementation/correction continuations name one behavior/test case, its first
+meaningful artifact and verified facts/anchor. On a second no-artifact checkpoint
+for the same objective/cause, review and change strategy before another recovery:
+smaller artifact, precise missing fact resolved inline, or reviewed fresh worker
+with preserved source and exclusive ownership. Repeating an equivalent brief and
+clearing the latch is insufficient. Before phase submission, reconcile the full
+required behavior/code/assertion/outcome checklist; green subsets are partial.
+Use existing records, no polling or per-subtest approval/commit gates. Preserve
+active work until safe handoff, native recovery and budgets; no automatic rotation.
+
 No timer/status polling. At30 tool calls without an observed artifact, request
 one brief checkpoint: resolved facts, precise blocker and next concrete edit or
 deliverable. A status reply does not reset the counter; the40-call pause remains.
