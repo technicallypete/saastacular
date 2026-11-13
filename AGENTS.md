@@ -1684,9 +1684,13 @@ root-cause checkpoint for repeated corrections; preserve native boundaries,
 independent review, budgets, owner holds and no-polling enforcement. Keep an active
 worker's hook bytes/binding frozen; deploy identity changes at its terminal handback.
 
-No timer/status polling. Native worker hooks stop read/tool churn at40 calls without
-an observed artifact, latch compaction-without-artifact and native refusals, and
-require bounded supervisor recovery. No automatic restart, replacement or latch
-reset. Follow [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md).
+No timer/status polling. At30 tool calls without an observed artifact, request
+one brief checkpoint: resolved facts, precise blocker and next concrete edit or
+deliverable. A status reply does not reset the counter; the40-call pause remains.
+Meaningful planner/reviewer findings or draft artifacts count for their role;
+still-reading reports do not. A justified research outcome needs bounded review,
+not a self-granted extension. Native hooks latch compaction-without-artifact and
+native refusals, requiring bounded supervisor recovery. No automatic restart,
+replacement or latch reset. Follow [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md).
 Hook output/configuration must be verified; offline proof alone is not live loading.
 Preserve running tests/source and all native permission boundaries.
