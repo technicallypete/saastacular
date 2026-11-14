@@ -25,6 +25,11 @@ lane is running or has a concrete dependency, resource, permission, budget or
 owner/phase gate. Preserve failed evidence and all acceptance/security/native
 gates; this rule grants no early dependent-work release or permission workaround.
 
+Before planned compaction, refresh the existing current handoff/native tasks with
+phase/source, pending reviews, running-job notifications and exact blockers.
+After compaction reconcile surviving work once; preserve holds and frozen runs.
+Use the packet procedure's coordinator-continuity section; no new tracker or gate.
+
 ## Delivery flow repair — current operational rules
 
 2026-11-14 [Restruct adoption](docs/agents/WORKFLOW-PARITY-20261114.md).

@@ -46,3 +46,14 @@ already uses this canonical filename and needs no source change. Guard32/32
 passes, exact-copy/settings-normalization checks and whitespace checks pass.
 Active worktree callback bindings require safe-boundary native reconciliation;
 this commit does not verify hot reload or authorize clearing a hold.
+
+## Coordinator continuity through compaction
+
+Restruct1f897c09a401bdce56802860b8838e3d89bebdb4 extends the existing private
+packet/handoff procedure with current phase/authority, controlling errata,
+unfinished action owners, MR/review state and real run-notification references.
+Native tasks/surviving work reconcile once after compaction; source freezes,
+failures, holds and budgets remain. Existing handoffs are reused, with no new
+tracker, hook, recurring writing duty or approval gate. Live guidance adopts
+this route. Independent review and package P1–P7/P3t pass. No model, effort,
+permission, runtime hook or context-threshold change is made.
