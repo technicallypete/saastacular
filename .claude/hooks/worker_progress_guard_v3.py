@@ -9,14 +9,16 @@ import sys
 import tempfile
 
 CHECKPOINT = 30
-LIMIT = 40
+LIMIT = 50
 def native_refusal(response):
     if isinstance(response, list):
         response = "\n".join(x.get("text", "") for x in response if isinstance(x, dict))
     text = str(response).strip().lower()
     if text.startswith("error:"):
         text = text[6:].lstrip()
-    return text.startswith(("stop what you are doing", "the user doesn't want to proceed", "the tool use was rejected", "this agent is isolated in the worktree", "permission denied"))
+    # A fixture/OS error saying "permission denied" is not a native decision.
+    # Native PermissionDenied callbacks remain authoritative independently of text.
+    return text.startswith(("stop what you are doing", "the user doesn't want to proceed", "the tool use was rejected", "this agent is isolated in the worktree"))
 
 def transition(state, event):
     state = dict(state)
@@ -28,8 +30,8 @@ def transition(state, event):
     elif kind == "PostToolUse" and event.get("tool_name") in ("Write", "Edit", "NotebookEdit"):
         state["written_ids"] = (state.get("written_ids", []) + [event.get("tool_use_id")])[-256:]
     elif kind == "PostCompact":
-        if not state.get("artifact_since_compact", False):
-            state["held"] = "compaction without observed artifact: return bounded obstacle/design checkpoint"
+        # Successful native compaction is not a second progress stop. Preserve
+        # cumulative calls, seen IDs and every existing hold across compaction.
         state["artifact_since_compact"] = False
     elif kind == "PostToolBatch" and not state.get("held"):
         seen = state.get("seen", [])
@@ -57,7 +59,7 @@ def transition(state, event):
                 state["checkpoint_requested"] = True
                 state["checkpoint_notice"] = True
             if state["without_artifact"] >= LIMIT:
-                state["held"] = "40 tool calls without observed artifact: return bounded obstacle/design checkpoint"
+                state["held"] = f"{LIMIT} tool calls without observed artifact: return bounded obstacle/design checkpoint"
                 break
         state["seen"] = seen[-256:]
     return state
@@ -71,7 +73,7 @@ def decision(state, event):
         return {"hookSpecificOutput": {"hookEventName": "PostToolBatch", "additionalContext":
             "Restruct progress checkpoint due: at least 30 tool calls without an observed artifact. "
             "The coordinator needs a brief checkpoint now: resolved facts, precise blocker, and next concrete "
-            "edit or deliverable. The existing 40-call pause remains; a status reply does not reset the counter. "
+            "edit or deliverable. The existing 50-call pause remains; a status reply does not reset the counter. "
             "Planning/review findings or a draft are appropriate role artifacts; still reading is not one. "
             "Any justified research outcome needs coordinator review, not a self-granted extension."}}
     return {}
@@ -158,7 +160,7 @@ def handle(event):
             finally: os.close(directory)
         finally:
             if pending is not None: pending.unlink(missing_ok=True)
-    # PostCompact cannot stop Claude: persist a latch for the next PreToolUse.
+    # PostCompact is bookkeeping only; existing holds still bind PreToolUse.
     if kind == "PostCompact":
         return {}
     return decision(state, event)

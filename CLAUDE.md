@@ -1,5 +1,34 @@
 # Claude Code Repository Role
 
+## Delivery flow repair — current operational rules
+
+2026-11-14 [Restruct adoption](docs/agents/WORKFLOW-PARITY-20261114.md).
+
+Keep the existing supervisor/implementer roles and formal Plan/source/security
+reviews. Within accepted scope, the coordinator owns mechanical reader/count/input
+corrections, supported role checks and reviewed custom progress recovery; no
+per-case supervisor permission is needed. Preserve exact evidence/state, existing
+lock/atomic recovery and bounded allowances; workers never self-reset. Native
+refusals, permissions, ownership, scope changes and owner-only actions retain
+their gates. An explicitly supported own-checkout remedy is not permission to
+reroute a denied action or change settings.
+
+Retain 200k/250k context safeguards, 30-call checkpoint and 50-call progress stop.
+Unavailable metadata stays UNVERIFIED and gets one bounded supported check;
+known violations stop work. Successful compaction preserves counters/holds and
+adds no artifact-based stop. Generic permission-denied command output is not a
+native refusal. Meaningful planner/reviewer handbacks count as role deliverables
+after coordinator review; do not manufacture edits to satisfy a counter.
+
+Bind isolated worker source/checkout before launch; Git stays in that worker's
+own checkout. At each return/run end, launch ready authorized work or record the
+actual blocker/reservation owner. Evidence prerequisites run before acceptance;
+formal dependent-work holds remain. Track ready MRs through integration. Planned,
+sent, running and passed are distinct. Use existing records and events, no polling
+or new workflow layers while current delivery recovers except demonstrated defects.
+Adopt executable changes at safe handbacks; never reset/rebind active holds or
+frozen runs just to install this repair.
+
 SaaStacular uses **Restruct SDLC** as its default development dependency, pinned
 as an unaltered GitHub submodule at `.agents/skills/restruct-sdlc/` (MIT; the
 repository is Apache-2.0). Claude discovers it through the relative symlink
@@ -762,24 +791,24 @@ active work until safe handoff, native recovery and budgets; no automatic rotati
 
 No timer/status polling. At30 tool calls without an observed artifact, request
 one brief checkpoint: resolved facts, precise blocker and next concrete edit or
-deliverable. A status reply does not reset the counter; the40-call pause remains.
+deliverable. A status reply does not reset the counter; the50-call pause remains.
 Meaningful planner/reviewer findings or draft artifacts count for their role;
 still-reading reports do not. A justified research outcome needs bounded review,
-not a self-granted extension. Native hooks latch compaction-without-artifact and
-native refusals, requiring bounded supervisor recovery. No automatic restart,
+not a self-granted extension. Successful compaction preserves existing counters
+and holds; genuine native refusals require supported, reviewed recovery. No automatic restart,
 replacement or latch reset. Follow [.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md](.agents/skills/restruct-sdlc/sdlc-management/references/token-controls.md).
 Hook output/configuration must be verified; offline proof alone is not live loading.
 Preserve running tests/source and all native permission boundaries.
 
 
 Reviewed progress-hold recovery must leave a usable bounded window: clearing only
-held at counter40 immediately re-latches on a necessary read. After resolving the
-concrete obstacle, the supervisor may authorize at most eight calls to the next
-meaningful artifact (counter32 for an eight-call window), preserving the full
+held at counter50 immediately re-latches on a necessary read. After resolving the
+concrete obstacle, the coordinator may authorize at most eight calls to the next
+meaningful artifact (counter42 for an eight-call window), preserving the full
 before-state/history and seen/written IDs with exact source/worker/authority and
 before/after hashes under the existing lock/atomic write. Targeted file/startup
 reads may precede the edit; do not require an impossible first-tool Edit. The
-normal40-call guard stays active; no automatic reset/repeated allowance, empty
+normal50-call guard stays active; no automatic reset/repeated allowance, empty
 placeholder, Goal-budget reset, native-refusal override or settings/hook change.
 Follow token-controls.md's reviewed recovery procedure at a stopped boundary.
 
