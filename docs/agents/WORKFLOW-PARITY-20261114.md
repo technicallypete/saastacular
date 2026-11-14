@@ -34,3 +34,15 @@ security gates remain. No polling, tracker, hook, model or settings change is ad
 Live AGENTS/CLAUDE adopt the same text. Package P1–P7/P3t pass after the manifest
 refresh; independent read-only review found no blocker across five wait/dispatch
 scenarios. This guidance is not runtime proof of future agent compliance.
+
+## One canonical guard filename
+
+Owner requested removal of version-suffixed guard files. The current tested
+Restruct implementation23861875c6ca259c92657af8a79de1410981f3e8bc61d9868e856ddfaaab19e6
+now occupies `.claude/hooks/worker_progress_guard.py`. Remove the old v3 file;
+the five configured event callbacks use the canonical filename. All other native
+settings and guard behavior/state remain unchanged. The Restruct dependency
+already uses this canonical filename and needs no source change. Guard32/32
+passes, exact-copy/settings-normalization checks and whitespace checks pass.
+Active worktree callback bindings require safe-boundary native reconciliation;
+this commit does not verify hot reload or authorize clearing a hold.
