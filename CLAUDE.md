@@ -782,3 +782,11 @@ reads may precede the edit; do not require an impossible first-tool Edit. The
 normal40-call guard stays active; no automatic reset/repeated allowance, empty
 placeholder, Goal-budget reset, native-refusal override or settings/hook change.
 Follow token-controls.md's reviewed recovery procedure at a stopped boundary.
+
+## Unfinished lanes survive worker completion
+
+A worker ending, returning a handback or hitting a guard does not finish its assigned outcome. At each worker return, run completion and coordinator handoff, reconcile every unfinished lane in the existing task/run inventory: actual state, accountable owner and the next executable action or concrete blocker. Preserve that row when the worker is reclaimed or another task is active; do not mark the outcome done merely because a diagnostic run ended.
+
+Continue dependency-ready authorized work at that boundary. A resource queue names its actual reservation owner and release condition. A guard/native stop remains visibly blocked until its required review/recovery is applied and a continuation is actually dispatched. Delivery receipt or a published recovery is not execution. A worker awaiting a decision while another lane runs still needs the actionable question/blocked final status; a routine working message from the other task must not hide it. The supervisor closes the loop on the reported blocker through the existing handoff/observer route, without owner nudges.
+
+Use existing records and event-driven handbacks only: no polling loop, monitor agent, new manifest, per-case approval or duplicate worker. If a continuation cannot be confirmed, retain the existing unresolved handoff/blocker rather than reporting it resumed or silently dropping it. This changes accountability, not native permission, phase, source, resource or acceptance gates.
