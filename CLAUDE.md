@@ -1,5 +1,30 @@
 # Claude Code Repository Role
 
+## Dispatch ready work before waiting
+
+At every native worker handback or test completion, update the existing task to
+its next executable phase. Before yielding the turn or waiting on a background
+run, check all unfinished authorized lanes. Start each dependency-ready action
+within available ownership/capacity, or record its exact blocker. A final status
+saying "next" is not a dispatch. A broad task marked in progress does not prove
+its next phase has an active owner.
+
+Use existing native tasks/Result entries to name the current phase, action owner,
+actual worker/run or review reference, and any dependency/resource release event.
+Do not add another tracker or a task for every tool call. When a phase completes,
+advance that entry; do not leave an obsolete phase hiding ready work. Start the
+required independent review when it is the next authorized action.
+
+Waits apply only to lanes that actually depend on them. An unrelated CI/browser
+run does not block source edits, test authoring or read-only review. Sequential
+image builds serialize builds; do not infer a whole-run barrier from that rule.
+Respect any broader reservation that really exists and name its owner/scope and
+release event. No polling means no repetitive status checks; it does not prohibit
+dispatch or action on delivered completion events. Yield only when every unfinished
+lane is running or has a concrete dependency, resource, permission, budget or
+owner/phase gate. Preserve failed evidence and all acceptance/security/native
+gates; this rule grants no early dependent-work release or permission workaround.
+
 ## Delivery flow repair — current operational rules
 
 2026-11-14 [Restruct adoption](docs/agents/WORKFLOW-PARITY-20261114.md).

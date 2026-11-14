@@ -23,3 +23,14 @@ No permission/model setting or worker state is changed; existing running session
 adopt only at supported safe boundaries and are not claimed loaded by this file.
 The existing v1 hook remains historical; settings already reference v3.
 The hosted CI split from the originating application is not ported here.
+
+## Ready-work transitions
+
+Restruct546d986d9e02c6420a219376c7d348a4b902e6f0 clarifies dispatch before waiting.
+The coordinator advances existing task phases on native handbacks/test completion;
+ready independent edits/reviews are dispatched before yielding to an unrelated
+background run. Real shared-resource reservations, native permissions, phase and
+security gates remain. No polling, tracker, hook, model or settings change is added.
+Live AGENTS/CLAUDE adopt the same text. Package P1–P7/P3t pass after the manifest
+refresh; independent read-only review found no blocker across five wait/dispatch
+scenarios. This guidance is not runtime proof of future agent compliance.
