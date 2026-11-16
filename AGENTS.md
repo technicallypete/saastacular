@@ -38,6 +38,12 @@ loading proof; preserve safe boundaries and frozen runs.
 
 ## Resolved dispatches and early feedback — 2026-11-16
 
+Fable5.1 high writes task-context packets; the existing Claude coordinator owns
+freshness/completeness checks and dispatch. Reuse the existing Fable planner when
+practical, verify actual model/effort and record the packet binding. Apply at the
+next preparation/substantive refresh, preserving bound packets and frozen runs;
+no per-packet approval stage or planning release for held work is introduced.
+
 At the next safe dispatch/checkpoint, use the existing role packet to resolve
 current contracts/errata and verify test subjects' roles, permitted mutations,
 prerequisite setup and expected responses; a reading list is not that resolution.
