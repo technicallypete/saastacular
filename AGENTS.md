@@ -30,6 +30,21 @@ phase/source, pending reviews, running-job notifications and exact blockers.
 After compaction reconcile surviving work once; preserve holds and frozen runs.
 Use the packet procedure's coordinator-continuity section; no new tracker or gate.
 
+## Resolved dispatches and early feedback — 2026-11-16
+
+At the next safe dispatch/checkpoint, use the existing role packet to resolve
+current contracts/errata and verify test subjects' roles, permitted mutations,
+prerequisite setup and expected responses; a reading list is not that resolution.
+Run relevant cheap compile/type/lint and focused unit checks at the first coherent
+source checkpoint before expensive dependent validation. For source-only writers,
+the existing coordinator owns those checks through an authorized validator.
+Selected browser cases establish their setup or exact prerequisite chain and
+fail promptly on unexpected setup responses. Preserve native/resource gates,
+frozen runs, unchanged passes, budgets and current owner holds; no new approval
+stage, general full-suite requirement or worker restart is introduced.
+See [packet preparation](.agents/skills/restruct-sdlc/sdlc-management/references/task-context-packets.md) and
+[early feedback](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#early-focused-feedback-and-fixture-prerequisites).
+
 ## Delivery flow repair — current operational rules
 
 2026-11-14 [Restruct adoption](docs/agents/WORKFLOW-PARITY-20261114.md).

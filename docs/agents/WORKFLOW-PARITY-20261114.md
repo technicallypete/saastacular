@@ -57,3 +57,17 @@ failures, holds and budgets remain. Existing handoffs are reused, with no new
 tracker, hook, recurring writing duty or approval gate. Live guidance adopts
 this route. Independent review and package P1–P7/P3t pass. No model, effort,
 permission, runtime hook or context-threshold change is made.
+
+
+## Resolved dispatch and early-feedback follow-up — 2026-11-16
+
+Owner-approved follow-up adopts Restruct7de53557631552051e5cedeb9dc9e03d2c964ab8
+and updates live AGENTS/CLAUDE guidance together. Existing role packets resolve
+current contracts/errata plus verified fixture roles, permitted mutations, setup
+and expected responses. Relevant cheap static/unit checks run at the first
+coherent checkpoint before expensive dependent validation; the coordinator owns
+these for source-only writers. Focused browser selections establish prerequisites
+and fail promptly on unexpected setup responses. Preserve native/resource gates,
+frozen runs, unchanged passes and owner holds; no new tracker, approval gate,
+blanket full suite, runtime context setting or application/CI implementation change.
+Restruct package verification passed all eight package checks with no findings.
