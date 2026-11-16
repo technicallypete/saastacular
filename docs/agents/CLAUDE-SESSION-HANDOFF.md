@@ -399,8 +399,9 @@ existing active paths; prefer custom task/role names again when natively support
 
 ## Model-aware effort override — 2026-10-15
 
-Default to Fable 5.1 high for planning and test corrections, including failure
-diagnosis and corrective test/fix work; use xhigh selectively for especially
+Default to Fable 5.2 high for planning and substantive task-context packets.
+Retain Fable 5.1 high for test corrections, including failure diagnosis and
+corrective test/fix work; use xhigh selectively for especially
 hard work. Default to Opus 5.5 high for implementation and routine test execution.
 Default the Claude coordinator to Sonnet 5.5 high; the owner may choose Opus 5.5
 high for coordinator work. If the owner selects Opus 5.5 for planning or test

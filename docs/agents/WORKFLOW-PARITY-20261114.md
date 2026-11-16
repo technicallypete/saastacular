@@ -71,3 +71,24 @@ and fail promptly on unexpected setup responses. Preserve native/resource gates,
 frozen runs, unchanged passes and owner holds; no new tracker, approval gate,
 blanket full suite, runtime context setting or application/CI implementation change.
 Restruct package verification passed all eight package checks with no findings.
+
+
+## Fable5.2 planning and early feasibility — owner, 2026-11-16
+
+Adopt Restructa3aeb93c230b6d419a9bdf5e866f945833aff2d5 together with live
+AGENTS/CLAUDE and handoff guidance. The owner selected Fable5.2 high for planning
+and initial/substantive task-context packets; reuse the planner where practical,
+with mechanical updates/freshness/dispatch owned by the existing coordinator.
+Test-correction selection stays Fable5.1 high; Opus5.5 implementation and existing
+coordinator options remain. Actual native model/effort must be verified; a policy
+commit is not runtime activation. Preserve frozen inputs and all owner holds.
+
+The existing Plan names risky assumptions and makes the smallest relevant
+feasibility check the first released slice, before expensive expansion: query
+access/work bounds, fixture setup cost and measurement plumbing where applicable.
+Reuse sufficient prior proof. At existing handbacks/reviews compare actual
+assertions/setup/selectors/registrations with the AC map. No new artifact, approval
+stage, blanket spike/full suite, runtime context change or replan of completed work.
+Package8/8 checks and whitespace checks passed. A bounded independent review
+accepted the scope after an inherited coordinator-default sentence was aligned
+with the existing Sonnet-default/owner-selected-Opus policy.

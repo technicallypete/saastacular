@@ -42,11 +42,14 @@ loading proof; preserve safe boundaries and frozen runs.
 
 ## Resolved dispatches and early feedback — 2026-11-16
 
-Fable5.1 high writes task-context packets; the existing Claude coordinator owns
-freshness/completeness checks and dispatch. Reuse the existing Fable planner when
-practical, verify actual model/effort and record the packet binding. Apply at the
-next preparation/substantive refresh, preserving bound packets and frozen runs;
-no per-packet approval stage or planning release for held work is introduced.
+Owner amendment, 2026-11-16: use **Fable 5.2 high for planning and initial or
+substantively revised task-context packets**, superseding the earlier Fable5.1
+selection for those roles. Reuse the planner for packet authorship when practical;
+the existing coordinator owns freshness/completeness, mechanical packet updates
+and dispatch. Verify actual supported model/effort and record the binding or real
+authorized fallback. Adopt at the next safe preparation boundary, preserving
+bound packets/frozen runs; no extra session per message, approval stage, restart
+or planning release for held work. Opus5.5 implementation remains unchanged.
 
 At the next safe dispatch/checkpoint, use the existing role packet to resolve
 current contracts/errata and verify test subjects' roles, permitted mutations,
@@ -58,6 +61,15 @@ Selected browser cases establish their setup or exact prerequisite chain and
 fail promptly on unexpected setup responses. Preserve native/resource gates,
 frozen runs, unchanged passes, budgets and current owner holds; no new approval
 stage, general full-suite requirement or worker restart is introduced.
+
+For nontrivial work, the Plan names the risky assumptions and puts the smallest
+feasibility check first in released implementation: relevant query access/work
+bounds, fixture setup cost and measurement plumbing, using existing evidence
+where sufficient. Keep it within the existing checkpoint/budget; planning alone
+authorizes no probe. At handback, coordinator and supervisor compare actual
+assertions, fixtures, selectors and registrations with the AC map before dependent
+expensive runs or acceptance. Fix missing coverage directly; retain valid passes.
+This adds no blanket spike, full-suite gate, new artifact or replan of done work.
 See [packet preparation](.agents/skills/restruct-sdlc/sdlc-management/references/task-context-packets.md) and
 [early feedback](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#early-focused-feedback-and-fixture-prerequisites).
 
@@ -282,8 +294,9 @@ Keep the planning/execution checkout's bound inputs unchanged during that import
 ## Effort reminder
 
 Follow [model-aware effort selection](AGENTS.md#model-selection--owner-direction-2026-10-15):
-Default to Fable 5.1 high for planning and test corrections; reserve its xhigh
-for especially difficult work. Default to Opus 5.5 high for implementation and routine test execution/reporting.
+Default to Fable 5.2 high for planning and substantive task-context packets.
+Retain Fable 5.1 high for test corrections; use Fable xhigh selectively for
+especially difficult work. Default to Opus 5.5 high for implementation and routine test execution/reporting.
 Default Claude coordinator model is Sonnet 5.5 high; owner may choose Opus 5.5 high.
 If the owner chooses Opus for planning or test corrections, use xhigh. Routine
 implementation and test execution/reporting stay high; coordinator choices stay high. Configure through supported controls and verify actual
