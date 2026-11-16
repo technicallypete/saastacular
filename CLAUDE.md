@@ -30,6 +30,10 @@ phase/source, pending reviews, running-job notifications and exact blockers.
 After compaction reconcile surviving work once; preserve holds and frozen runs.
 Use the packet procedure's coordinator-continuity section; no new tracker or gate.
 
+An explicitly owner-selected275k window/ceiling uses checker
+`--expected-window 275000`; this does not change this repository's existing
+selection. The200k checkpoint remains independent of the selected ceiling.
+
 Restruct's token checker now supports an explicit owner-approved90-percent
 compaction choice via `--expected-percent 90`; the default remains80. This
 repository's existing selection and200k checkpoint/250k ceiling are unchanged
