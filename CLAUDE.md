@@ -1,5 +1,14 @@
 # Claude Code Repository Role
 
+## Parent runtime budgets and existing baselines — adopted 2026-11-16
+
+Plan new/substantially expanded reported parents for at most **15 minutes**,
+including parent-specific setup/children. Preserve existing approved 20–30-minute
+parents and timeouts; use attributable completed-run timing evidence in the
+existing Plan. Emit useful child progress and split oversized new work with exact
+coverage. Adopt at a safe boundary without changing frozen runs or adding polls.
+Follow [timing policy](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#parent-runtime-budgets-and-existing-baselines).
+
 ## Dispatch ready work before waiting
 
 At every native worker handback or test completion, update the existing task to

@@ -1,5 +1,17 @@
 # Repository Management Governance
 
+## Parent runtime budgets and existing baselines — adopted 2026-11-16
+
+New/substantially expanded reported parents target at most **15 minutes** on the
+intended runner, including parent-specific setup/children. Preserve existing
+approved longer parents, including 20–30-minute checks, and their budgets. Cite
+comparable completed-run timing evidence in the existing Spec/Plan; distinguish
+measured durations from completion-gap estimates and local from hosted runs.
+Split oversized new work into independently reported checks without losing
+required coverage. No blanket timeout reduction, frozen-run change, additional
+benchmark campaign or polling agent.
+See [timing policy](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#parent-runtime-budgets-and-existing-baselines).
+
 ## Dispatch ready work before waiting
 
 At every native worker handback or test completion, update the existing task to
