@@ -1,5 +1,20 @@
 # Repository Management Governance
 
+## Prospective test scope and independent Spec review
+
+Future Specs use representative product scenarios and risk-proportionate tests;
+a technical ceiling alone does not justify repeated maximum-scale fixtures.
+Justify expensive scale/combinations and account for aggregate setup, process/build,
+children and cleanup cost before approving unexplained 30+ minute routine parents.
+Before accepting new/substantively expanded supervisor-authored test requirements,
+use one bounded independent read-only subagent review for test realism, required
+risk coverage and cost, preferably within the existing Spec review. Record findings
+and the supervisor's disposition there; if delegation is unavailable, record that
+and perform a direct second pass. No extra approval stage or benchmark campaign.
+Existing tests, limits, assertions, accepted coverage and frozen inputs stay intact;
+this releases no retrospective cleanup. See [test-scope review](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#realistic-test-scope-and-independent-spec-review).
+
+
 ## Parent runtime budgets and existing baselines — adopted 2026-11-16
 
 New/substantially expanded reported parents target at most **15 minutes** on the
