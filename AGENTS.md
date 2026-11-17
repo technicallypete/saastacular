@@ -1,5 +1,19 @@
 # Repository Management Governance
 
+## Implementation usage checkpoints — adopted 2026-11-17
+
+Apply the configurable [allowance procedure](.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md#implementation-usage-checkpoints):
+`IMPLEMENTATION_USAGE_CHECKPOINTS=true`, `USAGE_CHECKPOINT_INTERVAL_PP=2`,
+`USAGE_CHECKPOINT_WINDOW=seven_day`. These editable policy values are independent
+of plan name; the owner may choose 5/10 points, another window or disable them.
+Record a shared baseline before implementation and briefly reassess active feature,
+repair and maintenance work with the supervisor at safe boundaries. Use existing
+budget/Result/dispatch records and current reviews; exclude planning-only work.
+Unknown telemetry stays unknown, and account increases are not per-task cost.
+No polling, hook/collector, extra approval gate or forced interruption/replacement.
+Preserve normal reviews, attempts, owner ceilings/reserves, frozen runs and holds.
+Publication does not prove telemetry loading or release implementation.
+
 ## Prospective test scope and independent Spec review
 
 Future Specs use representative product scenarios and risk-proportionate tests;

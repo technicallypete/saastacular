@@ -1,5 +1,19 @@
 # Claude Code Repository Role
 
+## Implementation usage checkpoints — adopted 2026-11-17
+
+Follow the [allowance procedure](.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md#implementation-usage-checkpoints)
+with `IMPLEMENTATION_USAGE_CHECKPOINTS=true`, `USAGE_CHECKPOINT_INTERVAL_PP=2`
+and `USAGE_CHECKPOINT_WINDOW=seven_day`. The owner can edit these policy values
+independently of plan name. Record the shared baseline (scope/window/reset/time/
+source or unknown) before implementation; at interval increases, reassess all
+feature/repair/maintenance lanes safely and relay a compact checkpoint for the
+supervisor's brief source/progress check. Reuse current reviews and existing
+records; planning-only work is excluded. No per-task quota attribution, polling,
+new hook, extra owner gate, interrupted run or automatic replacement. Preserve
+normal reviews, attempts, owner ceilings/reserves and all phase holds. Missing
+telemetry stays explicit; this is policy adoption, not telemetry activation.
+
 ## Prospective test scope and independent Spec review
 
 Future Specs use representative product scenarios and risk-proportionate tests;

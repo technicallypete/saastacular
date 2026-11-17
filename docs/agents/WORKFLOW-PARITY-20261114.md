@@ -92,3 +92,23 @@ stage, blanket spike/full suite, runtime context change or replan of completed w
 Package8/8 checks and whitespace checks passed. A bounded independent review
 accepted the scope after an inherited coordinator-default sentence was aligned
 with the existing Sonnet-default/owner-selected-Opus policy.
+
+## Configurable implementation usage checkpoints — 2026-11-17
+
+Adopt Restruct `d00efcdd3bbe0f8bc66267fdb8a3112881f3fce1` with live
+AGENTS/CLAUDE guidance in the same batch. Policy values are enabled, 2 percentage
+points and the shared `seven_day` allowance window; the owner may edit the
+interval/window/enabled values independently of subscription plan name.
+
+Before implementation, record a shared account/window baseline in existing budget/
+Result/dispatch records. Parallel feature, repair and maintenance work shares it;
+account changes do not measure individual task cost. At the interval, reassess at
+a safe boundary with a brief supervisor source/progress check, reusing current
+reviews. Planning-only work is excluded. Unknown telemetry and pending review
+remain explicit; resets/scopes cannot be mixed. Normal reviews, attempt budgets,
+owner ceilings/reserves, frozen runs and holds remain.
+
+No new approval gate, worker replacement, interrupted run, tracker, polling agent,
+hook, provider probe or usage collector is introduced. This is policy/pin adoption,
+not proof of runtime telemetry access. Package P1–P7/P3t and 2/5/10-point plus
+disabled template rendering passed. No application tests or runtime settings changed.
