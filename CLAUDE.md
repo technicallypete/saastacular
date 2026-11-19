@@ -1,5 +1,18 @@
 # Claude Code Repository Role
 
+## Coherent contract slices and early coverage closure
+
+Use existing Plan/packet/AC records to resolve storage, facade, wire and UI
+semantics together, including authoritative/current/captured facts, actual caller
+context, lifecycle/retry behavior and important positive transitions. At coherent
+source checkpoints reconcile concrete assertions, fixture prerequisites, executable
+runner/required IDs, lane/count pins and deferred evidence. Batch related corrections
+and cheap checks; avoid a new worker, DB run or supervisor permission round for
+every assertion/mechanical pin. Preserve formal reviews, native/security gates,
+required coverage and attributable unchanged passes. This clarifies existing
+practice, adds no stage/framework, and does not rebind frozen work. See
+[coherent slices](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#coherent-review-slices-and-executable-coverage-closure).
+
 ## Implementation usage checkpoints — adopted 2026-11-17
 
 Follow the [allowance procedure](.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md#implementation-usage-checkpoints)
