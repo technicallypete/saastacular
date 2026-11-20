@@ -13,6 +13,16 @@ required coverage and attributable unchanged passes. This clarifies existing
 practice, adds no stage/framework, and does not rebind frozen work. See
 [coherent slices](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#coherent-review-slices-and-executable-coverage-closure).
 
+For schema/migration changes, include shared reset/cleanup helpers, upgrade/Down
+ladders, version/catalog/ACL pins and dependent fixtures in the existing impact
+map. Bind selected proof to the actual CI starting state (for example a migrated
+template versus an empty database); one does not prove the other. For changed
+request contracts, reconcile direct service/raw/forced HTTP test callers as well
+as UI forms, including current tuple/provenance fields, so negative tests reach
+the intended refusal. Reconcile material target/rebase deltas before MR opening
+or updating, rerunning only affected checks and preserving frozen runs/passes.
+This clarifies existing coverage selection; no extra approval or full-suite gate.
+
 ## Implementation usage checkpoints — adopted 2026-11-17
 
 Apply the configurable [allowance procedure](.agents/skills/restruct-sdlc/sdlc-management/references/budgets.md#implementation-usage-checkpoints):
