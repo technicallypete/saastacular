@@ -1,5 +1,25 @@
 # Repository Management Governance
 
+## Coordinator task IDs — watcher compatibility, 2026-11-22
+
+Final COORDINATOR_STATUS markers allow 1–64 ASCII task-ID characters: start with
+a letter/digit, followed by letters/digits, `_`, `.`, `-` or `+`. Combined IDs
+such as G102+G108 are supported. Keep one plain final marker, the correct review/
+question class and no spaces/pipes in the ID. Existing source/echo, native gates
+and notification deduplication remain unchanged.
+
+## Frontend UX merge-request screenshots
+
+For visible frontend UX changes, the implementer/coordinator embeds a compact
+representative screenshot gallery in the MR description, normally desktop/phone
+for responsive changes. Label source, viewport, theme and state; use authorized
+synthetic/sanitized data and reuse selected validation captures. Refresh materially
+affected images before review/merge or establish unchanged attribution; retain
+older evidence in the Result. No visible effect can be stated instead. Screenshots
+support review, not functional/accessibility proof or mock-parity acceptance; no
+new capture campaign or theme matrix. Record actual capture/upload blockers.
+See [screenshot guidance](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#frontend-ux-merge-request-screenshots).
+
 ## Coherent contract slices and early coverage closure
 
 Use existing Plan/packet/AC records to resolve storage, facade, wire and UI
@@ -1800,7 +1820,7 @@ Owner amendment,2026-10-20: [safe self-compaction](.agents/skills/restruct-sdlc/
 
 ## Codex routine work and Sol delegates — owner direction, 2026-10-20
 
-Routine supervisor status, management publication, handoffs, prose/configuration and mechanical changes run directly in the main session; no subagent by default. The checked-in repository default for the main Codex session is `gpt-6.1-sol` at `low` reasoning effort. Delegated Goal/Spec drafting and substantive independent reviews default to `gpt-6.1-sol` at high reasoning effort through repository `.codex/config.toml`. Both are repository defaults and are user-overridable; explicit session settings and approved per-spawn overrides take precedence. Verify actual loading/dispatch rather than assume a running session refreshed. Use bounded fresh inputs where model inheritance prevents an override; no extra persistent session, test spawn, full-history fork or separate quota is implied. Preserve formal review/authority gates and Claude's separately selected implementation model.
+Routine supervisor status, management publication, handoffs, prose/configuration and mechanical changes run directly in the main session; no subagent by default. The checked-in repository default for the main Codex session is `gpt-6.2-sol` at `medium` reasoning effort. Delegated Goal/Spec drafting and substantive independent reviews default to `gpt-6.2-sol` at high reasoning effort through repository `.codex/config.toml`. Use `xhigh` for architecture, security, migrations, and difficult lifecycle or concurrency reviews when warranted. Both are repository defaults and are user-overridable; explicit session settings and approved per-spawn overrides take precedence. Verify actual loading/dispatch rather than assume a running session refreshed. Use bounded fresh inputs where model inheritance prevents an override; no extra persistent session, test spawn, full-history fork or separate quota is implied. Preserve formal review/authority gates and Claude's separately selected implementation model.
 
 
 ## Restruct SDLC skill-suite packaging
