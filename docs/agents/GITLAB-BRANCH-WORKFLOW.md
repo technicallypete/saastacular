@@ -6,9 +6,13 @@ Unless the owner directs otherwise, create a dedicated branch from staging
 (or the configured integration target) for each epic. Goal and task MRs target
 that epic branch. Open one epic MR to staging as the final task is finishing
 and the composed candidate is reviewable. Complete the required integration
-reviews and validation before merging. At epic closeout, verify the merged
-content, then clean up the local and remote epic branch under the existing
-branch safety checks. See [epic integration guidance](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#epic-integration-branches).
+reviews and validation before merging. Child tasks clean up at their own
+acceptance. As the epic MR opens or reaches readiness, audit the child receipts
+against actual resources and reclaim eligible leftovers. After merge, verify
+the accepted content and close out epic-owned branches, worktrees, Docker
+resources, disposable evidence, temporary directories and other local files.
+Record the final audit and any retained items in the existing epic receipt.
+See [epic integration guidance](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#epic-integration-branches).
 
 By default, run full local qualification when the epic MR to staging opens
 with a reviewable candidate, or at readiness if it opens early. Child task MRs
