@@ -10,12 +10,16 @@ reviews and validation before merging. At epic closeout, verify the merged
 content, then clean up the local and remote epic branch under the existing
 branch safety checks. See [epic integration guidance](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#epic-integration-branches).
 
+By default, run full local qualification when the epic MR to staging opens
+with a reviewable candidate, or at readiness if it opens early. Child task MRs
+keep affected post-merge checks. Follow the [qualification policy](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#epic-integration-branches).
+
 ## Coordinator task IDs — watcher compatibility, 2026-11-22
 
 Final COORDINATOR_STATUS markers allow 1–64 ASCII task-ID characters: start with
-a letter/digit, followed by letters/digits, `_`, `.`, `-` or `+`. Combined IDs
-such as G102+G108 are supported. Keep one plain final marker, the correct review/
-question class and no spaces/pipes in the ID. Existing source/echo, native gates
+a letter/digit, followed by letters/digits, `_`, `.`, `-`, `+` or internal ASCII
+spaces. Keep one plain final marker and the correct review/question class.
+Pipes and leading or trailing spaces are invalid. Existing source/echo, native gates
 and notification deduplication remain unchanged.
 
 ## Frontend UX merge-request screenshots
@@ -257,7 +261,7 @@ Owner direction, 2026-10-22 UTC, superseding the blanket full-local-run default 
 
 Default sequence for implementation MRs: focused pre-merge checks and current hosted fast/supervisor/Duo review → authorized merge → affected local batches/suites on the exact merged integration SHA. The existing implementer coordinator automatically launches, owns and tracks those selected checks; no extra owner command or full pre-merge gate. Select from the actual change and integration delta, including affected dependencies, shared fixtures, migrations, disabled variants and security boundaries. Record executable selectors and coverage rationale in the existing Plan/Result; preserve immutable inputs, actual outcomes and cleanup. Final Goal ACCEPT requires that attributable affected coverage and the other Goal gates, rather than a blanket full run per feature.
 
-Run full local qualification on the integration branch tip when the owner requests it **or the supervisor recommends it**, recording the reason and freezing the exact observed tip for the run. Full staging runs and full hosted RC-promotion runs provide broader opportunities to find gaps in feature selection; unexecuted checks are never reported as passing. Ordinary feature MRs retain hosted fast checks; RC promotion MRs retain required full hosted qualification. Automatic integration/release-branch post-merge and tag-push pipelines remain disabled, including lightweight checks; separately authorized diagnostic/provider runs remain distinct.
+Outside the epic MR default, run full local qualification on the integration branch tip when the owner requests it **or the supervisor recommends it**, recording the reason and freezing the exact observed tip for the run. Full staging runs and full hosted RC-promotion runs provide broader opportunities to find gaps in feature selection; unexecuted checks are never reported as passing. Ordinary feature MRs retain hosted fast checks; RC promotion MRs retain required full hosted qualification. Automatic integration/release-branch post-merge and tag-push pipelines remain disabled, including lightweight checks; separately authorized diagnostic/provider runs remain distinct.
 
 After a failure, rerun the failed checks and checks affected by the fix, reusing attributable unchanged passes. A broad local selection needs a concrete coverage reason; explicit technically justified full-run requirements remain binding. Reconcile active work at a safe boundary without restarting running batches or rewriting approved snapshots. Ready authorized successor implementation may overlap post-merge checks in isolation, respecting resource reservations; predecessor final ACCEPT still gates successor integration/final acceptance. Preserve owner holds, manual/security gates, documentation-only exemptions and failure history. This supersedes the blanket full-local-run-after-every-feature default.
 
