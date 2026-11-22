@@ -1,5 +1,15 @@
 # GitLab branch integration and cleanup
 
+## Epic integration branches
+
+Unless the owner directs otherwise, create a dedicated branch from staging
+(or the configured integration target) for each epic. Goal and task MRs target
+that epic branch. Open one epic MR to staging as the final task is finishing
+and the composed candidate is reviewable. Complete the required integration
+reviews and validation before merging. At epic closeout, verify the merged
+content, then clean up the local and remote epic branch under the existing
+branch safety checks. See [epic integration guidance](../../.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#epic-integration-branches).
+
 ## Docker resource attribution
 
 Use explicit project/run ownership labels for every newly created exclusively
