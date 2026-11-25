@@ -40,6 +40,8 @@ captures and compares each drawn viewport, and repeats until it matches.
 Stop early on a match. Default to 15 correction rounds per frame, then request
 clearance for up to five more. Carry the frame, preview, pair, count and next
 action through handoff and compaction. Review the family at its MR boundary.
+Keep the design batch IDs for coverage. Report closed/applicable frames by family
+and count each frame once overall. Advance each ready family to review independently.
 See [the live comparison procedure](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#live-review-against-design-mocks).
 
 ## Frontend UX merge-request screenshots
