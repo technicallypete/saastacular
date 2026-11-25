@@ -26,6 +26,16 @@ spaces. Keep one plain final marker and the correct review/question class.
 Pipes and leading or trailing spaces are invalid. Existing source/echo, native gates
 and notification deduplication remain unchanged.
 
+## Live review against design mocks
+
+When the Spec names design mocks for frontend work, assign a writer to each
+screen family. The writer edits in a hot-reloading app, exercises the state,
+captures and compares each drawn viewport, and repeats until it matches.
+Stop early on a match. Default to 15 correction rounds per frame, then request
+clearance for up to five more. Carry the frame, preview, pair, count and next
+action through handoff and compaction. Review the family at its MR boundary.
+See [the live comparison procedure](.agents/skills/restruct-sdlc/sdlc-management/references/validation-integration.md#live-review-against-design-mocks).
+
 ## Frontend UX merge-request screenshots
 
 For visible frontend UX changes, the implementer/coordinator embeds a compact
