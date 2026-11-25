@@ -28,6 +28,12 @@ and notification deduplication remain unchanged.
 
 ## Live review against design mocks
 
+For tasks spanning backend and frontend, keep the usual backend implementation,
+checks and review. The Spec identifies the behavior each screen needs. The Plan
+states which screen families can run in parallel on a stable live contract and
+which start after a backend prerequisite passes its focused checks. Complete the
+affected comparisons on the working, integrated behavior before acceptance.
+
 When the Spec names design mocks for frontend work, assign a writer to each
 screen family. The writer edits in a hot-reloading app, exercises the state,
 captures and compares each drawn viewport, and repeats until it matches.
